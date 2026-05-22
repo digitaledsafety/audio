@@ -3,7 +3,7 @@ const { test, expect } = require('@playwright/test');
 test.describe('Critical Functionality', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('#cta-button');
   });
 
   test('should enter the studio and show the editor', async ({ page }) => {

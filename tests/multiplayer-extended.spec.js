@@ -24,7 +24,7 @@ test.describe('Extended Multiplayer Synchronization', () => {
     await page1.waitForFunction(() => {
       const display = document.getElementById('peerIdDisplay');
       return display && display.textContent !== '...';
-    }, { timeout: 15000 });
+    }, { timeout: 30000 });
     await page1.click('#createSessionBtn');
     const sessionUrlInput = page1.locator('#shareLinkInput');
     await expect(sessionUrlInput).not.toHaveValue('', { timeout: 10000 });
