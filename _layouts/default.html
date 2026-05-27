@@ -2886,28 +2886,118 @@ workspace_data: ${base64Data}
         }
 
 
+        class VCA {
+            constructor(audioContext, reteNodeId, data) {
+                this.audioContext = audioContext;
+                this.reteNodeId = reteNodeId;
+                this.data = data;
+
+                this.mainInput = this.audioContext.createGain();
+                this.gainNode = this.audioContext.createGain();
+                this.muteNode = this.audioContext.createGain();
+
+                this.mainInput.connect(this.gainNode);
+                this.gainNode.connect(this.muteNode);
+                this.mainOutput = this.muteNode;
+
+                this.gain = this.gainNode.gain;
+
+                this.gateHigh = true;
+                this.initialize();
+            }
+
+            initialize() {
+                const now = this.audioContext.currentTime;
+                const invert = this.data.invert !== undefined ? this.data.invert : false;
+                const gainValue = (this.data.gain !== undefined ? this.data.gain : 1) * (invert ? -1 : 1);
+                this.gainNode.gain.setValueAtTime(gainValue, now);
+                this.muteNode.gain.setValueAtTime(this.data.mute ? 0 : 1, now);
+            }
+
+            handleGate(isGateHigh) {
+                this.gateHigh = isGateHigh;
+                this.updateMuteStage();
+            }
+
+            updateMuteStage() {
+                const now = this.audioContext.currentTime;
+                const slew = Math.max(0.001, this.data.slew !== undefined ? this.data.slew : 0.01);
+                const targetGain = (this.data.mute || !this.gateHigh) ? 0 : 1;
+                this.muteNode.gain.setTargetAtTime(targetGain, now, slew);
+            }
+
+            updateParameter(paramName, value) {
+                this.data[paramName] = value;
+                const now = this.audioContext.currentTime;
+                const slew = Math.max(0.001, this.data.slew !== undefined ? this.data.slew : 0.01);
+
+                if (paramName === 'gain' || paramName === 'invert') {
+                    const invert = this.data.invert !== undefined ? this.data.invert : false;
+                    const gainValue = (this.data.gain !== undefined ? this.data.gain : 1) * (invert ? -1 : 1);
+                    this.gainNode.gain.setTargetAtTime(gainValue, now, slew);
+                } else if (paramName === 'mute') {
+                    this.updateMuteStage();
+                }
+            }
+
+            connect(destination) {
+                this.mainOutput.connect(destination);
+            }
+
+            disconnect(destination) {
+                if (destination) {
+                    this.mainOutput.disconnect(destination);
+                } else {
+                    this.mainOutput.disconnect();
+                }
+            }
+        }
+
         class VCANode extends WebAudioNode {
             constructor() {
                 super('VCA');
 
                 this.addInput('audio', new Classic.Input(voltageSocket, 'Audio In', true));
                 this.addInput('gain_cv', new Classic.Input(voltageSocket, 'Gain CV'));
+                this.addInput('gate', new Classic.Input(voltageSocket, 'Gate In'));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
-                this.data.gain = 1;
-                this.addControl('gain', new SliderControl('gainSlider', 'Gain', -1, 10, 0.01, this.data.gain, (val) => {
+                if (this.data.gain !== undefined && this.data.gain < 0) {
+                    this.data.invert = true;
+                    this.data.gain = Math.abs(this.data.gain);
+                }
+                this.data.gain = this.data.gain !== undefined ? this.data.gain : 1;
+                this.data.invert = this.data.invert !== undefined ? this.data.invert : false;
+                this.data.mute = this.data.mute !== undefined ? this.data.mute : false;
+                this.data.slew = this.data.slew !== undefined ? this.data.slew : 0.01;
+
+                this.addControl('gain', new SliderControl('gainSlider', 'Gain', 0, 10, 0.01, this.data.gain, (val) => {
                     this.data.gain = val;
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode && audioNode.gain) {
-                        audioNode.gain.setTargetAtTime(val, audioContext.currentTime, 0.01);
-                    }
+                    if (audioNode && audioNode.updateParameter) audioNode.updateParameter('gain', val);
+                }));
+
+                this.addControl('invert', new ToggleControl('invertToggle', 'Invert Phase', this.data.invert, (val) => {
+                    this.data.invert = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode && audioNode.updateParameter) audioNode.updateParameter('invert', val);
+                }));
+
+                this.addControl('mute', new ToggleControl('muteToggle', 'Mute', this.data.mute, (val) => {
+                    this.data.mute = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode && audioNode.updateParameter) audioNode.updateParameter('mute', val);
+                }));
+
+                this.addControl('slew', new SliderControl('slewSlider', 'Slew (s)', 0.001, 1, 0.001, this.data.slew, (val) => {
+                    this.data.slew = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode && audioNode.updateParameter) audioNode.updateParameter('slew', val);
                 }));
             }
 
             build() {
-                const audioNode = audioContext.createGain();
-                audioNode.gain.value = this.data.gain;
-                return audioNode;
+                return new VCA(audioContext, this.id, this.data);
             }
         }
 
