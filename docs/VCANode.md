@@ -5,7 +5,8 @@ The VCA (Voltage-Controlled Amplifier) Node is used to control the amplitude of 
 ## Inputs
 
 *   **Audio In**: The audio signal to be amplified.
-*   **Gain CV**: A Control Voltage input to modulate the gain.
+*   **Gain CV**: A Control Voltage input to modulate the gain stage.
+*   **Mute CV**: A Control Voltage input to modulate the mute stage. This can be used for secondary amplitude control or remote muting.
 *   **Gate In**: A Gate input that controls the output. When no gate is connected or the gate is High, the node operates normally. When a Low gate signal is received, the node is muted.
 
 ## Outputs

@@ -1914,6 +1914,8 @@ workspace_data: ${base64Data}
                         return targetNode.delayTime;
                     case 'gain_cv':
                         return targetNode.gain;
+                    case 'mute_cv':
+                        return targetNode.mute_cv;
                     case 'transpose_cv':
                         return targetNode.transposeControl;
                     case 'bands_cv':
@@ -2901,6 +2903,7 @@ workspace_data: ${base64Data}
                 this.mainOutput = this.muteNode;
 
                 this.gain = this.gainNode.gain;
+                this.mute_cv = this.muteNode.gain;
 
                 this.gateHigh = true;
                 this.initialize();
@@ -2959,6 +2962,7 @@ workspace_data: ${base64Data}
 
                 this.addInput('audio', new Classic.Input(voltageSocket, 'Audio In', true));
                 this.addInput('gain_cv', new Classic.Input(voltageSocket, 'Gain CV'));
+                this.addInput('mute_cv', new Classic.Input(voltageSocket, 'Mute CV'));
                 this.addInput('gate', new Classic.Input(voltageSocket, 'Gate In'));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
