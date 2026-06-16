@@ -6722,7 +6722,6 @@ workspace_data: ${base64Data}
                 this.el.className = 'custom-controls';
                 //this.el.innerHTML = `<div class="title">${node.label}</div>`;
 
-                /*
                 // Add inputs
                 for (const key in node.inputs) {
                     const input = node.inputs[key];
@@ -6734,7 +6733,6 @@ workspace_data: ${base64Data}
                     `;
                     this.el.appendChild(inputEl);
                 }
-                */
 
                 // Add controls
                 for (const key in node.controls) {
@@ -6852,7 +6850,6 @@ workspace_data: ${base64Data}
                     this.el.appendChild(controlEl);
                 }
 
-                /*
                 // Add outputs
                 for (const key in node.outputs) {
                     const output = node.outputs[key];
@@ -6864,7 +6861,6 @@ workspace_data: ${base64Data}
                     `;
                     this.el.appendChild(outputEl);
                 }
-                */
 
 
                 
@@ -7468,17 +7464,25 @@ workspace_data: ${base64Data}
                     context.data.element.setAttribute('data-node-id', context.data.payload.id);
 
                     if (context.data.payload instanceof WebAudioNode) {
-                        if (!context.data.element.children[0]) {
-                            return context;
-                        }
-                        const nodeView = new CustomNodeComponent(context.data.payload);
+                        const container = context.data.element.children[0];
+                        if (!container) return context;
+
                         context.data.element.setAttribute('data-node-label', context.data.payload.label);
-                        let elements = context.data.element.children[0].getElementsByClassName("control");
-                        while(elements.length > 0){
-                          elements[0].parentNode.removeChild(elements[0]);
-                        }
-                        context.data.element.children[0].style.height = "auto";
-                        context.data.element.children[0].appendChild(nodeView.el);
+
+                        // Remove existing custom controls and React-rendered sockets/controls
+                        const existingCustom = container.querySelector('.custom-controls');
+                        if (existingCustom) container.removeChild(existingCustom);
+
+                        ['input', 'output', 'control'].forEach(className => {
+                            const elements = container.getElementsByClassName(className);
+                            while (elements.length > 0) {
+                                elements[0].parentNode.removeChild(elements[0]);
+                            }
+                        });
+
+                        const nodeView = new CustomNodeComponent(context.data.payload);
+                        container.style.height = "auto";
+                        container.appendChild(nodeView.el);
                     }
                 }
                 if (context.type === 'render' && context.data.type === 'socket') {
@@ -7493,7 +7497,6 @@ workspace_data: ${base64Data}
                             customSocketEl.classList.add(socketType);
                         } else {
                             console.warn(`Custom socket element not found for ${socketType} ${socketKey}`);
-                            return false;
                         }
                     }
                 }
