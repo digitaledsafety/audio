@@ -5,6 +5,12 @@ test.describe('Multiple Output Nodes', () => {
     await page.goto('/');
     await page.locator('#cta-button').click();
     await expect(page.locator('#hero-overlay')).not.toBeAttached({ timeout: 15000 });
+    // Clear the random workspace to ensure a clean state
+    await page.evaluate(async () => {
+        if (window.editor) {
+            await window.editor.clear();
+        }
+    });
   });
 
   test('should allow multiple Output nodes', async ({ page }) => {
