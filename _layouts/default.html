@@ -369,6 +369,7 @@ layout: none
                                 <button id="addSequencerNodeBtn" class="button button-secondary w-full text-xs">🎶 Sequencer</button>
                                 <button id="addDrumMachineNodeBtn" class="button button-secondary w-full text-xs">🥁 Drum Machine</button>
                                 <button id="addArpeggiatorNodeBtn" class="button button-secondary w-full text-xs">🎹 Arpeggiator</button>
+                                <button id="addScaleArpeggiatorNodeBtn" class="button button-secondary w-full text-xs">🎹 Scale Arp</button>
                                 <button id="addLFONodeBtn" class="button button-secondary w-full text-xs">🌊 LFO</button>
                                 <button id="addADSREnvelopeNodeBtn" class="button button-secondary w-full text-xs">✉️ ADSR</button>
                                 <button id="addManualGateNodeBtn" class="button button-secondary w-full text-xs">🔳 Manual Gate</button>
@@ -578,6 +579,7 @@ layout: none
         const addFilterNodeBtn = document.getElementById('addFilterNodeBtn');
         const addDelayNodeBtn = document.getElementById('addDelayNodeBtn');
         const addArpeggiatorNodeBtn = document.getElementById('addArpeggiatorNodeBtn');
+        const addScaleArpeggiatorNodeBtn = document.getElementById('addScaleArpeggiatorNodeBtn');
         const addLFONodeBtn = document.getElementById('addLFONodeBtn');
         const addADSREnvelopeNodeBtn = document.getElementById('addADSREnvelopeNodeBtn');
         const addBitcrusherNodeBtn = document.getElementById('addBitcrusherNodeBtn');
@@ -956,6 +958,7 @@ layout: none
             const primaryInputMap = {
                 'VCA': 'audio',
                 'Master': 'audio',
+                'Output': 'audio',
                 'Filter': 'audio',
                 'Delay': 'audio',
                 'Distortion': 'audio',
@@ -1378,7 +1381,7 @@ workspace_data: ${base64Data}
                             { id: '3', label: 'LFO', data: { frequency: RandomWorkspaceGenerator.getRandomFloat(0.1, 0.5), amount: 1000, waveform: 'sine' }, position: { x: 50, y: 500 } },
                             { id: '4', label: 'Filter', data: { frequency: 1000, q: 1 }, position: { x: 550, y: 100 } },
                             { id: '5', label: 'Reverb', data: { mix: 0.7, duration: 4, decay: 4 }, position: { x: 800, y: 100 } },
-                            { id: '6', label: 'Master', data: { gain: 0.4 }, position: { x: 1050, y: 100 } }
+                            { id: '6', label: 'Output', data: { gain: 0.4 }, position: { x: 1050, y: 100 } }
                         ],
                         connections: [
                             { id: 'c1', source: '1', sourceOutput: 'clock', target: '2', targetInput: 'clock' },
@@ -1398,7 +1401,7 @@ workspace_data: ${base64Data}
                             { id: '3', label: 'Filter', data: { frequency: 400, q: 15, filterType: 'lowpass' }, position: { x: 550, y: 100 } },
                             { id: '4', label: 'ADSR Envelope', data: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.1, mode: 'EG' }, position: { x: 300, y: 400 } },
                             { id: '5', label: 'Distortion', data: { drive: 70, amount: 50 }, position: { x: 800, y: 100 } },
-                            { id: '6', label: 'Master', data: { gain: 0.3 }, position: { x: 1050, y: 100 } }
+                            { id: '6', label: 'Output', data: { gain: 0.3 }, position: { x: 1050, y: 100 } }
                         ],
                         connections: [
                             { id: 'c1', source: '1', sourceOutput: 'clock', target: '2', targetInput: 'clock' },
@@ -1416,7 +1419,7 @@ workspace_data: ${base64Data}
                             { id: '2', label: 'Drum Machine', data: { sequence: 'k ~ h ~ k ~ h s', bpm: 130 }, position: { x: 300, y: 100 } },
                             { id: '3', label: 'Sequencer', data: { sequence: 'C1 ~ C1 ~ C2 ~ C1 G1', waveform: 'square', noteDuration: '1/16' }, position: { x: 300, y: 400 } },
                             { id: '4', label: 'Filter', data: { frequency: 500, q: 5 }, position: { x: 550, y: 400 } },
-                            { id: '5', label: 'Master', data: { gain: 0.5 }, position: { x: 850, y: 250 } }
+                            { id: '5', label: 'Output', data: { gain: 0.5 }, position: { x: 850, y: 250 } }
                         ],
                         connections: [
                             { id: 'c1', source: '1', sourceOutput: 'clock', target: '2', targetInput: 'clock' },
@@ -1437,7 +1440,7 @@ workspace_data: ${base64Data}
                             { id: '2', label: 'Sequencer', data: { sequence, waveform: 'sine', noteDuration: '1/8' }, position: { x: 300, y: 100 } },
                             { id: '3', label: 'Delay', data: { delayTime: 0.3, feedback: 0.4 }, position: { x: 550, y: 100 } },
                             { id: '4', label: 'Reverb', data: { mix: 0.4 }, position: { x: 800, y: 100 } },
-                            { id: '5', label: 'Master', data: { gain: 0.4 }, position: { x: 1050, y: 100 } }
+                            { id: '5', label: 'Output', data: { gain: 0.4 }, position: { x: 1050, y: 100 } }
                         ],
                         connections: [
                             { id: 'c1', source: '1', sourceOutput: 'clock', target: '2', targetInput: 'clock' },
@@ -1454,7 +1457,7 @@ workspace_data: ${base64Data}
                             { id: '2', label: 'Drum Machine', data: { sequence: 'k ~ ~ h s ~ k h', noteDuration: '1/16' }, position: { x: 300, y: 100 } },
                             { id: '3', label: 'Sequencer', data: { sequence: 'C1 ~ ~ ~ ~ ~ ~ ~', waveform: 'sine', noteDuration: '1/4' }, position: { x: 300, y: 400 } },
                             { id: '4', label: 'Distortion', data: { drive: 30, amount: 20 }, position: { x: 550, y: 400 } },
-                            { id: '5', label: 'Master', data: { gain: 0.6 }, position: { x: 850, y: 250 } }
+                            { id: '5', label: 'Output', data: { gain: 0.6 }, position: { x: 850, y: 250 } }
                         ],
                         connections: [
                             { id: 'c1', source: '1', sourceOutput: 'clock', target: '2', targetInput: 'clock' },
@@ -1471,7 +1474,7 @@ workspace_data: ${base64Data}
                             { id: '1', label: 'Master Clock', data: { bpm: RandomWorkspaceGenerator.getRandomInt(120, 150) }, position: { x: 50, y: 300 } },
                             { id: '2', label: 'Arpeggiator', data: { chordType: 'Major Triad', rootNote: 'C4', arpeggioPattern: 'Random', octaveRange: 2, noteDuration: '1/16', waveform: 'square' }, position: { x: 300, y: 100 } },
                             { id: '3', label: 'Bitcrusher', data: { bits: 4, sampleRateReduction: 4 }, position: { x: 550, y: 100 } },
-                            { id: '4', label: 'Master', data: { gain: 0.3 }, position: { x: 800, y: 100 } }
+                            { id: '4', label: 'Output', data: { gain: 0.3 }, position: { x: 800, y: 100 } }
                         ],
                         connections: [
                             { id: 'c1', source: '1', sourceOutput: 'clock', target: '2', targetInput: 'clock' },
@@ -1487,7 +1490,7 @@ workspace_data: ${base64Data}
                         { id: '2', label: 'Filter', data: { frequency: 400, q: 8, filterType: 'bandpass' }, position: { x: 300, y: 100 } },
                         { id: '3', label: 'LFO', data: { frequency: 0.05, amount: 200, waveform: 'sine' }, position: { x: 50, y: 300 } },
                         { id: '5', label: 'Reverb', data: { mix: 0.6, duration: 5 }, position: { x: 800, y: 100 } },
-                        { id: '6', label: 'Master', data: { gain: 0.4 }, position: { x: 1050, y: 100 } }
+                        { id: '6', label: 'Output', data: { gain: 0.4 }, position: { x: 1050, y: 100 } }
                     ];
                     const connections = [
                         { id: 'c1', source: '1', sourceOutput: 'audio', target: '2', targetInput: 'audio' },
@@ -1517,7 +1520,7 @@ workspace_data: ${base64Data}
                             { id: '3', label: 'LFO', data: { frequency: 0.1, amount: 0.3, waveform: 'triangle' }, position: { x: 50, y: 400 } },
                             { id: '4', label: 'Delay', data: { delayTime: 0.4, feedback: 0.6 }, position: { x: 550, y: 100 } },
                             { id: '5', label: 'Reverb', data: { mix: 0.5, duration: 3 }, position: { x: 800, y: 100 } },
-                            { id: '6', label: 'Master', data: { gain: 0.3 }, position: { x: 1050, y: 100 } }
+                            { id: '6', label: 'Output', data: { gain: 0.3 }, position: { x: 1050, y: 100 } }
                         ],
                         connections: [
                             { id: 'c1', source: '1', sourceOutput: 'audio', target: '2', targetInput: 'audio' },
@@ -1537,7 +1540,7 @@ workspace_data: ${base64Data}
                             { id: '4', label: 'LFO', data: { frequency: 0.03, amount: 0.5, waveform: 'sine' }, position: { x: 50, y: 400 } },
                             { id: '5', label: 'LFO', data: { frequency: 0.07, amount: 500, waveform: 'sine' }, position: { x: 300, y: 400 } },
                             { id: '6', label: 'Reverb', data: { mix: 0.8, duration: 8 }, position: { x: 800, y: 100 } },
-                            { id: '7', label: 'Master', data: { gain: 0.3 }, position: { x: 1050, y: 100 } }
+                            { id: '7', label: 'Output', data: { gain: 0.3 }, position: { x: 1050, y: 100 } }
                         ],
                         connections: [
                             { id: 'c1', source: '1', sourceOutput: 'audio', target: '2', targetInput: 'audio' },
@@ -1561,7 +1564,7 @@ workspace_data: ${base64Data}
                             { id: '7', label: 'Drum Machine', data: { sequence: 's ~ ~ ~', noteDuration: '1/4' }, position: { x: 550, y: 600 } },
                             { id: '8', label: 'Random Voltage', data: { smoothness: 0.5 }, position: { x: 300, y: 800 } },
                             { id: '9', label: 'Filter', data: { frequency: 1000, q: 5 }, position: { x: 1050, y: 100 } },
-                            { id: '10', label: 'Master', data: { gain: 0.4 }, position: { x: 1300, y: 250 } }
+                            { id: '10', label: 'Output', data: { gain: 0.4 }, position: { x: 1300, y: 250 } }
                         ],
                         connections: [
                             { id: 'c1', source: '1', sourceOutput: 'clock', target: '2', targetInput: 'clock' },
@@ -1593,7 +1596,7 @@ workspace_data: ${base64Data}
                             { id: '9', label: 'Noise Generator', data: { gainValue: 1.0 }, position: { x: 250, y: 700 } },
                             { id: '10', label: 'Filter', data: { filterType: 'bandpass', frequency: 1000, q: 20 }, position: { x: 750, y: 600 } },
                             { id: '11', label: 'Reverb', data: { mix: 0.5, duration: 4 }, position: { x: 1250, y: 100 } },
-                            { id: '12', label: 'Master', data: { gain: 0.4 }, position: { x: 1500, y: 100 } }
+                            { id: '12', label: 'Output', data: { gain: 0.4 }, position: { x: 1500, y: 100 } }
                         ],
                         connections: [
                             { id: 'c1', source: '1', sourceOutput: 'clock', target: '2', targetInput: 'clock' },
@@ -1675,7 +1678,19 @@ workspace_data: ${base64Data}
                 }
             }
 
-            // 2. Reconnect based on Rete.js editor's connections
+            // 2. Ensure all Output nodes are connected to masterGain
+            for (const node of editor.getNodes()) {
+                if (node.label === 'Output') {
+                    const audioNode = reteAudioNodes.get(node.id);
+                    if (audioNode && masterGain) {
+                        try {
+                            audioNode.connect(masterGain);
+                        } catch (e) {}
+                    }
+                }
+            }
+
+            // 3. Reconnect based on Rete.js editor's connections
             for (const connection of editor.getConnections()) {
                 const sourceReteNode = editor.getNode(connection.source);
                 const targetReteNode = editor.getNode(connection.target);
@@ -3895,35 +3910,49 @@ workspace_data: ${base64Data}
             }
         }
 
-        class MasterGainOutputNode extends WebAudioNode {
+        class OutputNode extends WebAudioNode {
             constructor() {
-                super('Master');
+                super('Output');
                 this.addInput('audio', new Classic.Input(voltageSocket, 'Audio In', true));
                 this.addInput('gain_cv', new Classic.Input(voltageSocket, 'Gain CV', true));
 
-                this.data.gain = 0.5;
+                this.data.gain = this.data.gain !== undefined ? this.data.gain : 0.5;
                 this.addControl('gain', new SliderControl('gainSlider', 'Gain', 0, 1, 0.01, this.data.gain, (val) => {
                     this.data.gain = val;
-                    if (masterGain && !this.data.mute) {
-                        masterGain.gain.setTargetAtTime(val, audioContext.currentTime, 0.01);
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode && !this.data.mute) {
+                        audioNode.gain.setTargetAtTime(val, audioContext.currentTime, 0.01);
                     }
                 }));
 
                 this.data.mute = this.data.mute !== undefined ? this.data.mute : false;
                 this.addControl('mute', new ToggleControl('muteToggle', 'Mute', this.data.mute, (val) => {
                     this.data.mute = val;
-                    if (masterGain) {
-                        masterGain.gain.setTargetAtTime(val ? 0 : this.data.gain, audioContext.currentTime, 0.01);
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) {
+                        audioNode.gain.setTargetAtTime(val ? 0 : this.data.gain, audioContext.currentTime, 0.01);
                     }
                 }));
             }
 
             build() {
-                // This node doesn't create a new audio node, it controls the global masterGain
+                const nodeGain = audioContext.createGain();
+                nodeGain.gain.value = this.data.mute ? 0 : this.data.gain;
                 if (masterGain) {
-                    masterGain.gain.setTargetAtTime(this.data.mute ? 0 : this.data.gain, audioContext.currentTime, 0.01);
+                    nodeGain.connect(masterGain);
                 }
-                return masterGain; // Return the existing masterGain
+                return nodeGain;
+            }
+
+            start() {
+                const audioNode = reteAudioNodes.get(this.id);
+                if (audioNode && masterGain) {
+                    try {
+                        audioNode.connect(masterGain);
+                    } catch (e) {
+                        // Already connected or other error
+                    }
+                }
             }
         }
 
@@ -4526,7 +4555,7 @@ workspace_data: ${base64Data}
                 this.tickListeners = [];
                 this.tickCount = 0;
 
-                // Master gain for the Arpeggiator output
+                // Local gain for the Arpeggiator output
                 this.mainOutput = this.audioContext.createGain();
                 this.mainOutput.gain.value = 0.5; // Default volume for arpeggiator
 
@@ -4842,6 +4871,300 @@ workspace_data: ${base64Data}
             }
         }
 
+
+        class ScaleArpeggiator {
+            constructor(audioContext, reteNodeId, data) {
+                this.audioContext = audioContext;
+                this.reteNodeId = reteNodeId;
+                this.data = data;
+                this.started = false;
+                this.timeoutId = null;
+                this.currentNoteIndex = 0;
+                this.nextStepTime = 0;
+                this.oscillators = [];
+                this.gainNodes = [];
+                this.midiListeners = [];
+                this.tickListeners = [];
+                this.tickCount = 0;
+
+                this.mainOutput = this.audioContext.createGain();
+                this.mainOutput.gain.value = 0.5;
+
+                this.transposeControl = this.audioContext.createGain();
+                this.transposeControl.gain.value = 1200;
+            }
+
+            addMidiListener(callback, outputKey) {
+                if (typeof callback === 'function' && !this.midiListeners.includes(callback)) {
+                    this.midiListeners.push(callback);
+                }
+            }
+
+            removeMidiListener(callback, outputKey) {
+                const index = this.midiListeners.indexOf(callback);
+                if (index > -1) {
+                    this.midiListeners.splice(index, 1);
+                }
+            }
+
+            onTick(tickTime, tickDuration, tickIndex) {
+                const ticksPerStep = NOTE_DURATION_TICKS[this.data.noteDuration] || 24;
+
+                if (tickIndex % ticksPerStep === 0) {
+                    const notes = this.getArpeggioNotes();
+                    if (notes.length > 0) {
+                        const currentNote = notes[this.currentNoteIndex];
+                        const stepDuration = tickDuration * ticksPerStep;
+
+                        this.scheduleNote(currentNote, stepDuration * 0.9, tickTime);
+
+                        if (this.midiListeners.length > 0) {
+                            this.midiListeners.forEach(callback => callback([currentNote]));
+                        }
+
+                        this.currentNoteIndex = (this.currentNoteIndex + 1) % notes.length;
+                    }
+                }
+                this.tickCount++;
+            }
+
+            getArpeggioNotes() {
+                const rootMidi = ROOT_NOTES[this.data.rootNote] || 60;
+                const scaleOffsets = SCALE_TYPES[this.data.scaleType] || SCALE_TYPES['Major (Ionian)'];
+                const octaveRange = this.data.octaveRange || 1;
+                const baseNotes = [];
+
+                for (let oct = 0; oct < octaveRange; oct++) {
+                    scaleOffsets.forEach(offset => {
+                        baseNotes.push(rootMidi + offset + (oct * 12));
+                    });
+                }
+
+                const sortedNotes = [...baseNotes].sort((a, b) => a - b);
+                let patternResult = [];
+
+                switch (this.data.arpeggioPattern) {
+                    case 'Down':
+                        patternResult = [...sortedNotes].reverse();
+                        break;
+                    case 'Up-Down':
+                        const revUpDown = [...sortedNotes].reverse();
+                        patternResult = sortedNotes.concat(revUpDown.slice(1, -1));
+                        break;
+                    case 'Down-Up':
+                        const revDownUp = [...sortedNotes].reverse();
+                        patternResult = revDownUp.concat(sortedNotes.slice(1, -1));
+                        break;
+                    case 'Random':
+                        patternResult = sortedNotes; // Will be indexed randomly if we wanted, but standard patterns are usually deterministic sequences
+                        // For 'Random' pattern in arpeggiator, it usually means pick a random note from the set each step
+                        // But to keep it consistent with current Arpeggiator implementation:
+                        return [sortedNotes[Math.floor(Math.random() * sortedNotes.length)]];
+                    default: // 'Up'
+                        patternResult = sortedNotes;
+                        break;
+                }
+
+                return patternResult;
+            }
+
+            scheduleNote(midiNote, durationSeconds, startTime) {
+                if (!this.audioContext) return;
+                const now = startTime || this.audioContext.currentTime;
+
+                const frequency = midiToFrequency(midiNote);
+                const osc = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+
+                osc.type = this.data.waveform || 'sine';
+                osc.frequency.setValueAtTime(frequency, now);
+                this.transposeControl.connect(osc.detune);
+
+                const adsrData = {
+                    attack: this.data.attack,
+                    decay: this.data.decay,
+                    sustain: this.data.sustain,
+                    release: this.data.release
+                };
+                applyADSR(gainNode, adsrData, durationSeconds, this.audioContext, 0.3, now);
+
+                osc.connect(gainNode);
+                gainNode.connect(this.mainOutput);
+                osc.start(now);
+                osc.stop(now + durationSeconds);
+
+                osc.onended = () => {
+                    osc.disconnect();
+                    gainNode.disconnect();
+                };
+            }
+
+            start() {
+                if (this.started || !this.audioContext) return;
+                this.started = true;
+                this.currentNoteIndex = 0;
+                this.nextStepTime = this.audioContext.currentTime;
+                this.schedule();
+            }
+
+            schedule() {
+                if (!this.started) return;
+
+                const hasClockConnection = editor.getConnections().some(conn => conn.target === this.reteNodeId && conn.targetInput === 'clock');
+                if (hasClockConnection) return;
+
+                const notes = this.getArpeggioNotes();
+                if (notes.length === 0) {
+                    this.stop();
+                    return;
+                }
+
+                const bpm = this.data.bpm || 120;
+                const noteDurationMap = { '1': 4, '1/2': 2, '1/4': 1, '1/8': 0.5, '1/16': 0.25, '1/32': 0.125, '1/64': 0.0625, '1/128': 0.03125 };
+                const noteValue = noteDurationMap[this.data.noteDuration] || 0.25;
+                const secondsPerBeat = 60.0 / bpm;
+                const stepDuration = secondsPerBeat * noteValue;
+
+                while (this.nextStepTime < this.audioContext.currentTime + 0.1) {
+                    const notesToPlay = this.getArpeggioNotes();
+                    const midiNote = (this.data.arpeggioPattern === 'Random') ? notesToPlay[0] : notesToPlay[this.currentNoteIndex % notesToPlay.length];
+
+                    this.scheduleNote(midiNote, stepDuration, this.nextStepTime);
+
+                    if (this.midiListeners.length > 0) {
+                        this.midiListeners.forEach(callback => callback([midiNote]));
+                    }
+
+                    this.nextStepTime += stepDuration;
+                    if (this.data.arpeggioPattern !== 'Random') {
+                        this.currentNoteIndex = (this.currentNoteIndex + 1) % notesToPlay.length;
+                    }
+                }
+                this.timeoutId = setTimeout(() => this.schedule(), 25);
+            }
+
+            stop() {
+                if (!this.started) return;
+                clearTimeout(this.timeoutId);
+                this.timeoutId = null;
+                this.started = false;
+            }
+
+            updateParameter(param, value) {
+                this.data[param] = value;
+                if (param === 'gain') {
+                    this.mainOutput.gain.setTargetAtTime(value, this.audioContext.currentTime, 0.01);
+                }
+                if (this.started && !['attack', 'decay', 'sustain', 'release', 'waveform'].includes(param)) {
+                    this.stop();
+                    this.start();
+                }
+            }
+        }
+
+        class ScaleArpeggiatorNode extends WebAudioNode {
+            constructor() {
+                super('Scale Arpeggiator');
+                this.addInput('clock', new Classic.Input(voltageSocket, 'Clock In'));
+                this.addInput('transpose_cv', new Classic.Input(voltageSocket, 'Transpose CV', true));
+                this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio'));
+                this.addOutput('midi', new Classic.Output(midiSocket, 'MIDI Out'));
+
+                this.data.bpm = 120;
+                this.addControl('bpm', new SliderControl('scaleArpBpm', 'BPM', 60, 240, 1, this.data.bpm, (val) => {
+                    this.data.bpm = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) audioNode.updateParameter('bpm', val);
+                }));
+
+                this.data.noteDuration = '1/16';
+                this.addControl('noteDuration', new SelectControl('scaleArpNoteDur', 'Note Duration', ['1', '1/2', '1/4', '1/8', '1/16', '1/32', '1/64', '1/128'], this.data.noteDuration, (val) => {
+                    this.data.noteDuration = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) audioNode.updateParameter('noteDuration', val);
+                }));
+
+                this.data.scaleType = 'Major (Ionian)';
+                this.addControl('scaleType', new SelectControl('scaleArpScale', 'Scale Type', Object.keys(SCALE_TYPES), this.data.scaleType, (val) => {
+                    this.data.scaleType = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) audioNode.updateParameter('scaleType', val);
+                }));
+
+                this.data.rootNote = 'C4';
+                this.addControl('rootNote', new SelectControl('scaleArpRoot', 'Root Note', Object.keys(ROOT_NOTES), this.data.rootNote, (val) => {
+                    this.data.rootNote = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) audioNode.updateParameter('rootNote', val);
+                }));
+
+                this.data.arpeggioPattern = 'Up';
+                this.addControl('arpeggioPattern', new SelectControl('scaleArpPattern', 'Pattern', ['Up', 'Down', 'Up-Down', 'Down-Up', 'Random'], this.data.arpeggioPattern, (val) => {
+                    this.data.arpeggioPattern = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) audioNode.updateParameter('arpeggioPattern', val);
+                }));
+
+                this.data.octaveRange = 1;
+                this.addControl('octaveRange', new SliderControl('scaleArpOctaves', 'Octaves', 1, 4, 1, this.data.octaveRange, (val) => {
+                    this.data.octaveRange = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) audioNode.updateParameter('octaveRange', val);
+                }));
+
+                this.data.waveform = 'sine';
+                this.addControl('waveform', new SelectControl('scaleArpWave', 'Waveform', ['sine', 'square', 'sawtooth', 'triangle'], this.data.waveform, (val) => {
+                    this.data.waveform = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) audioNode.updateParameter('waveform', val);
+                }));
+
+                this.data.showEnvelope = false;
+                this.data.attack = 0.01;
+                this.data.decay = 0.1;
+                this.data.sustain = 0.5;
+                this.data.release = 0.1;
+
+                this.addControl('envelopeToggle', new ButtonControl('scaleArpEnvBtn', 'Envelope', () => {
+                    this.data.showEnvelope = !this.data.showEnvelope;
+                    const show = this.data.showEnvelope;
+                    this.controls.attack.hidden = !show;
+                    this.controls.decay.hidden = !show;
+                    this.controls.sustain.hidden = !show;
+                    this.controls.release.hidden = !show;
+                    area.update('node', this.id);
+                }));
+
+                this.addControl('attack', new SliderControl('scaleArpAtk', 'Attack (s)', 0.001, 2, 0.001, this.data.attack, (val) => { this.data.attack = val; }));
+                this.controls.attack.hidden = true;
+                this.addControl('decay', new SliderControl('scaleArpDec', 'Decay (s)', 0.01, 2, 0.01, this.data.decay, (val) => { this.data.decay = val; }));
+                this.controls.decay.hidden = true;
+                this.addControl('sustain', new SliderControl('scaleArpSus', 'Sustain', 0, 1, 0.01, this.data.sustain, (val) => { this.data.sustain = val; }));
+                this.controls.sustain.hidden = true;
+                this.addControl('release', new SliderControl('scaleArpRel', 'Release (s)', 0.01, 5, 0.01, this.data.release, (val) => { this.data.release = val; }));
+                this.controls.release.hidden = true;
+            }
+
+            onDataLoaded() {
+                const show = !!this.data.showEnvelope;
+                this.controls.attack.hidden = !show;
+                this.controls.decay.hidden = !show;
+                this.controls.sustain.hidden = !show;
+                this.controls.release.hidden = !show;
+            }
+
+            build() {
+                return new ScaleArpeggiator(audioContext, this.id, this.data);
+            }
+
+            start() {
+                const audioNode = reteAudioNodes.get(this.id);
+                if (audioNode && audioNode.start && !audioNode.started) {
+                    audioNode.start();
+                    audioNode.started = true;
+                }
+            }
+        }
 
         class ArpeggiatorNode extends WebAudioNode {
             constructor() {
@@ -5291,7 +5614,7 @@ workspace_data: ${base64Data}
                 this.sequenceEvents = null;
                 this.midiListeners = [];
 
-                // Master gain for the Sequencer output
+                // Local gain for the Sequencer output
                 this.mainOutput = this.audioContext.createGain();
                 this.mainOutput.gain.value = 0.5; // Default volume for sequencer
 
@@ -7118,13 +7441,21 @@ workspace_data: ${base64Data}
                         const sliderStep = control.isLog ? 0.1 : control.step;
                         const sliderValue = control.isLog ? logToLinear(control.value, control.min, control.max) : control.value;
 
-                        controlEl.innerHTML = `
-                            <label>${control.label}</label>
-                            <input type="range" min="${sliderMin}" max="${sliderMax}" step="${sliderStep}" value="${sliderValue}">
-                            <span class="value-display">${control.value.toFixed(2)}</span>
-                        `;
-                        const slider = controlEl.querySelector('input');
-                        const valueDisplay = controlEl.querySelector('.value-display');
+                        const label = document.createElement('label');
+                        label.textContent = control.label;
+                        const slider = document.createElement('input');
+                        slider.type = 'range';
+                        slider.min = sliderMin;
+                        slider.max = sliderMax;
+                        slider.step = sliderStep;
+                        slider.value = sliderValue;
+                        const valueDisplay = document.createElement('span');
+                        valueDisplay.className = 'value-display';
+                        valueDisplay.textContent = control.value.toFixed(2);
+
+                        controlEl.appendChild(label);
+                        controlEl.appendChild(slider);
+                        controlEl.appendChild(valueDisplay);
 
                         slider.oninput = (e) => {
                             const linearValue = parseFloat(e.target.value);
@@ -7142,13 +7473,19 @@ workspace_data: ${base64Data}
 
                         valueDisplay.textContent = control.value.toFixed(2);
                     } else if (control instanceof SelectControl) {
-                        const optionsHtml = control.options.map(opt => `<option value="${opt}">${opt}</option>`).join('');
-                        controlEl.innerHTML = `
-                            <label>${control.label}</label>
-                            <select>${optionsHtml}</select>
-                        `;
-                        const select = controlEl.querySelector('select');
+                        const label = document.createElement('label');
+                        label.textContent = control.label;
+                        const select = document.createElement('select');
+                        control.options.forEach(opt => {
+                            const option = document.createElement('option');
+                            option.value = opt;
+                            option.textContent = opt;
+                            select.appendChild(option);
+                        });
                         select.value = control.value;
+
+                        controlEl.appendChild(label);
+                        controlEl.appendChild(select);
 
                         select.onchange = () => {
                             const newValue = select.value;
@@ -7162,8 +7499,10 @@ workspace_data: ${base64Data}
                             });
                         };
                     } else if (control instanceof ButtonControl) {
-                        controlEl.innerHTML = `<button class="button button-secondary w-full">${control.label}</button>`;
-                        const button = controlEl.querySelector('button');
+                        const button = document.createElement('button');
+                        button.className = 'button button-secondary w-full';
+                        button.textContent = control.label;
+                        controlEl.appendChild(button);
                         button.onclick = () => {
                             control.onClick();
                             autoSave();
@@ -7174,18 +7513,23 @@ workspace_data: ${base64Data}
                             multiplayer.broadcast({ type: 'workspace', data: editorToJSON() });
                         };
                     } else if (control instanceof IndicatorControl) {
-                        controlEl.innerHTML = `<div class="clock-indicator" title="${control.label}"></div>`;
+                        const indicator = document.createElement('div');
+                        indicator.className = 'clock-indicator';
+                        indicator.title = control.label;
+                        controlEl.appendChild(indicator);
                     } else if (control instanceof ToggleControl) {
                         controlEl.innerHTML = `
                             <label class="flex items-center justify-center cursor-pointer">
-                                <span class="mr-3 text-white">${control.label}</span>
+                                <span class="mr-3 text-white"></span>
                                 <div class="relative">
-                                    <input type="checkbox" class="sr-only peer" ${control.value ? 'checked' : ''}>
+                                    <input type="checkbox" class="sr-only peer">
                                     <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
                                 </div>
                             </label>
                         `;
+                        controlEl.querySelector('span').textContent = control.label;
                         const checkbox = controlEl.querySelector('input[type="checkbox"]');
+                        checkbox.checked = !!control.value;
                         checkbox.onchange = (e) => {
                             const newValue = e.target.checked;
                             control.value = newValue;
@@ -7197,11 +7541,15 @@ workspace_data: ${base64Data}
                             });
                         };
                     } else if (control instanceof TextControl) {
-                        controlEl.innerHTML = `
-                            <label>${control.label}</label>
-                            <input type="text" value="${control.value}" class="w-full p-2 border border-gray-300 rounded mt-1 bg-white text-gray-900">
-                        `;
-                        const input = controlEl.querySelector('input');
+                        const label = document.createElement('label');
+                        label.textContent = control.label;
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.value = control.value;
+                        input.className = 'w-full p-2 border border-gray-300 rounded mt-1 bg-white text-gray-900';
+                        controlEl.appendChild(label);
+                        controlEl.appendChild(input);
+
                         input.oninput = (e) => {
                             const newValue = e.target.value;
                             control.value = newValue;
@@ -7301,7 +7649,7 @@ workspace_data: ${base64Data}
         });
 
         addMasterGainOutputNodeBtn.addEventListener('click', async () => {
-            const node = new MasterGainOutputNode();
+            const node = new OutputNode();
             const existingNodesCount = editor.getNodes().length;
             node.position = { x: 50 + (existingNodesCount % 5) * 220, y: 50 + Math.floor(existingNodesCount / 5) * 200 };
             await editor.addNode(node);
@@ -7332,6 +7680,14 @@ workspace_data: ${base64Data}
         // New Effects Node Buttons
         addStereoPannerNodeBtn.addEventListener('click', async () => {
             const node = new StereoPannerNode();
+            const existingNodesCount = editor.getNodes().length;
+            node.position = { x: 50 + (existingNodesCount % 5) * 220, y: 50 + Math.floor(existingNodesCount / 5) * 200 };
+            await editor.addNode(node);
+            clearEditorBtn.disabled = false;
+        });
+
+        addScaleArpeggiatorNodeBtn.addEventListener('click', async () => {
+            const node = new ScaleArpeggiatorNode();
             const existingNodesCount = editor.getNodes().length;
             node.position = { x: 50 + (existingNodesCount % 5) * 220, y: 50 + Math.floor(existingNodesCount / 5) * 200 };
             await editor.addNode(node);
@@ -7554,7 +7910,7 @@ workspace_data: ${base64Data}
         NodeRegistry.register('Wave Player', WavePlayerNode);
         NodeRegistry.register('Chord Generator', ChordGeneratorNode);
         NodeRegistry.register('VCA', VCANode);
-        NodeRegistry.register('Master', MasterGainOutputNode);
+        NodeRegistry.register('Output', OutputNode);
         NodeRegistry.register('Filter', FilterNode);
         NodeRegistry.register('Delay', DelayNode);
         NodeRegistry.register('Ping Pong Delay', PingPongDelayNode);
@@ -7565,6 +7921,7 @@ workspace_data: ${base64Data}
         NodeRegistry.register('Compressor', CompressorNode);
         NodeRegistry.register('Reverb', ReverbNode);
         NodeRegistry.register('Arpeggiator', ArpeggiatorNode);
+        NodeRegistry.register('Scale Arpeggiator', ScaleArpeggiatorNode);
         NodeRegistry.register('LFO', LFONode);
         NodeRegistry.register('ADSR Envelope', ADSREnvelopeNode);
         NodeRegistry.register('Bitcrusher', BitcrusherNode);
@@ -7715,7 +8072,7 @@ workspace_data: ${base64Data}
                     ['Wave Player', () => new WavePlayerNode()],
                     ['Chord Generator', () => new ChordGeneratorNode()],
                     ['VCA', () => new VCANode()],
-                    ['Master', () => new MasterGainOutputNode()],
+                    ['Output', () => new OutputNode()],
                     ['Filter', () => new FilterNode()],
                     ['Delay', () => new DelayNode()],
                     ['Ping Pong Delay', () => new PingPongDelayNode()],
@@ -7725,6 +8082,7 @@ workspace_data: ${base64Data}
                     ['Compressor', () => new CompressorNode()],
                     ['Reverb', () => new ReverbNode()],
                     ['Arpeggiator', () => new ArpeggiatorNode()],
+                    ['Scale Arpeggiator', () => new ScaleArpeggiatorNode()],
                     ['LFO', () => new LFONode()],
                     ['ADSR Envelope', () => new ADSREnvelopeNode()],
                     ['Bitcrusher', () => new BitcrusherNode()],
@@ -7918,13 +8276,6 @@ workspace_data: ${base64Data}
                     autoSave();
                 }
                 if (context.type === 'nodecreate' && context.data instanceof WebAudioNode) {
-                    if (context.data.label === 'Master') {
-                        const existingMaster = editor.getNodes().find(n => n.label === 'Master');
-                        if (existingMaster) {
-                            showMessage('Only one Master Output node is allowed.', 'error');
-                            return;
-                        }
-                    }
                     if(!audioContext) {
                         console.warn('AudioContext not active, Nodes will be created when "Start Audio" is clicked.');
                         showMessage(`AudioContext not active, Nodes will be created when "Start Audio" is clicked.`, 'error');
@@ -8004,7 +8355,7 @@ workspace_data: ${base64Data}
                         updateAudioGraphConnections();
                         if (connection.targetInput === 'clock') {
                             const targetAudioNode = reteAudioNodes.get(connection.target);
-                            if (targetAudioNode && ['Arpeggiator', 'Sequencer'].includes(targetReteNode.label) && targetAudioNode.started) {
+                            if (targetAudioNode && ['Arpeggiator', 'Scale Arpeggiator', 'Sequencer'].includes(targetReteNode.label) && targetAudioNode.started) {
                                 targetAudioNode.stop();
                                 targetAudioNode.start();
                             }
@@ -8032,7 +8383,7 @@ workspace_data: ${base64Data}
                         updateAudioGraphConnections();
                         if (connection.targetInput === 'clock') {
                             const targetAudioNode = reteAudioNodes.get(connection.target);
-                            if (targetAudioNode && ['Arpeggiator', 'Sequencer'].includes(targetReteNode.label) && targetAudioNode.started) {
+                            if (targetAudioNode && ['Arpeggiator', 'Scale Arpeggiator', 'Sequencer'].includes(targetReteNode.label) && targetAudioNode.started) {
                                 targetAudioNode.stop();
                                 targetAudioNode.start();
                             }
