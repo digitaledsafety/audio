@@ -114,14 +114,14 @@ test.describe('Extended Multiplayer Synchronization', () => {
     // Add another node to connect to
     await page1.click('#addNodeToggle');
     await page1.click('#addMasterGainOutputNodeBtn');
-    const masterNode2 = page2.locator('[data-node-label="Output"]').first();
+    const masterNode2 = page2.locator('[data-node-label="Master"]').first();
     await expect(masterNode2).toBeVisible({ timeout: 10000 });
 
     // Create connection on Player 1
     await page1.evaluate(async () => {
         const nodes = Array.from(window.editor.getNodes());
         const toneNode = nodes.find(n => n.label === 'Tone Generator');
-        const masterNode = nodes.find(n => n.label === 'Output');
+        const masterNode = nodes.find(n => n.label === 'Master');
         await window.editor.addConnection(new window.Rete.ClassicPreset.Connection(toneNode, 'audio', masterNode, 'audio'));
     });
 
