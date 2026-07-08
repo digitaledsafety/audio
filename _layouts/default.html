@@ -371,6 +371,7 @@ layout: none
                                 <button id="addArpeggiatorNodeBtn" class="button button-secondary w-full text-xs">🎹 Arpeggiator</button>
                                 <button id="addLFONodeBtn" class="button button-secondary w-full text-xs">🌊 LFO</button>
                                 <button id="addADSREnvelopeNodeBtn" class="button button-secondary w-full text-xs">✉️ ADSR</button>
+                                <button id="addEnvelopeFollowerNodeBtn" class="button button-secondary w-full text-xs">📈 Env Follower</button>
                                 <button id="addManualGateNodeBtn" class="button button-secondary w-full text-xs">🔳 Manual Gate</button>
                                 <button id="addQuantizerNodeBtn" class="button button-secondary w-full text-xs">🎹 Quantizer</button>
                                 <button id="addBernoulliGateNodeBtn" class="button button-secondary w-full text-xs">🎲 Bernoulli Gate</button>
@@ -580,6 +581,7 @@ layout: none
         const addArpeggiatorNodeBtn = document.getElementById('addArpeggiatorNodeBtn');
         const addLFONodeBtn = document.getElementById('addLFONodeBtn');
         const addADSREnvelopeNodeBtn = document.getElementById('addADSREnvelopeNodeBtn');
+        const addEnvelopeFollowerNodeBtn = document.getElementById('addEnvelopeFollowerNodeBtn');
         const addBitcrusherNodeBtn = document.getElementById('addBitcrusherNodeBtn');
         const addSequencerNodeBtn = document.getElementById('addSequencerNodeBtn');
         const addAttenuverterNodeBtn = document.getElementById('addAttenuverterNodeBtn');
@@ -1275,7 +1277,7 @@ workspace_data: ${base64Data}
                     }
                 }
                 // Stop arpeggiator, sequencer, drum machine, visualizer, effects
-                if (reteNode && ['Arpeggiator', 'Sequencer', 'Drum Machine', 'Visualizer', 'Phaser', 'Chorus', 'Flanger', 'Delay', 'Ping Pong Delay'].includes(reteNode.label) && audioNode.stop) {
+                if (reteNode && ['Arpeggiator', 'Sequencer', 'Drum Machine', 'Visualizer', 'Phaser', 'Chorus', 'Flanger', 'Delay', 'Ping Pong Delay', 'Envelope Follower'].includes(reteNode.label) && audioNode.stop) {
                     try {
                         audioNode.stop();
                         if (audioNode.hasOwnProperty('started')) {
@@ -3167,7 +3169,7 @@ workspace_data: ${base64Data}
                 this.data = data;
 
                 this.analyser = this.audioContext.createAnalyser();
-                this.analyser.fftSize = 256;
+                this.analyser.fftSize = 2048;
                 this.bufferLength = this.analyser.frequencyBinCount;
                 this.dataArray = new Uint8Array(this.bufferLength);
 
@@ -3197,8 +3199,8 @@ workspace_data: ${base64Data}
 
                         // --- Zero-Crossing Trigger ---
                         let offset = 0;
-                        for (let i = 0; i < this.bufferLength - 1; i++) {
-                            // Find where the signal crosses from < 128 to >= 128
+                        // Search in first half of buffer to leave room for drawing
+                        for (let i = 0; i < this.bufferLength / 2; i++) {
                             if (this.dataArray[i] < 128 && this.dataArray[i+1] >= 128) {
                                 offset = i;
                                 break;
@@ -3209,15 +3211,17 @@ workspace_data: ${base64Data}
                         ctx.strokeStyle = 'rgb(0, 255, 0)';
                         ctx.beginPath();
 
-                        const remainingLength = this.bufferLength - offset;
-                        const sliceWidth = width * 1.0 / remainingLength;
+                        // Only draw a portion of the buffer for better visibility
+                        const drawLength = Math.min(this.bufferLength - offset, 1024);
+                        const sliceWidth = width * 1.0 / drawLength;
+                        const sensitivity = this.data.sensitivity !== undefined ? this.data.sensitivity : 1.0;
                         let x = 0;
 
-                        for (let i = offset; i < this.bufferLength; i++) {
-                            const v = this.dataArray[i] / 128.0;
-                            const y = v * height / 2;
+                        for (let i = 0; i < drawLength; i++) {
+                            const v = (this.dataArray[offset + i] - 128) / 128.0;
+                            const y = (height / 2) + (v * (height / 2) * sensitivity);
 
-                            if (i === offset) {
+                            if (i === 0) {
                                 ctx.moveTo(x, y);
                             } else {
                                 ctx.lineTo(x, y);
@@ -3226,7 +3230,6 @@ workspace_data: ${base64Data}
                             x += sliceWidth;
                         }
 
-                        ctx.lineTo(width, height / 2);
                         ctx.stroke();
                     } else {
                         this.analyser.getByteFrequencyData(this.dataArray);
@@ -3286,6 +3289,15 @@ workspace_data: ${base64Data}
                         audioNode.updateParameter('frozen', this.data.frozen);
                     }
                     area.update('node', this.id);
+                }));
+
+                this.data.sensitivity = 1.0;
+                this.addControl('sensitivity', new SliderControl('vizSensitivity', 'Sensitivity', 0.1, 5, 0.1, this.data.sensitivity, (val) => {
+                    this.data.sensitivity = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) {
+                        audioNode.updateParameter('sensitivity', val);
+                    }
                 }));
 
                 this.canvasControl = new CanvasControl('visualizerCanvas');
@@ -6353,6 +6365,59 @@ workspace_data: ${base64Data}
             }
         }
 
+        // Envelope Follower Class
+        class EnvelopeFollower {
+            constructor(audioContext, reteNodeId, data) {
+                this.audioContext = audioContext;
+                this.reteNodeId = reteNodeId;
+                this.data = data;
+
+                this.mainInput = this.audioContext.createGain();
+
+                // Rectifier (Full-wave)
+                this.rectifier = this.audioContext.createWaveShaper();
+                const curve = new Float32Array(65536);
+                for (let i = 0; i < 65536; i++) {
+                    const x = (i - 32768) / 32768;
+                    curve[i] = Math.abs(x);
+                }
+                this.rectifier.curve = curve;
+
+                // Smoother (Lowpass Filter)
+                this.smoother = this.audioContext.createBiquadFilter();
+                this.smoother.type = 'lowpass';
+                this.smoother.Q.value = 0;
+
+                // Gain to scale the CV
+                this.outputGain = this.audioContext.createGain();
+
+                this.mainInput.connect(this.rectifier);
+                this.rectifier.connect(this.smoother);
+                this.smoother.connect(this.outputGain);
+
+                this.mainOutput = this.outputGain;
+
+                this.updateParameter('sensitivity', this.data.sensitivity !== undefined ? this.data.sensitivity : 1.0);
+                this.updateParameter('release', this.data.release !== undefined ? this.data.release : 0.1);
+            }
+
+            updateParameter(paramName, value) {
+                this.data[paramName] = value;
+                const now = this.audioContext.currentTime;
+                if (paramName === 'sensitivity') {
+                    this.outputGain.gain.setTargetAtTime(value, now, 0.01);
+                } else if (paramName === 'release') {
+                    // Simple mapping of release time to filter frequency.
+                    // Higher frequency = faster response (shorter release).
+                    const frequency = 1.0 / (2 * Math.PI * Math.max(0.001, value));
+                    this.smoother.frequency.setTargetAtTime(frequency, now, 0.01);
+                }
+            }
+
+            start() {}
+            stop() {}
+        }
+
         // ADSR Envelope Class
         class ADSREnvelope {
             constructor(audioContext, reteNodeId, data) {
@@ -6479,6 +6544,32 @@ workspace_data: ${base64Data}
                     this.mainOutput.gain.cancelScheduledValues(now);
                     this.nextCycleTime = now;
                 }
+            }
+        }
+
+        class EnvelopeFollowerNode extends ModulatorNode {
+            constructor() {
+                super('Envelope Follower');
+                this.addInput('audio', new Classic.Input(voltageSocket, 'Audio In', true));
+                this.addOutput('cv', new Classic.Output(voltageSocket, 'CV Out'));
+
+                this.data.sensitivity = 1.0;
+                this.addControl('sensitivity', new SliderControl('envFollowSensitivity', 'Sensitivity', 0, 10, 0.1, this.data.sensitivity, (val) => {
+                    this.data.sensitivity = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) audioNode.updateParameter('sensitivity', val);
+                }));
+
+                this.data.release = 0.1;
+                this.addControl('release', new SliderControl('envFollowRelease', 'Release (s)', 0.001, 1.0, 0.001, this.data.release, (val) => {
+                    this.data.release = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) audioNode.updateParameter('release', val);
+                }));
+            }
+
+            build() {
+                return new EnvelopeFollower(audioContext, this.id, this.data);
             }
         }
 
@@ -7417,6 +7508,11 @@ workspace_data: ${base64Data}
             clearEditorBtn.disabled = false;
         });
 
+        addEnvelopeFollowerNodeBtn.addEventListener('click', async () => {
+            await editor.addNode(new EnvelopeFollowerNode());
+            clearEditorBtn.disabled = false;
+        });
+
         addBitcrusherNodeBtn.addEventListener('click', async () => {
             await editor.addNode(new BitcrusherNode());
             clearEditorBtn.disabled = false;
@@ -7567,6 +7663,7 @@ workspace_data: ${base64Data}
         NodeRegistry.register('Arpeggiator', ArpeggiatorNode);
         NodeRegistry.register('LFO', LFONode);
         NodeRegistry.register('ADSR Envelope', ADSREnvelopeNode);
+        NodeRegistry.register('Envelope Follower', EnvelopeFollowerNode);
         NodeRegistry.register('Bitcrusher', BitcrusherNode);
         NodeRegistry.register('Sequencer', SequencerNode);
         NodeRegistry.register('Attenuverter', AttenuverterNode);
@@ -7620,13 +7717,21 @@ workspace_data: ${base64Data}
             
             multiplayer.on('data-received', async (msg) => {
                 _isLocalChange = false;
+                if (!msg || typeof msg !== 'object' || !msg.type) {
+                    console.warn('Received invalid multiplayer message:', msg);
+                    _isLocalChange = true;
+                    return;
+                }
                 try {
                     switch (msg.type) {
                         case 'workspace': {
-                            await editorFromJSON(msg.data, false);
+                            if (msg.data && msg.data.nodes && msg.data.connections) {
+                                await editorFromJSON(msg.data, false);
+                            }
                             break;
                         }
                         case 'node-move': {
+                            if (!msg.data || !msg.data.id || !msg.data.position) break;
                             const node = editor.getNode(msg.data.id);
                             if (node && msg.data.position) {
                                 const nodeView = area.nodeViews.get(node.id);
@@ -7641,6 +7746,7 @@ workspace_data: ${base64Data}
                             break;
                         }
                         case 'control-update': {
+                            if (!msg.data || !msg.data.nodeId || !msg.data.key) break;
                             const targetNode = editor.getNode(msg.data.nodeId);
                             if (targetNode) {
                                 if (targetNode.data[msg.data.key] !== msg.data.value) {
@@ -7659,6 +7765,7 @@ workspace_data: ${base64Data}
                             break;
                         }
                         case 'transport':
+                            if (!msg.data || !msg.data.action) break;
                             if (msg.data.action === 'start') {
                                 await startAudio();
                                 audioState = 'playing';
