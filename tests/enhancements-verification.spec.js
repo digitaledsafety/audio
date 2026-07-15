@@ -55,4 +55,30 @@ test.describe('Enhancements Verification', () => {
     // Use a more flexible matcher for text or just check if it changed
     await expect(node.locator('button')).toContainText(['Resume']);
   });
+
+  test('Distortion sets non-null WaveShaper curve', async ({ page }) => {
+    // Open add node dropdown
+    await page.locator('#addNodeToggle').click();
+    // Add Distortion node
+    await page.locator('#addDistortionNodeBtn').click();
+
+    const node = page.locator('[data-node-label="Distortion"]').first();
+    await expect(node).toBeVisible({ timeout: 20000 });
+
+    // Verify via page.evaluate that the Distortion node's WaveShaperNode has a valid curve
+    const hasValidCurve = await page.evaluate(() => {
+      if (typeof reteAudioNodes === 'undefined') return false;
+      for (const [id, audioNode] of reteAudioNodes.entries()) {
+        if (audioNode && audioNode.waveShaper) {
+          const curve = audioNode.waveShaper.curve;
+          if (curve && curve instanceof Float32Array && curve.length === 44100) {
+            return true;
+          }
+        }
+      }
+      return false;
+    });
+
+    expect(hasValidCurve).toBe(true);
+  });
 });
