@@ -1130,7 +1130,7 @@ workspace_data: ${base64Data}
          * @param {number} drive - The drive amount.
          */
         function setDistortionCurve(waveShaperNode, amount, drive) {
-            if (waveShaperNode && waveShaperNode.curve) {
+            if (waveShaperNode) {
                 waveShaperNode.curve = makeDistortionCurve(amount, drive);
             }
         }
