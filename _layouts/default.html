@@ -749,7 +749,11 @@ layout: none
             }
 
             if (activeLoopNodeInstance && originalLoopOnTick) {
-                activeLoopNodeInstance.removeTickListener(originalLoopOnTick);
+                if (activeLoopNodeInstance instanceof MasterClock) {
+                    activeLoopNodeInstance.removeTickListener(originalLoopOnTick);
+                } else {
+                    activeLoopNodeInstance.schedule = originalLoopOnTick;
+                }
             }
 
             originalLoopOnTick = null;
@@ -795,52 +799,85 @@ layout: none
             showMessage('Loop recording started.', 'info');
         }
 
-        function startLoopDetection(clockInstance) {
-            if (!clockInstance) return;
+        function startLoopDetection(activeNode) {
+            if (!activeNode) return;
 
-            activeLoopNodeInstance = clockInstance;
+            activeLoopNodeInstance = activeNode;
             loopRecordState = 'waiting';
             isLoopRecording = true;
             updateRecordLoopBtnUI();
 
             projectLoopTicks = getProjectLoopTicks();
-            showMessage(`Waiting for loop boundary (${projectLoopTicks} ticks) to start recording...`, 'info');
+            showMessage(`Waiting for loop boundary to start recording...`, 'info');
 
             let hasStartedScheduling = false;
             let hasStoppedScheduling = false;
             let startTick = -1;
 
-            const clockListener = (tickTime, tickDuration, tickIndex) => {
-                if (loopRecordState === 'waiting' && !hasStartedScheduling) {
-                    if (tickIndex % projectLoopTicks === 0) {
-                        hasStartedScheduling = true;
-                        startTick = tickIndex;
-                        const delay = (tickTime - audioContext.currentTime) * 1000;
+            if (activeNode instanceof MasterClock) {
+                const clockListener = (tickTime, tickDuration, tickIndex) => {
+                    if (loopRecordState === 'waiting' && !hasStartedScheduling) {
+                        if (tickIndex % projectLoopTicks === 0) {
+                            hasStartedScheduling = true;
+                            startTick = tickIndex;
+                            const delay = (tickTime - audioContext.currentTime) * 1000;
 
-                        loopStartTimerId = setTimeout(() => {
-                            if (loopRecordState === 'waiting') {
-                                startMediaRecording();
-                                loopRecordState = 'recording';
-                                updateRecordLoopBtnUI();
-                            }
-                        }, Math.max(0, delay));
+                            loopStartTimerId = setTimeout(() => {
+                                if (loopRecordState === 'waiting') {
+                                    startMediaRecording();
+                                    loopRecordState = 'recording';
+                                    updateRecordLoopBtnUI();
+                                }
+                            }, Math.max(0, delay));
+                        }
+                    } else if (loopRecordState === 'recording' && !hasStoppedScheduling) {
+                        if (tickIndex % projectLoopTicks === 0 && tickIndex !== startTick) {
+                            hasStoppedScheduling = true;
+                            const delay = (tickTime - audioContext.currentTime) * 1000;
+
+                            loopStopTimerId = setTimeout(() => {
+                                if (loopRecordState === 'recording') {
+                                    stopMediaRecordingAndCleanup(false);
+                                }
+                            }, Math.max(0, delay));
+                        }
                     }
-                } else if (loopRecordState === 'recording' && !hasStoppedScheduling) {
-                    if (tickIndex % projectLoopTicks === 0 && tickIndex !== startTick) {
-                        hasStoppedScheduling = true;
-                        const delay = (tickTime - audioContext.currentTime) * 1000;
+                };
 
-                        loopStopTimerId = setTimeout(() => {
-                            if (loopRecordState === 'recording') {
-                                stopMediaRecordingAndCleanup(false);
-                            }
-                        }, Math.max(0, delay));
+                activeNode.addTickListener(clockListener);
+                originalLoopOnTick = clockListener;
+            } else {
+                const isArp = activeNode instanceof Arpeggiator;
+                const stepKey = isArp ? 'currentNoteIndex' : 'currentStep';
+
+                originalLoopOnTick = activeNode.schedule;
+                activeNode.schedule = function() {
+                    if (this.started) {
+                        const currentStepValue = this[stepKey];
+                        if (loopRecordState === 'waiting' && currentStepValue === 0 && !hasStartedScheduling) {
+                            hasStartedScheduling = true;
+                            const delay = (this.nextStepTime - audioContext.currentTime) * 1000;
+                            loopStartTimerId = setTimeout(() => {
+                                if (loopRecordState === 'waiting') {
+                                    startMediaRecording();
+                                    loopRecordState = 'recording';
+                                    updateRecordLoopBtnUI();
+                                }
+                            }, Math.max(0, delay));
+                        } else if (loopRecordState === 'recording' && currentStepValue === 0 && !hasStoppedScheduling && hasStartedScheduling) {
+                            hasStoppedScheduling = true;
+                            const delay = (this.nextStepTime - audioContext.currentTime) * 1000;
+                            loopStopTimerId = setTimeout(() => {
+                                if (loopRecordState === 'recording') {
+                                    stopMediaRecordingAndCleanup(false);
+                                }
+                            }, Math.max(0, delay));
+                        }
                     }
-                }
-            };
 
-            clockInstance.addTickListener(clockListener);
-            originalLoopOnTick = clockListener;
+                    originalLoopOnTick.call(this);
+                };
+            }
         }
 
         // --- Main Controls Logic ---
@@ -8577,14 +8614,28 @@ workspace_data: ${base64Data}
                         mediaRecorder.stop();
                     }
 
-                    const clockNode = getMasterClockInstance();
-                    if (!clockNode) {
-                        showMessage('No active Master Clock found. Please add a Master Clock to synchronize loop recording.', 'error');
+                    // Find active looping node: Master Clock first, then any active Sequencer, Drum Machine, or Arpeggiator
+                    let clockNode = getMasterClockInstance();
+                    let fallbackNode = null;
+
+                    if (!clockNode || !clockNode.started) {
+                        // Master Clock is not active or running. Look for other running rhythmic nodes.
+                        for (const [id, audioNode] of reteAudioNodes.entries()) {
+                            if ((audioNode instanceof Sequencer || audioNode instanceof DrumMachine || audioNode instanceof Arpeggiator) && audioNode.started) {
+                                fallbackNode = audioNode;
+                                break;
+                            }
+                        }
+                    }
+
+                    const activeNode = clockNode || fallbackNode;
+                    if (!activeNode) {
+                        showMessage('No active rhythmic node (Sequencer, Drum Machine, Arpeggiator, or Master Clock) found to synchronize loop recording.', 'error');
                         return;
                     }
 
-                    // Start loop detection using the Master Clock
-                    startLoopDetection(clockNode);
+                    // Start loop detection using the active rhythmic node
+                    startLoopDetection(activeNode);
                 }
             });
 
