@@ -407,8 +407,9 @@ layout: none
                         <!-- Recording Controls -->
                         <div class="flex flex-col gap-2 p-3 bg-gray-50 rounded-lg border">
                             <h4 class="font-semibold text-center">Recording</h4>
-                            <div class="flex justify-center gap-2">
-                                <button id="recordBtn" class="button button-danger flex-1">⏺️ Record</button>
+                            <div class="flex flex-col gap-2">
+                                <button id="recordBtn" class="button button-danger w-full">⏺️ Record</button>
+                                <button id="recordLoopBtn" class="button button-secondary w-full">🔄 Record Loop</button>
                             </div>
                         </div>
                         <!-- Workspace Controls -->
@@ -624,6 +625,224 @@ layout: none
         let loopSource;
         let multiplayer;
         let _isLocalChange = true;
+
+        // --- Loop Recording State & Functions ---
+        const recordLoopBtn = document.getElementById('recordLoopBtn');
+        let isLoopRecording = false;
+        let loopRecordState = 'idle'; // 'idle', 'waiting', 'recording'
+        let originalLoopOnTick = null;
+        let activeLoopNodeInstance = null;
+        let loopStartTimerId = null;
+        let loopStopTimerId = null;
+        let projectLoopTicks = 384; // Default to 1 measure (4 beats @ 96 PPQN)
+
+        function gcd(a, b) {
+            return b === 0 ? a : gcd(b, a % b);
+        }
+
+        function lcm(a, b) {
+            if (a === 0 || b === 0) return 0;
+            return Math.abs(a * b) / gcd(a, b);
+        }
+
+        function getNodeLoopTicks(node) {
+            const noteDuration = node.data.noteDuration || '1/16';
+            const ticksPerStep = NOTE_DURATION_TICKS[noteDuration] || 24;
+
+            if (node instanceof Sequencer || node instanceof DrumMachine) {
+                const sequenceLength = (node.sequenceEvents && node.sequenceEvents.length) || 16;
+                if (node instanceof DrumMachine && node.sequenceEvents) {
+                    let totalTicks = 0;
+                    for (const event of node.sequenceEvents) {
+                        const representativeEvent = Array.isArray(event) ? event[0] : event;
+                        if (representativeEvent) {
+                            const stepTicks = ticksPerStep * (1 / representativeEvent.speed) * representativeEvent.duration;
+                            totalTicks += stepTicks;
+                        } else {
+                            totalTicks += ticksPerStep;
+                        }
+                    }
+                    return totalTicks > 0 ? totalTicks : (sequenceLength * ticksPerStep);
+                }
+                return sequenceLength * ticksPerStep;
+            } else if (node instanceof Arpeggiator) {
+                const notes = node.getArpeggioNotes ? node.getArpeggioNotes() : [];
+                const notesLength = notes.length > 0 ? notes.length : 8;
+                return notesLength * ticksPerStep;
+            }
+            return 384;
+        }
+
+        function getProjectLoopTicks() {
+            const activeLengths = [];
+            let hasRhythmicNode = false;
+
+            for (const [id, audioNode] of reteAudioNodes.entries()) {
+                if (audioNode instanceof Sequencer && audioNode.started) {
+                    const ticks = Math.round(getNodeLoopTicks(audioNode));
+                    activeLengths.push(ticks);
+                    hasRhythmicNode = true;
+                } else if (audioNode instanceof DrumMachine && audioNode.started) {
+                    const ticks = Math.round(getNodeLoopTicks(audioNode));
+                    activeLengths.push(ticks);
+                    hasRhythmicNode = true;
+                } else if (audioNode instanceof Arpeggiator && audioNode.started) {
+                    const ticks = Math.round(getNodeLoopTicks(audioNode));
+                    activeLengths.push(ticks);
+                    hasRhythmicNode = true;
+                }
+            }
+
+            if (!hasRhythmicNode) {
+                return 384; // Default 1 measure (4 beats @ 96 PPQN)
+            }
+
+            let currentLCM = activeLengths[0] || 384;
+            for (let i = 1; i < activeLengths.length; i++) {
+                currentLCM = lcm(currentLCM, activeLengths[i]);
+            }
+
+            return currentLCM;
+        }
+
+        function getMasterClockInstance() {
+            for (const [id, audioNode] of reteAudioNodes.entries()) {
+                if (audioNode instanceof MasterClock) {
+                    return audioNode;
+                }
+            }
+            return null;
+        }
+
+        function updateRecordLoopBtnUI() {
+            if (!recordLoopBtn) return;
+
+            if (loopRecordState === 'idle') {
+                recordLoopBtn.textContent = '🔄 Record Loop';
+                recordLoopBtn.className = 'button button-secondary w-full';
+            } else if (loopRecordState === 'waiting') {
+                recordLoopBtn.textContent = '⏳ Waiting for Loop...';
+                recordLoopBtn.className = 'button button-secondary w-full bg-yellow-500 hover:bg-yellow-600 text-white animate-pulse';
+            } else if (loopRecordState === 'recording') {
+                recordLoopBtn.textContent = '⏹️ Stop Loop Rec';
+                recordLoopBtn.className = 'button button-danger w-full animate-pulse';
+            }
+        }
+
+        function stopMediaRecordingAndCleanup(isCancelled = false) {
+            if (loopStartTimerId) {
+                clearTimeout(loopStartTimerId);
+                loopStartTimerId = null;
+            }
+            if (loopStopTimerId) {
+                clearTimeout(loopStopTimerId);
+                loopStopTimerId = null;
+            }
+
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                if (isCancelled) {
+                    mediaRecorder.onstop = null;
+                    mediaRecorder.stop();
+                } else {
+                    mediaRecorder.stop();
+                }
+            }
+
+            if (activeLoopNodeInstance && originalLoopOnTick) {
+                activeLoopNodeInstance.removeTickListener(originalLoopOnTick);
+            }
+
+            originalLoopOnTick = null;
+            activeLoopNodeInstance = null;
+            loopRecordState = 'idle';
+            isLoopRecording = false;
+            updateRecordLoopBtnUI();
+        }
+
+        function startMediaRecording() {
+            if (!mediaStreamDestination) return;
+
+            // Ensure the visualizer is active before recording
+            if (!visualizerView.classList.contains('active')) {
+                visualizerTab.click();
+            }
+
+            const videoStream = visualizerCanvas.captureStream(30); // 30 FPS
+            const audioStream = mediaStreamDestination.stream;
+            const combinedStream = new MediaStream([
+                ...videoStream.getVideoTracks(),
+                ...audioStream.getAudioTracks()
+            ]);
+
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' });
+
+            mediaRecorder.ondataavailable = event => {
+                if (event.data.size > 0) recordedChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                recordedMediaUrl = URL.createObjectURL(blob);
+
+                stopMediaRecordingAndCleanup(false);
+
+                showMessage('Loop recording finished. Downloading...', 'success');
+                downloadRecording();
+            };
+
+            mediaRecorder.start();
+            showMessage('Loop recording started.', 'info');
+        }
+
+        function startLoopDetection(clockInstance) {
+            if (!clockInstance) return;
+
+            activeLoopNodeInstance = clockInstance;
+            loopRecordState = 'waiting';
+            isLoopRecording = true;
+            updateRecordLoopBtnUI();
+
+            projectLoopTicks = getProjectLoopTicks();
+            showMessage(`Waiting for loop boundary (${projectLoopTicks} ticks) to start recording...`, 'info');
+
+            let hasStartedScheduling = false;
+            let hasStoppedScheduling = false;
+            let startTick = -1;
+
+            const clockListener = (tickTime, tickDuration, tickIndex) => {
+                if (loopRecordState === 'waiting' && !hasStartedScheduling) {
+                    if (tickIndex % projectLoopTicks === 0) {
+                        hasStartedScheduling = true;
+                        startTick = tickIndex;
+                        const delay = (tickTime - audioContext.currentTime) * 1000;
+
+                        loopStartTimerId = setTimeout(() => {
+                            if (loopRecordState === 'waiting') {
+                                startMediaRecording();
+                                loopRecordState = 'recording';
+                                updateRecordLoopBtnUI();
+                            }
+                        }, Math.max(0, delay));
+                    }
+                } else if (loopRecordState === 'recording' && !hasStoppedScheduling) {
+                    if (tickIndex % projectLoopTicks === 0 && tickIndex !== startTick) {
+                        hasStoppedScheduling = true;
+                        const delay = (tickTime - audioContext.currentTime) * 1000;
+
+                        loopStopTimerId = setTimeout(() => {
+                            if (loopRecordState === 'recording') {
+                                stopMediaRecordingAndCleanup(false);
+                            }
+                        }, Math.max(0, delay));
+                    }
+                }
+            };
+
+            clockInstance.addTickListener(clockListener);
+            originalLoopOnTick = clockListener;
+        }
+
         // --- Main Controls Logic ---
         let audioState = 'stopped'; // 'stopped', 'playing'        
 
@@ -1263,6 +1482,11 @@ workspace_data: ${base64Data}
         }
 
         async function stopAudio() {
+            // Cancel any loop recording
+            if (isLoopRecording || loopRecordState !== 'idle') {
+                stopMediaRecordingAndCleanup(true);
+            }
+
             // Stop all audio nodes
             reteAudioNodes.forEach((audioNode, id) => {
                 const reteNode = editor.getNode(id); // Use editor.getNode(id) in v2
@@ -8280,6 +8504,10 @@ workspace_data: ${base64Data}
             });
 
             recordBtn.addEventListener('click', async () => {
+                if (isLoopRecording || loopRecordState !== 'idle') {
+                    stopMediaRecordingAndCleanup(true);
+                }
+
                 if (!audioContext || audioContext.state !== 'running') {
                     await startAudio();
                     audioState = 'playing';
@@ -8326,6 +8554,37 @@ workspace_data: ${base64Data}
                         recordBtn.classList.replace('button-danger', 'button-secondary');
                         showMessage('Recording started.', 'info');
                     }
+                }
+            });
+
+            recordLoopBtn.addEventListener('click', async () => {
+                if (isLoopRecording || loopRecordState !== 'idle') {
+                    // --- Cancel/Stop Loop Recording ---
+                    stopMediaRecordingAndCleanup(true);
+                    showMessage('Loop recording stopped / cancelled.', 'info');
+                } else {
+                    // --- Start Loop Recording ---
+                    if (!audioContext || audioContext.state !== 'running' || audioState !== 'playing') {
+                        glitchSeed = Math.random();
+                        await startAudio();
+                        audioState = 'playing';
+                        playStopBtn.textContent = '⏹️';
+                        multiplayer.broadcast({ type: 'transport', data: { action: 'start' } });
+                    }
+
+                    // Cancel regular recording if active
+                    if (mediaRecorder && mediaRecorder.state === 'recording' && !isLoopRecording) {
+                        mediaRecorder.stop();
+                    }
+
+                    const clockNode = getMasterClockInstance();
+                    if (!clockNode) {
+                        showMessage('No active Master Clock found. Please add a Master Clock to synchronize loop recording.', 'error');
+                        return;
+                    }
+
+                    // Start loop detection using the Master Clock
+                    startLoopDetection(clockNode);
                 }
             });
 
