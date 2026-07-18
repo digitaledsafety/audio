@@ -291,13 +291,38 @@ layout: none
         #cta-button:hover {
             background-color: #4338ca;
         }
+
+        /* Preview mode custom styles */
+        body.is-preview #bottom-nav {
+            display: none !important;
+        }
+        body.is-preview #workspace-view {
+            display: none !important;
+        }
+        body.is-preview #visualizer-view {
+            position: fixed !important;
+            inset: 0 !important;
+            height: 100vh !important;
+            width: 100vw !important;
+            z-index: 100 !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
+        }
+        body.is-preview #hero-overlay {
+            background-color: rgba(15, 23, 42, 0.95);
+        }
     </style>
 </head>
 <body>
     <div id="hero-overlay">
         <h1>Audio<span class="bg-indigo-600 text-white text-sm px-2 py-1 rounded-full ml-4 align-middle font-normal">Beta</span></h1>
         <p>Create, experiment, and share your sound with a powerful node-based synthesizer, right here in your browser.</p>
-        <button id="cta-button">Enter the Studio</button>
+        <div class="flex flex-col sm:flex-row items-center gap-4 justify-center">
+            <button id="cta-button">Enter the Studio</button>
+            <a href="{{ "/showcase.html" | relative_url }}" id="showcase-button" class="inline-flex items-center px-6 py-4 bg-slate-900 border border-slate-700 hover:border-indigo-500 hover:text-indigo-400 text-slate-200 font-semibold rounded-lg transition-all duration-200 shadow-xl cursor-pointer text-base">
+                🎨 Explore Preset Gallery
+            </a>
+        </div>
     </div>
     <div class="fixed top-4 right-4 z-50 bg-indigo-600/80 text-white text-xs font-bold px-2 py-1 rounded shadow-md pointer-events-none">BETA</div>
     <div class="rete-container">
@@ -8388,6 +8413,80 @@ workspace_data: ${base64Data}
 
             populateWorkspacesDropdown();
             showMessage('Editor ready. Add nodes and then click "Record" or "Play" to start audio.', 'info');
+
+            // If preview mode is requested, trigger autoplay
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('preview') === 'true') {
+                document.body.classList.add('is-preview');
+
+                // Simulate the Enter Studio click
+                setTimeout(() => {
+                    const ctaButton = document.getElementById('cta-button');
+                    if (ctaButton) {
+                        ctaButton.click();
+
+                        // Wait for audioContext and play
+                        const checkInterval = setInterval(() => {
+                            if (audioContext && editor && editor.getNodes().length > 0) {
+                                clearInterval(checkInterval);
+
+                                // Click play button if stopped
+                                const playBtn = document.getElementById('playStopBtn');
+                                if (playBtn && audioState === 'stopped') {
+                                    playBtn.click();
+                                }
+
+                                // Switch to visualizer
+                                const vizTab = document.getElementById('visualizer-tab');
+                                if (vizTab) {
+                                    vizTab.click();
+                                }
+
+                                // Append custom floating preview overlay
+                                const overlay = document.createElement('div');
+                                overlay.id = 'preview-overlay';
+                                overlay.className = 'fixed top-4 left-4 right-4 z-[99999] flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-slate-900/95 border border-indigo-500/30 backdrop-blur-md shadow-2xl shadow-indigo-500/10 pointer-events-auto';
+                                overlay.innerHTML = `
+                                    <div class="flex items-center gap-3">
+                                        <div class="flex h-3 w-3 relative">
+                                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                            <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-bold text-slate-100 text-sm tracking-wide">{{ page.title | escape }}</h4>
+                                            <p class="text-xs text-slate-400">Live Browser Synthesis & Visualizer</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-slate-400 text-xs">🔈</span>
+                                            <input type="range" id="preview-volume" min="0" max="1" step="0.05" value="0.5" class="w-24 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                                            <span class="text-slate-400 text-xs">🔊</span>
+                                        </div>
+                                        <button id="preview-open-btn" class="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 transition-all duration-200">
+                                            Open in Studio
+                                        </button>
+                                    </div>
+                                `;
+                                document.body.appendChild(overlay);
+
+                                // Adjust volume listener
+                                document.getElementById('preview-volume').addEventListener('input', (e) => {
+                                    if (masterGain) {
+                                        masterGain.gain.setValueAtTime(parseFloat(e.target.value), audioContext.currentTime);
+                                    }
+                                });
+
+                                // Open in studio listener
+                                document.getElementById('preview-open-btn').addEventListener('click', () => {
+                                    const cleanUrl = window.location.href.replace('?preview=true', '').replace('&preview=true', '');
+                                    window.open(cleanUrl, '_top');
+                                });
+                            }
+                        }, 250);
+                    }
+                }, 100);
+            }
 
         };
 
