@@ -8969,11 +8969,17 @@ workspace_data: ${base64Data}
     }
 
     void main() {
+        float aspect = u_resolution.y > 0.0 ? u_resolution.x / u_resolution.y : 1.0;
+        bool is_portrait = u_resolution.y > u_resolution.x;
+
         // --- 1. COORDINATE CRUSH ---
         // Quantize UVs based on bass to create a "bit-crushed" pixel look
         float bass_raw = texture2D(u_frequency_data, vec2(0.05, 0.0)).r;
         float quantize = 512.0 - (bass_raw * 480.0);
-        vec2 uv = floor(gl_FragCoord.xy / u_resolution.xy * quantize) / quantize;
+
+        // Base cell size on the height of the screen to maintain consistent vertical detail
+        float cell_size = max(1.0, u_resolution.y / quantize);
+        vec2 uv = floor(gl_FragCoord.xy / cell_size) * cell_size / u_resolution.xy;
 
         // Audio analysis
         float mid = texture2D(u_frequency_data, vec2(0.3, 0.0)).r;
@@ -8983,37 +8989,61 @@ workspace_data: ${base64Data}
         // --- 2. MULTI-LAYER DATA CORRUPTION ---
         vec2 block_uv = uv;
         
-        // Large scale displacement
-        vec2 l_block = floor(uv * 6.0) / 6.0;
+        // Large scale displacement blocks (perfectly square)
+        vec2 num_blocks;
+        if (is_portrait) {
+            num_blocks = vec2(6.0, 6.0 / aspect);
+        } else {
+            num_blocks = vec2(6.0 * aspect, 6.0);
+        }
+        vec2 l_block = floor(uv * num_blocks) / num_blocks;
         if (rand(l_block + floor(u_time * 12.0)) < 0.2 * bass_raw) {
-            block_uv += (rand(l_block) - 0.5) * 0.3;
+            vec2 shift_scale = vec2(0.3, 0.3 * aspect);
+            block_uv += (rand(l_block) - 0.5) * shift_scale;
         }
 
-        // Horizontal "Analog Tearing" strips
-        float strip_y = floor(uv.y * 40.0);
+        // Horizontal "Analog Tearing" strips with consistent physical height
+        float strip_density = 40.0;
+        if (is_portrait) {
+            strip_density = 40.0 / aspect;
+        }
+        float strip_y = floor(uv.y * strip_density);
         if (rand(vec2(strip_y, floor(u_time * 20.0))) > 0.9) {
             block_uv.x += (rand(vec2(u_time)) - 0.5) * 0.4 * high;
         }
 
         // --- 3. COLOR & CHROMATIC ABERRATION ---
-        // Intense RGB splitting on transients
+        // Intense RGB splitting on transients (aligned to main orientation)
         float shift = 0.08 * mid * rand(vec2(floor(u_time * 15.0)));
+        float index_coord = block_uv.x;
+        if (is_portrait) {
+            index_coord = block_uv.y;
+        }
         
-        float r = texture2D(u_frequency_data, vec2(fract(block_uv.x + shift), 0.0)).r;
-        float g = texture2D(u_frequency_data, vec2(block_uv.x, 0.0)).r;
-        float b = texture2D(u_frequency_data, vec2(fract(block_uv.x - shift), 0.0)).r;
+        float r = texture2D(u_frequency_data, vec2(fract(index_coord + shift), 0.0)).r;
+        float g = texture2D(u_frequency_data, vec2(index_coord, 0.0)).r;
+        float b = texture2D(u_frequency_data, vec2(fract(index_coord - shift), 0.0)).r;
         
         vec3 color = vec3(r, g, b);
 
         // --- 4. ARTIFACTING & NOISE ---
-        // Data-moshing bars
-        float bar_idx = floor(block_uv.x * 32.0);
-        float bar_freq = texture2D(u_frequency_data, vec2(bar_idx / 32.0, 0.0)).r;
-        if (block_uv.y < bar_freq) {
-            color += vec3(0.0, 0.5, 1.0) * mid;
+        // Data-moshing bars (vertical in landscape, horizontal from left/right in portrait)
+        if (is_portrait) {
+            float bar_idx = floor(block_uv.y * 32.0);
+            float bar_freq = texture2D(u_frequency_data, vec2(bar_idx / 32.0, 0.0)).r;
+            float dist_to_edge = min(block_uv.x, 1.0 - block_uv.x);
+            if (dist_to_edge * 2.0 < bar_freq) {
+                color += vec3(0.0, 0.5, 1.0) * mid;
+            }
+        } else {
+            float bar_idx = floor(block_uv.x * 32.0);
+            float bar_freq = texture2D(u_frequency_data, vec2(bar_idx / 32.0, 0.0)).r;
+            if (block_uv.y < bar_freq) {
+                color += vec3(0.0, 0.5, 1.0) * mid;
+            }
         }
 
-        // Digital grain (static)
+        // Digital grain (static, aspect-ratio corrected)
         color += (rand(block_uv + fract(u_time)) - 0.5) * (0.3 + high);
 
         // Inversion Flash
