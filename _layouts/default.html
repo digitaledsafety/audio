@@ -7459,12 +7459,20 @@ workspace_data: ${base64Data}
                         const sliderValue = control.isLog ? logToLinear(control.value, control.min, control.max) : control.value;
 
                         controlEl.innerHTML = `
-                            <label>${control.label}</label>
-                            <input type="range" min="${sliderMin}" max="${sliderMax}" step="${sliderStep}" value="${sliderValue}">
-                            <span class="value-display">${control.value.toFixed(2)}</span>
+                            <label></label>
+                            <input type="range">
+                            <span class="value-display"></span>
                         `;
+                        controlEl.querySelector('label').textContent = control.label;
+
                         const slider = controlEl.querySelector('input');
+                        slider.min = sliderMin;
+                        slider.max = sliderMax;
+                        slider.step = sliderStep;
+                        slider.value = sliderValue;
+
                         const valueDisplay = controlEl.querySelector('.value-display');
+                        valueDisplay.textContent = control.value.toFixed(2);
 
                         slider.oninput = (e) => {
                             const linearValue = parseFloat(e.target.value);
@@ -7479,15 +7487,20 @@ workspace_data: ${base64Data}
                                 data: { nodeId: this.node.id, key, value: finalValue }
                             });
                         };
-
-                        valueDisplay.textContent = control.value.toFixed(2);
                     } else if (control instanceof SelectControl) {
-                        const optionsHtml = control.options.map(opt => `<option value="${opt}">${opt}</option>`).join('');
                         controlEl.innerHTML = `
-                            <label>${control.label}</label>
-                            <select>${optionsHtml}</select>
+                            <label></label>
+                            <select></select>
                         `;
+                        controlEl.querySelector('label').textContent = control.label;
                         const select = controlEl.querySelector('select');
+
+                        control.options.forEach(opt => {
+                            const option = document.createElement('option');
+                            option.value = opt;
+                            option.textContent = opt;
+                            select.appendChild(option);
+                        });
                         select.value = control.value;
 
                         select.onchange = () => {
@@ -7502,8 +7515,9 @@ workspace_data: ${base64Data}
                             });
                         };
                     } else if (control instanceof ButtonControl) {
-                        controlEl.innerHTML = `<button class="button button-secondary w-full">${control.label}</button>`;
+                        controlEl.innerHTML = `<button class="button button-secondary w-full"></button>`;
                         const button = controlEl.querySelector('button');
+                        button.textContent = control.label;
                         button.onclick = () => {
                             control.onClick();
                             autoSave();
@@ -7514,18 +7528,24 @@ workspace_data: ${base64Data}
                             multiplayer.broadcast({ type: 'workspace', data: editorToJSON() });
                         };
                     } else if (control instanceof IndicatorControl) {
-                        controlEl.innerHTML = `<div class="clock-indicator" title="${control.label}"></div>`;
+                        controlEl.innerHTML = `<div class="clock-indicator"></div>`;
+                        controlEl.querySelector('.clock-indicator').title = control.label;
                     } else if (control instanceof ToggleControl) {
                         controlEl.innerHTML = `
                             <label class="flex items-center justify-center cursor-pointer">
-                                <span class="mr-3 text-white">${control.label}</span>
+                                <span class="mr-3 text-white"></span>
                                 <div class="relative">
-                                    <input type="checkbox" class="sr-only peer" ${control.value ? 'checked' : ''}>
+                                    <input type="checkbox" class="sr-only peer">
                                     <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
                                 </div>
                             </label>
                         `;
+                        controlEl.querySelector('span').textContent = control.label;
                         const checkbox = controlEl.querySelector('input[type="checkbox"]');
+                        if (control.value) {
+                            checkbox.checked = true;
+                        }
+
                         checkbox.onchange = (e) => {
                             const newValue = e.target.checked;
                             control.value = newValue;
@@ -7538,10 +7558,13 @@ workspace_data: ${base64Data}
                         };
                     } else if (control instanceof TextControl) {
                         controlEl.innerHTML = `
-                            <label>${control.label}</label>
-                            <input type="text" value="${control.value}" class="w-full p-2 border border-gray-300 rounded mt-1 bg-white text-gray-900">
+                            <label></label>
+                            <input type="text" class="w-full p-2 border border-gray-300 rounded mt-1 bg-white text-gray-900">
                         `;
+                        controlEl.querySelector('label').textContent = control.label;
                         const input = controlEl.querySelector('input');
+                        input.value = control.value;
+
                         input.oninput = (e) => {
                             const newValue = e.target.value;
                             control.value = newValue;
