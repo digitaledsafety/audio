@@ -83,6 +83,10 @@ test.describe('Critical Functionality', () => {
     await page.locator('#settingsToggle').click();
 
     // Select workspace and load
+    page.on('dialog', async dialog => {
+      await dialog.accept();
+    });
+
     const selector = page.locator('#workspaceSelector');
     await selector.selectOption(testName);
     await page.locator('#loadWorkspaceBtn').click();
