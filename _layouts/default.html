@@ -5280,11 +5280,24 @@ workspace_data: ${base64Data}
                 this.mainOutput = this.audioContext.createGain();
                 this.mainOutput.gain.value = 0.8; // Drums can be loud
 
+                // Create the shared adsrGain node and connect it to mainOutput
+                this.adsrGain = this.audioContext.createGain();
+                this.adsrGain.gain.value = 1.0;
+                this.adsrGain.connect(this.mainOutput);
+
                 // Note map for drum sounds
-                const drumNoteMap = { 'k': 60, 's': 62, 'h': 64 }; // Using midi numbers as placeholders
+                const drumNoteMap = { 'k': 60, 's': 62, 'h': 64, 'o': 66, 'c': 68 }; // Using midi numbers as placeholders
                 this.parser = new MiniNotationParser(drumNoteMap);
                 this.sequenceEvents = this.parseSequence();
                 this.tickListeners = [];
+
+                // Pre-generate noise buffer to optimize synthesis performance
+                const bufferSize = this.audioContext.sampleRate * 2.0;
+                this.noiseBuffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+                const output = this.noiseBuffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
             }
 
             addTickListener(callback, outputKey) {
@@ -5314,7 +5327,8 @@ workspace_data: ${base64Data}
                 const representativeEvent = Array.isArray(event) ? event[0] : event;
 
                 if (representativeEvent) {
-                    const ticksForThisStep = baseTicks * (1 / representativeEvent.speed) * representativeEvent.duration;
+                    const safeSpeed = Math.max(0.001, representativeEvent.speed || 1);
+                    const ticksForThisStep = baseTicks * (1 / safeSpeed) * (representativeEvent.duration || 1);
                     if (tickIndex % ticksForThisStep === 0) {
                         const stepDuration = tickDuration * ticksForThisStep;
                         if (Array.isArray(event)) {
@@ -5343,7 +5357,7 @@ workspace_data: ${base64Data}
                 const osc = this.audioContext.createOscillator();
                 const gain = this.audioContext.createGain();
                 osc.connect(gain);
-                gain.connect(this.mainOutput);
+                gain.connect(this.adsrGain);
 
                 osc.frequency.setValueAtTime(150, now);
                 osc.frequency.exponentialRampToValueAtTime(50, now + 0.1);
@@ -5356,12 +5370,7 @@ workspace_data: ${base64Data}
 
             createSnare(now) {
                 const noise = this.audioContext.createBufferSource();
-                const noiseBuffer = this.audioContext.createBuffer(1, this.audioContext.sampleRate * 0.2, this.audioContext.sampleRate);
-                const output = noiseBuffer.getChannelData(0);
-                for (let i = 0; i < noiseBuffer.length; i++) {
-                    output[i] = Math.random() * 2 - 1;
-                }
-                noise.buffer = noiseBuffer;
+                noise.buffer = this.noiseBuffer;
 
                 const noiseFilter = this.audioContext.createBiquadFilter();
                 noiseFilter.type = 'highpass';
@@ -5370,7 +5379,7 @@ workspace_data: ${base64Data}
 
                 const noiseEnvelope = this.audioContext.createGain();
                 noiseFilter.connect(noiseEnvelope);
-                noiseEnvelope.connect(this.mainOutput);
+                noiseEnvelope.connect(this.adsrGain);
 
                 noiseEnvelope.gain.setValueAtTime(1, now);
                 noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
@@ -5383,7 +5392,7 @@ workspace_data: ${base64Data}
                 osc.type = 'triangle';
                 osc.frequency.value = 180;
                 osc.connect(oscEnvelope);
-                oscEnvelope.connect(this.mainOutput);
+                oscEnvelope.connect(this.adsrGain);
                 oscEnvelope.gain.setValueAtTime(0.5, now);
                 oscEnvelope.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
                 osc.start(now);
@@ -5392,12 +5401,7 @@ workspace_data: ${base64Data}
 
             createHiHat(now) {
                 const noise = this.audioContext.createBufferSource();
-                const noiseBuffer = this.audioContext.createBuffer(1, this.audioContext.sampleRate * 0.1, this.audioContext.sampleRate);
-                const output = noiseBuffer.getChannelData(0);
-                for (let i = 0; i < noiseBuffer.length; i++) {
-                    output[i] = Math.random() * 2 - 1;
-                }
-                noise.buffer = noiseBuffer;
+                noise.buffer = this.noiseBuffer;
 
                 const noiseFilter = this.audioContext.createBiquadFilter();
                 noiseFilter.type = 'highpass';
@@ -5406,17 +5410,92 @@ workspace_data: ${base64Data}
 
                 const noiseEnvelope = this.audioContext.createGain();
                 noiseFilter.connect(noiseEnvelope);
-                noiseEnvelope.connect(this.mainOutput);
+                noiseEnvelope.connect(this.adsrGain);
                 noiseEnvelope.gain.setValueAtTime(1, now);
                 noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
                 noise.start(now);
                 noise.stop(now + 0.05);
             }
 
+            createOpenHiHat(now) {
+                const noise = this.audioContext.createBufferSource();
+                noise.buffer = this.noiseBuffer;
+
+                const noiseFilter = this.audioContext.createBiquadFilter();
+                noiseFilter.type = 'highpass';
+                noiseFilter.frequency.value = 7000;
+                noise.connect(noiseFilter);
+
+                const noiseEnvelope = this.audioContext.createGain();
+                noiseFilter.connect(noiseEnvelope);
+                noiseEnvelope.connect(this.adsrGain);
+                noiseEnvelope.gain.setValueAtTime(1, now);
+                noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                noise.start(now);
+                noise.stop(now + 0.3);
+            }
+
+            createClap(now) {
+                // 3 rapid trigger bursts
+                for (let i = 0; i < 3; i++) {
+                    const triggerTime = now + i * 0.015;
+                    const noise = this.audioContext.createBufferSource();
+                    noise.buffer = this.noiseBuffer;
+
+                    const filter = this.audioContext.createBiquadFilter();
+                    filter.type = 'bandpass';
+                    filter.frequency.value = 1000;
+                    filter.Q.value = 2;
+
+                    const gain = this.audioContext.createGain();
+                    gain.gain.setValueAtTime(0.5, triggerTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, triggerTime + 0.01);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.adsrGain);
+
+                    noise.start(triggerTime);
+                    noise.stop(triggerTime + 0.01);
+                }
+
+                // Final decay tail
+                const tailTime = now + 3 * 0.015;
+                const noiseTail = this.audioContext.createBufferSource();
+                noiseTail.buffer = this.noiseBuffer;
+
+                const tailFilter = this.audioContext.createBiquadFilter();
+                tailFilter.type = 'bandpass';
+                tailFilter.frequency.value = 1000;
+                tailFilter.Q.value = 2;
+
+                const tailGain = this.audioContext.createGain();
+                tailGain.gain.setValueAtTime(0.5, tailTime);
+                tailGain.gain.exponentialRampToValueAtTime(0.01, tailTime + 0.2);
+
+                noiseTail.connect(tailFilter);
+                tailFilter.connect(tailGain);
+                tailGain.connect(this.adsrGain);
+
+                noiseTail.start(tailTime);
+                noiseTail.stop(tailTime + 0.2);
+            }
 
             scheduleNote(noteName, durationSeconds, startTime) {
                 if (!this.audioContext) return;
                 const now = startTime || this.audioContext.currentTime;
+
+                if (this.data.showEnvelope) {
+                    const adsrData = {
+                        attack: this.data.attack !== undefined ? this.data.attack : 0.01,
+                        decay: this.data.decay !== undefined ? this.data.decay : 0.1,
+                        sustain: this.data.sustain !== undefined ? this.data.sustain : 0.5,
+                        release: this.data.release !== undefined ? this.data.release : 0.1
+                    };
+                    applyADSR(this.adsrGain, adsrData, durationSeconds, this.audioContext, 1.0, now);
+                } else {
+                    this.adsrGain.gain.setValueAtTime(1.0, now);
+                }
 
                 const normalizedNote = typeof noteName === 'string' ? noteName.toLowerCase() : noteName;
                 switch (normalizedNote) {
@@ -5428,6 +5507,12 @@ workspace_data: ${base64Data}
                         break;
                     case 'h':
                         this.createHiHat(now);
+                        break;
+                    case 'o':
+                        this.createOpenHiHat(now);
+                        break;
+                    case 'c':
+                        this.createClap(now);
                         break;
                 }
             }
@@ -5467,7 +5552,8 @@ workspace_data: ${base64Data}
                     const noteDurationMap = { '1': 1, '1/2': 0.5, '1/4': 0.25, '1/8': 0.125, '1/16': 0.0625, '1/32': 0.03125, '1/64': 0.015625, '1/128': 0.0078125 };
                     const baseNoteDuration = noteDurationMap[this.data.noteDuration] || 0.25;
                     const secondsPerBeat = 60.0 / bpm;
-                    const stepDuration = secondsPerBeat * 4 * baseNoteDuration * (1 / representativeEvent.speed) * representativeEvent.duration;
+                    const safeSpeed = Math.max(0.001, representativeEvent.speed || 1);
+                    const stepDuration = secondsPerBeat * 4 * baseNoteDuration * (1 / safeSpeed) * (representativeEvent.duration || 1);
 
                     if (Array.isArray(event)) {
                         for (const note of event) {
@@ -5965,6 +6051,25 @@ workspace_data: ${base64Data}
                 }
             }
 
+            onDataLoaded() {
+                // Restore ADSR envelopes controls visibility
+                const showEnv = !!this.data.showEnvelope;
+                this.controls.attack.hidden = !showEnv;
+                this.controls.decay.hidden = !showEnv;
+                this.controls.sustain.hidden = !showEnv;
+                this.controls.release.hidden = !showEnv;
+
+                // Restore randomizer controls visibility
+                const showRand = !!this.data.showRandomSettings;
+                this.controls.randomizeMode.hidden = !showRand;
+                this.controls.chordType.hidden = !showRand || (this.data.randomizeMode === 'Scale');
+                this.controls.scaleType.hidden = !showRand || (this.data.randomizeMode === 'Chord');
+                this.controls.rootNote.hidden = !showRand;
+                this.controls.octaveRange.hidden = !showRand;
+                this.controls.arpeggioPattern.hidden = !showRand;
+                this.controls.randomize.hidden = !showRand;
+            }
+
             build() {
                 return new Sequencer(audioContext, this.id, this.data);
             }
@@ -6019,6 +6124,51 @@ workspace_data: ${base64Data}
                         area.update('node', this.id);
                     }
                 }));
+
+                // ADSR Controls
+                this.data.showEnvelope = false;
+                this.data.attack = 0.01;
+                this.data.decay = 0.1;
+                this.data.sustain = 0.5;
+                this.data.release = 0.1;
+
+                this.addControl('envelopeToggle', new ButtonControl('envelopeToggle', 'Envelope', () => {
+                    this.data.showEnvelope = !this.data.showEnvelope;
+                    const show = this.data.showEnvelope;
+                    this.controls.attack.hidden = !show;
+                    this.controls.decay.hidden = !show;
+                    this.controls.sustain.hidden = !show;
+                    this.controls.release.hidden = !show;
+                    area.update('node', this.id);
+                }));
+
+                this.addControl('attack', new SliderControl('dmAttack', 'Attack (s)', 0.01, 2, 0.01, this.data.attack, (val) => {
+                    this.data.attack = val;
+                }));
+                this.controls.attack.hidden = true;
+
+                this.addControl('decay', new SliderControl('dmDecay', 'Decay (s)', 0.01, 2, 0.01, this.data.decay, (val) => {
+                    this.data.decay = val;
+                }));
+                this.controls.decay.hidden = true;
+
+                this.addControl('sustain', new SliderControl('dmSustain', 'Sustain', 0, 1, 0.01, this.data.sustain, (val) => {
+                    this.data.sustain = val;
+                }));
+                this.controls.sustain.hidden = true;
+
+                this.addControl('release', new SliderControl('dmRelease', 'Release (s)', 0.01, 5, 0.01, this.data.release, (val) => {
+                    this.data.release = val;
+                }));
+                this.controls.release.hidden = true;
+            }
+
+            onDataLoaded() {
+                const show = !!this.data.showEnvelope;
+                this.controls.attack.hidden = !show;
+                this.controls.decay.hidden = !show;
+                this.controls.sustain.hidden = !show;
+                this.controls.release.hidden = !show;
             }
 
             build() {

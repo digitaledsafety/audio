@@ -1,0 +1,29 @@
+Configuration file: /app/_config.yml
+            Source: /app
+       Destination: /app/_site
+ Incremental build: disabled. Enable with --incremental
+      Generating...
+                    done in 0.267 seconds.
+ Auto-regeneration: disabled. Use --watch to enable.
+    Server address: http://127.0.0.1:8000
+  Server running... press ctrl-c to stop.
+[31m                    ------------------------------------------------[0m
+[31m      Jekyll 4.4.1   Please append `--trace` to the `serve` command [0m
+[31m                     for any additional information or backtrace. [0m
+[31m                    ------------------------------------------------[0m
+/home/jules/.local/share/gem/ruby/3.2.0/gems/jekyll-4.4.1/lib/jekyll/commands/serve.rb:291:in `join': SIGTERM (SignalException)
+	from /home/jules/.local/share/gem/ruby/3.2.0/gems/jekyll-4.4.1/lib/jekyll/commands/serve.rb:291:in `boot_or_detach'
+	from /home/jules/.local/share/gem/ruby/3.2.0/gems/jekyll-4.4.1/lib/jekyll/commands/serve.rb:221:in `start_up_webrick'
+	from /home/jules/.local/share/gem/ruby/3.2.0/gems/jekyll-4.4.1/lib/jekyll/commands/serve.rb:102:in `process'
+	from /home/jules/.local/share/gem/ruby/3.2.0/gems/jekyll-4.4.1/lib/jekyll/command.rb:91:in `block in process_with_graceful_fail'
+	from /home/jules/.local/share/gem/ruby/3.2.0/gems/jekyll-4.4.1/lib/jekyll/command.rb:91:in `each'
+	from /home/jules/.local/share/gem/ruby/3.2.0/gems/jekyll-4.4.1/lib/jekyll/command.rb:91:in `process_with_graceful_fail'
+	from /home/jules/.local/share/gem/ruby/3.2.0/gems/jekyll-4.4.1/lib/jekyll/commands/serve.rb:85:in `block (2 levels) in init_with_program'
+	from /home/jules/.local/share/gem/ruby/3.2.0/gems/mercenary-0.4.0/lib/mercenary/command.rb:221:in `block in execute'
+	from /home/jules/.local/share/gem/ruby/3.2.0/gems/mercenary-0.4.0/lib/mercenary/command.rb:221:in `each'
+	from /home/jules/.local/share/gem/ruby/3.2.0/gems/mercenary-0.4.0/lib/mercenary/command.rb:221:in `execute'
+	from /home/jules/.local/share/gem/ruby/3.2.0/gems/mercenary-0.4.0/lib/mercenary/program.rb:44:in `go'
+	from /home/jules/.local/share/gem/ruby/3.2.0/gems/mercenary-0.4.0/lib/mercenary.rb:21:in `program'
+	from /home/jules/.local/share/gem/ruby/3.2.0/gems/jekyll-4.4.1/exe/jekyll:15:in `<top (required)>'
+	from /home/jules/.local/share/gem/ruby/3.2.0/bin/jekyll:25:in `load'
+	from /home/jules/.local/share/gem/ruby/3.2.0/bin/jekyll:25:in `<main>'
