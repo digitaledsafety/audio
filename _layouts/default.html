@@ -949,6 +949,10 @@ layout: none
                 // 2. Add or update nodes
                 for (const nodeData of json.nodes) {
                     let node = editor.getNode(nodeData.id);
+                    if (node && node.label !== nodeData.label) {
+                        await editor.removeNode(node.id);
+                        node = null;
+                    }
                     if (node) {
                         // Update existing node data
                         node.data = { ...node.data, ...nodeData.data };
@@ -1124,16 +1128,31 @@ layout: none
                 saveWorkspace();
             }
 
-            const wasAudioRunning = audioContext && audioContext.state === 'running';
-            if (wasAudioRunning) {
-                await stopAudio();
+            // 1. Project-wide confirmation check
+            if (editor.getNodes().length > 0) {
+                const confirmed = confirm("Are you sure you want to load this workspace? Your current edits will be lost.");
+                if (!confirmed) return;
             }
 
+            // 2. Stop audio/playback
+            await stopAudio();
+
+            // 3. Temporarily disable local change broadcast to prevent flooding
+            _isLocalChange = false;
+
+            // 4. Clear the editor first
+            await editor.clear();
+
+            // 5. Load the new workspace
             await editorFromJSON(data);
 
-            if (wasAudioRunning) {
-                await startAudio();
-            }
+            // 6. Restore local change state
+            _isLocalChange = true;
+
+            // 7. Sync with peers and autoSave
+            multiplayer.broadcast({ type: 'workspace', data: editorToJSON() });
+            multiplayer.broadcast({ type: 'transport', data: { action: 'stop' } });
+            autoSave();
 
             document.getElementById('workspaceName').value = name;
             showMessage(`Workspace "${name}" loaded.`, 'success');
@@ -1178,17 +1197,42 @@ layout: none
                         data = migrateV1ToV2(data);
                     }
 
-                    const wasAudioRunning = audioContext && audioContext.state === 'running';
-                    if (wasAudioRunning) await stopAudio();
-                    
+                    // 1. Project-wide confirmation check
+                    if (editor.getNodes().length > 0) {
+                        const confirmed = confirm("Are you sure you want to import this workspace? Your current edits will be lost.");
+                        if (!confirmed) {
+                            if (event && event.target) {
+                                event.target.value = '';
+                            }
+                            return;
+                        }
+                    }
+
+                    // 2. Stop audio/playback
+                    await stopAudio();
+
+                    // 3. Temporarily disable local change broadcast to prevent flooding
+                    _isLocalChange = false;
+
+                    // 4. Clear the editor first
+                    await editor.clear();
+
+                    // 5. Load the new workspace
                     await editorFromJSON(data);
 
-                    if (wasAudioRunning) await startAudio();
+                    // 6. Restore local change state
+                    _isLocalChange = true;
+
+                    // 7. Sync with peers and autoSave
+                    multiplayer.broadcast({ type: 'workspace', data: editorToJSON() });
+                    multiplayer.broadcast({ type: 'transport', data: { action: 'stop' } });
+                    autoSave();
 
                     const fileName = file.name.split('.').slice(0, -1).join('.');
                     document.getElementById('workspaceName').value = fileName;
                     showMessage('Workspace imported successfully.', 'success');
                 } catch (error) {
+                    _isLocalChange = true;
                     showMessage('Error importing workspace: ' + error.message, 'error');
                 }
             };
