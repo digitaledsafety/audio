@@ -1418,7 +1418,7 @@ workspace_data: ${base64Data}
          * @param {number} drive - The drive amount.
          */
         function setDistortionCurve(waveShaperNode, amount, drive) {
-            if (waveShaperNode && waveShaperNode.curve) {
+            if (waveShaperNode && 'curve' in waveShaperNode) {
                 waveShaperNode.curve = makeDistortionCurve(amount, drive);
             }
         }
@@ -8278,6 +8278,10 @@ workspace_data: ${base64Data}
                         }
                         const nodeView = new CustomNodeComponent(context.data.payload);
                         context.data.element.setAttribute('data-node-label', context.data.payload.label);
+                        let customControls = context.data.element.children[0].getElementsByClassName("custom-controls");
+                        while(customControls.length > 0){
+                          customControls[0].parentNode.removeChild(customControls[0]);
+                        }
                         let elements = context.data.element.children[0].getElementsByClassName("control");
                         while(elements.length > 0){
                           elements[0].parentNode.removeChild(elements[0]);
