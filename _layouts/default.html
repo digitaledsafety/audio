@@ -2921,6 +2921,7 @@ workspace_data: ${base64Data}
                 this.data = data;
                 this.audioBuffer = null;
                 this.mainOutput = this.audioContext.createGain();
+                this.activeSource = null;
                 this.loadAudio();
             }
 
@@ -2939,10 +2940,25 @@ workspace_data: ${base64Data}
 
             play() {
                 if (!this.audioBuffer || !this.audioContext) return;
+                if (this.activeSource && (this.data.loop || this.activeSource.loop)) {
+                    try {
+                        this.activeSource.stop();
+                    } catch (e) {
+                        // Ignore if already stopped/finished
+                    }
+                }
                 const source = this.audioContext.createBufferSource();
                 source.buffer = this.audioBuffer;
+
+                const playbackRate = this.data.playbackRate !== undefined ? this.data.playbackRate : 1.0;
+                const loop = this.data.loop !== undefined ? this.data.loop : false;
+
+                source.playbackRate.setValueAtTime(playbackRate, this.audioContext.currentTime);
+                source.loop = loop;
+
                 source.connect(this.mainOutput);
                 source.start(0);
+                this.activeSource = source;
             }
 
             updateParameter(paramName, value) {
@@ -2951,6 +2967,14 @@ workspace_data: ${base64Data}
                     this.loadAudio();
                 } else if (paramName === 'gain') {
                     this.mainOutput.gain.setTargetAtTime(value, this.audioContext.currentTime, 0.01);
+                } else if (paramName === 'playbackRate') {
+                    if (this.activeSource) {
+                        this.activeSource.playbackRate.setTargetAtTime(value, this.audioContext.currentTime, 0.01);
+                    }
+                } else if (paramName === 'loop') {
+                    if (this.activeSource) {
+                        this.activeSource.loop = value;
+                    }
                 }
             }
         }
@@ -2960,7 +2984,9 @@ workspace_data: ${base64Data}
                 super('Wave Player');
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio'));
 
-                this.data.audioUrl = 'https://webaudio.github.io/web-audio-api/samples/audio/impulse-responses/small-room.wav';
+                if (this.data.audioUrl === undefined) {
+                    this.data.audioUrl = 'https://webaudio.github.io/web-audio-api/samples/audio/impulse-responses/small-room.wav';
+                }
                 this.addControl('audioUrl', new TextControl('audioUrl', 'Audio URL', this.data.audioUrl, (val) => {
                     this.data.audioUrl = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -2979,11 +3005,31 @@ workspace_data: ${base64Data}
                     }
                 }));
 
-                this.data.gain = 1.0;
+                if (this.data.gain === undefined) {
+                    this.data.gain = 1.0;
+                }
                 this.addControl('gain', new SliderControl('waveGain', 'Gain', 0, 2, 0.01, this.data.gain, (val) => {
                     this.data.gain = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode && audioNode.updateParameter) audioNode.updateParameter('gain', val);
+                }));
+
+                if (this.data.playbackRate === undefined) {
+                    this.data.playbackRate = 1.0;
+                }
+                this.addControl('playbackRate', new SliderControl('wavePlaybackRate', 'Playback Rate', 0.1, 4, 0.05, this.data.playbackRate, (val) => {
+                    this.data.playbackRate = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode && audioNode.updateParameter) audioNode.updateParameter('playbackRate', val);
+                }));
+
+                if (this.data.loop === undefined) {
+                    this.data.loop = false;
+                }
+                this.addControl('loop', new ToggleControl('waveLoop', 'Loop', this.data.loop, (val) => {
+                    this.data.loop = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode && audioNode.updateParameter) audioNode.updateParameter('loop', val);
                 }));
             }
 
