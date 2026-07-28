@@ -6722,21 +6722,28 @@ workspace_data: ${base64Data}
                 }
                 this.rectifier.curve = curve;
 
-                // Smoother (Lowpass Filter)
-                this.smoother = this.audioContext.createBiquadFilter();
-                this.smoother.type = 'lowpass';
-                this.smoother.Q.value = 0;
+                // Attack Smoother (Lowpass Filter)
+                this.attackSmoother = this.audioContext.createBiquadFilter();
+                this.attackSmoother.type = 'lowpass';
+                this.attackSmoother.Q.value = 0;
+
+                // Release Smoother (Lowpass Filter)
+                this.releaseSmoother = this.audioContext.createBiquadFilter();
+                this.releaseSmoother.type = 'lowpass';
+                this.releaseSmoother.Q.value = 0;
 
                 // Gain to scale the CV
                 this.outputGain = this.audioContext.createGain();
 
                 this.mainInput.connect(this.rectifier);
-                this.rectifier.connect(this.smoother);
-                this.smoother.connect(this.outputGain);
+                this.rectifier.connect(this.attackSmoother);
+                this.attackSmoother.connect(this.releaseSmoother);
+                this.releaseSmoother.connect(this.outputGain);
 
                 this.mainOutput = this.outputGain;
 
                 this.updateParameter('sensitivity', this.data.sensitivity !== undefined ? this.data.sensitivity : 1.0);
+                this.updateParameter('attack', this.data.attack !== undefined ? this.data.attack : 0.01);
                 this.updateParameter('release', this.data.release !== undefined ? this.data.release : 0.1);
             }
 
@@ -6745,11 +6752,12 @@ workspace_data: ${base64Data}
                 const now = this.audioContext.currentTime;
                 if (paramName === 'sensitivity') {
                     this.outputGain.gain.setTargetAtTime(value, now, 0.01);
-                } else if (paramName === 'release') {
-                    // Simple mapping of release time to filter frequency.
-                    // Higher frequency = faster response (shorter release).
+                } else if (paramName === 'attack') {
                     const frequency = 1.0 / (2 * Math.PI * Math.max(0.001, value));
-                    this.smoother.frequency.setTargetAtTime(frequency, now, 0.01);
+                    this.attackSmoother.frequency.setTargetAtTime(frequency, now, 0.01);
+                } else if (paramName === 'release') {
+                    const frequency = 1.0 / (2 * Math.PI * Math.max(0.001, value));
+                    this.releaseSmoother.frequency.setTargetAtTime(frequency, now, 0.01);
                 }
             }
 
@@ -6892,14 +6900,21 @@ workspace_data: ${base64Data}
                 this.addInput('audio', new Classic.Input(voltageSocket, 'Audio In', true));
                 this.addOutput('cv', new Classic.Output(voltageSocket, 'CV Out'));
 
-                this.data.sensitivity = 1.0;
+                this.data.sensitivity = this.data.sensitivity !== undefined ? this.data.sensitivity : 1.0;
                 this.addControl('sensitivity', new SliderControl('envFollowSensitivity', 'Sensitivity', 0, 10, 0.1, this.data.sensitivity, (val) => {
                     this.data.sensitivity = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('sensitivity', val);
                 }));
 
-                this.data.release = 0.1;
+                this.data.attack = this.data.attack !== undefined ? this.data.attack : 0.01;
+                this.addControl('attack', new SliderControl('envFollowAttack', 'Attack (s)', 0.001, 1.0, 0.001, this.data.attack, (val) => {
+                    this.data.attack = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) audioNode.updateParameter('attack', val);
+                }));
+
+                this.data.release = this.data.release !== undefined ? this.data.release : 0.1;
                 this.addControl('release', new SliderControl('envFollowRelease', 'Release (s)', 0.001, 1.0, 0.001, this.data.release, (val) => {
                     this.data.release = val;
                     const audioNode = reteAudioNodes.get(this.id);

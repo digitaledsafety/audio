@@ -55,6 +55,7 @@ Audio supports real-time multiplayer, allowing you to collaborate with others on
 *   [Delay](./docs/DelayNode.md)
 *   [Distortion](./docs/DistortionNode.md)
 *   [Drum Machine](./docs/drum-machine-node.md)
+*   [Envelope Follower](./docs/EnvelopeFollowerNode.md)
 *   [Filter](./docs/FilterNode.md)
 *   [Granular Synthesizer](./docs/GranularSynthesizerNode.md)
 *   [LFO](./docs/LFONode.md)
