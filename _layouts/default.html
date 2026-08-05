@@ -1380,9 +1380,10 @@ workspace_data: ${base64Data}
             const impulse = audioContext.createBuffer(2, length, sampleRate);
             const left = impulse.getChannelData(0);
             const right = impulse.getChannelData(1);
+            const invLength = 1 / length;
 
             for (let i = 0; i < length; i++) {
-                const env = Math.pow(1 - i / length, decay);
+                const env = Math.pow(1 - i * invLength, decay);
                 left[i] = (Math.random() * 2 - 1) * env;
                 right[i] = (Math.random() * 2 - 1) * env;
             }
