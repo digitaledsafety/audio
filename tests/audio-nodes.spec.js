@@ -10,7 +10,7 @@ test.describe('Audio Nodes Functionality', () => {
     await page.locator('#addNodeToggle').click();
     await page.locator('#addFilterNodeBtn').click();
 
-    const filterNode = page.locator('[data-node-label="Filter"]').first();
+    const filterNode = page.locator('[data-node-label="VCF"]').first();
     await expect(filterNode).toBeVisible();
 
     const typeSelect = filterNode.locator('select');
@@ -23,7 +23,7 @@ test.describe('Audio Nodes Functionality', () => {
     await page.locator('#addNodeToggle').click();
     await page.locator('#addADSREnvelopeNodeBtn').click();
 
-    const adsrNode = page.locator('[data-node-label="ADSR Envelope"]').first();
+    const adsrNode = page.locator('[data-node-label="EG"]').first();
     await expect(adsrNode).toBeVisible();
 
     const modeSelect = adsrNode.locator('select');

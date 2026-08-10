@@ -30,10 +30,10 @@ To get started with Audio, simply visit the [Audio website](https://audio.digita
 
 ### Tutorial: Creating Your First Synthesizer
 
-1.  **Add-a-Tone-Generator-Node**: This will be the sound source for your synthesizer. Click the "Add Node" button and select "Tone Generator".
-2.  **Add-a-Master-Output-Node**: This will be the final output for your audio. Click the "Add Node" button and select "Master".
-3.  **Connect-the-Nodes**: Click and drag from the output of the Tone Generator Node to the input of the Master Output Node.
-4.  **Play-Your-Synthesizer**: You should now hear a sine wave playing. You can change the frequency and waveform of the Tone Generator Node to create different sounds.
+1.  **Add-a-VCO-Node**: This will be the sound source for your synthesizer. Click the "Add Node" button and select "VCO".
+2.  **Add-an-Output-Node**: This will be the final output for your audio. Click the "Add Node" button and select "Output".
+3.  **Connect-the-Nodes**: Click and drag from the output of the VCO Node to the input of the Output Node.
+4.  **Play-Your-Synthesizer**: You should now hear a sine wave playing. You can change the frequency and waveform of the VCO Node to create different sounds.
 
 ### Tutorial: Real-Time Collaboration (Multiplayer)
 
@@ -46,7 +46,13 @@ Audio supports real-time multiplayer, allowing you to collaborate with others on
 
 ## Available Nodes
 
-*   [ADSR Envelope](./docs/ADSREnvelopeNode.md)
+*   [Clock](./docs/ClockNode.md)
+*   [EG](./docs/EGNode.md)
+*   [Gate](./docs/GateNode.md)
+*   [Noise Source](./docs/NoiseSourceNode.md)
+*   [Output](./docs/OutputNode.md)
+*   [VCO](./docs/VCONode.md)
+*   [VCF](./docs/VCFNode.md)
 *   [Arpeggiator](./docs/ArpeggiatorNode.md)
 *   [Attenuverter](./docs/AttenuverterNode.md)
 *   [Bitcrusher](./docs/BitcrusherNode.md)
@@ -56,19 +62,13 @@ Audio supports real-time multiplayer, allowing you to collaborate with others on
 *   [Distortion](./docs/DistortionNode.md)
 *   [Drum Machine](./docs/drum-machine-node.md)
 *   [Envelope Follower](./docs/EnvelopeFollowerNode.md)
-*   [Filter](./docs/FilterNode.md)
 *   [Granular Synthesizer](./docs/GranularSynthesizerNode.md)
 *   [LFO](./docs/LFONode.md)
-*   [Manual Gate](./docs/ManualGateNode.md)
-*   [Master](./docs/MasterGainOutputNode.md)
-*   [Master Clock](./docs/MasterClockNode.md)
 *   [Microphone Input](./docs/MicrophoneInputNode.md)
-*   [Noise Generator](./docs/NoiseGeneratorNode.md)
 *   [Quantizer](./docs/quantizer-node.md)
 *   [Reverb](./docs/ReverbNode.md)
 *   [Scale Arpeggiator](./docs/ScaleArpeggiatorNode.md)
 *   [Sequencer](./docs/SequencerNode.md)
-*   [Tone Generator](./docs/ToneGeneratorNode.md)
 *   [VCA](./docs/VCANode.md)
 *   [Vocoder](./docs/VocoderNode.md)
 *   [Wave Player](./docs/WavePlayerNode.md)

@@ -1,6 +1,6 @@
-# Noise Generator Node
+# Noise Source Node
 
-The Noise Generator Node generates white noise.
+The Noise Source Node generates white noise.
 
 ## Outputs
 

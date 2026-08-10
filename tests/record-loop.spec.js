@@ -35,15 +35,15 @@ test.describe('Record Loop Integration', () => {
     // Enter the studio
     await page.locator('#cta-button').click();
 
-    // Add a Master Clock node (required for loop recording)
+    // Add a Clock node (required for loop recording)
     const addNodeToggle = page.locator('#addNodeToggle');
     await addNodeToggle.click();
     const addMasterClockBtn = page.locator('#addMasterClockNodeBtn');
     await expect(addMasterClockBtn).toBeVisible();
     await addMasterClockBtn.click();
 
-    // Verify Master Clock node exists
-    await expect(page.locator('text=Master Clock').first()).toBeVisible();
+    // Verify Clock node exists
+    await expect(page.locator('text=Clock').first()).toBeVisible();
 
     // Toggle Settings menu to see Record Loop button
     await page.locator('#settingsToggle').click();

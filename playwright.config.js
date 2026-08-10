@@ -10,6 +10,7 @@ module.exports = defineConfig({
   use: {
     baseURL: 'http://localhost:8000',
     trace: 'on-first-retry',
+    serviceWorkers: 'block',
   },
   projects: [
     {

@@ -20,7 +20,7 @@ test.describe('Multiplayer Synchronization', () => {
     await page1.click('#addToneGeneratorNodeBtn');
 
     // Target the specific node we just added
-    const toneNode1 = page1.locator('[data-node-label="Tone Generator"]').first();
+    const toneNode1 = page1.locator('[data-node-label="VCO"]').first();
     await expect(toneNode1).toBeVisible({ timeout: 10000 });
 
     // Start hosting
@@ -46,7 +46,7 @@ test.describe('Multiplayer Synchronization', () => {
     await expect(page2.locator('#hero-overlay')).not.toBeVisible();
 
     // Wait for nodes to load on Player 2
-    const toneNode2 = page2.locator('[data-node-label="Tone Generator"]').first();
+    const toneNode2 = page2.locator('[data-node-label="VCO"]').first();
     await expect(toneNode2).toBeVisible({ timeout: 25000 });
 
     // Give some time for PeerJS connection to stabilize

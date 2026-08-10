@@ -1,6 +1,6 @@
-# ADSR Envelope Node
+# EG Node
 
-The **ADSR Envelope** node generates a control signal that follows a standard Attack, Decay, Sustain, and Release path. It is used to shape the characteristics of other nodes, most commonly the volume of a `VCANode`.
+The **EG (Envelope Generator)** node generates a control signal that follows a standard Attack, Decay, Sustain, and Release path. It is used to shape the characteristics of other nodes, most commonly the volume of a `VCANode`.
 
 The envelope is controlled by an incoming gate signal. When the gate signal goes high, the envelope enters its Attack and Decay phases. It will then remain at the Sustain level for as long as the gate is held high. Once the gate goes low, the envelope enters its Release phase.
 

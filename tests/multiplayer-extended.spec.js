@@ -9,13 +9,13 @@ test.describe('Extended Multiplayer Synchronization', () => {
     await page1.click('#cta-button');
     await expect(page1.locator('#hero-overlay')).not.toBeVisible();
 
-    // Clear editor and add a Tone Generator
+    // Clear editor and add a VCO
     await page1.evaluate(async () => {
         if (window.editor) await window.editor.clear();
     });
     await page1.click('#addNodeToggle');
     await page1.click('#addToneGeneratorNodeBtn');
-    const toneNode1 = page1.locator('[data-node-label="Tone Generator"]').first();
+    const toneNode1 = page1.locator('[data-node-label="VCO"]').first();
     await expect(toneNode1).toBeVisible();
 
     // Start hosting
@@ -38,7 +38,7 @@ test.describe('Extended Multiplayer Synchronization', () => {
     await expect(page2.locator('#hero-overlay')).not.toBeVisible();
 
     // 1. Test Initial Workspace Sync
-    const toneNode2 = page2.locator('[data-node-label="Tone Generator"]').first();
+    const toneNode2 = page2.locator('[data-node-label="VCO"]').first();
     await expect(toneNode2).toBeVisible({ timeout: 25000 });
     console.log('Initial workspace synchronized');
 
@@ -92,14 +92,14 @@ test.describe('Extended Multiplayer Synchronization', () => {
     // 5. Test Incremental Node Addition
     await page1.click('#addNodeToggle');
     await page1.click('#addNoiseGeneratorNodeBtn');
-    const noiseNode2 = page2.locator('[data-node-label="Noise Generator"]').first();
+    const noiseNode2 = page2.locator('[data-node-label="Noise Source"]').first();
     await expect(noiseNode2).toBeVisible({ timeout: 10000 });
     console.log('Incremental node addition synchronized');
 
     // 6. Test Incremental Node Removal
-    // We'll use page1.evaluate to remove the node because clicking the 'x' might be tricky in Rete v2 without a specific selector
+    // We'll use page1.evaluate to remove the node because clicking the 'x' might be tricky in Rete v2 without a some selector
     const noiseNodeId = await page1.evaluate(() => {
-        const node = window.editor.getNodes().find(n => n.label === 'Noise Generator');
+        const node = window.editor.getNodes().find(n => n.label === 'Noise Source');
         return node.id;
     });
 
@@ -114,14 +114,14 @@ test.describe('Extended Multiplayer Synchronization', () => {
     // Add another node to connect to
     await page1.click('#addNodeToggle');
     await page1.click('#addMasterGainOutputNodeBtn');
-    const masterNode2 = page2.locator('[data-node-label="Master"]').first();
+    const masterNode2 = page2.locator('[data-node-label="Output"]').first();
     await expect(masterNode2).toBeVisible({ timeout: 10000 });
 
     // Create connection on Player 1
     await page1.evaluate(async () => {
         const nodes = Array.from(window.editor.getNodes());
-        const toneNode = nodes.find(n => n.label === 'Tone Generator');
-        const masterNode = nodes.find(n => n.label === 'Master');
+        const toneNode = nodes.find(n => n.label === 'VCO');
+        const masterNode = nodes.find(n => n.label === 'Output');
         await window.editor.addConnection(new window.Rete.ClassicPreset.Connection(toneNode, 'audio', masterNode, 'audio'));
     });
 

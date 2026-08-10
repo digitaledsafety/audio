@@ -16,7 +16,7 @@ test.describe('Clock Synchronization', () => {
   });
 
   test('should add clock-related nodes and ping pong delay', async ({ page }) => {
-    // Add Master Clock
+    // Add Clock
     await page.locator('#addNodeToggle').click();
     await page.locator('#addMasterClockNodeBtn').click();
 
@@ -24,7 +24,7 @@ test.describe('Clock Synchronization', () => {
     await page.locator('#addNodeToggle').click();
     await page.locator('#addSequencerNodeBtn').click();
 
-    const masterClockNode = page.locator('[data-node-label="Master Clock"]');
+    const masterClockNode = page.locator('[data-node-label="Clock"]');
     await expect(masterClockNode).toBeVisible();
 
     const sequencerNode = page.locator('[data-node-label="Sequencer"]');
