@@ -356,8 +356,8 @@ layout: none
                         <div class="mb-4">
                             <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 px-1">Sources</h4>
                             <div class="grid grid-cols-2 gap-2">
-                                <button id="addToneGeneratorNodeBtn" class="button button-secondary w-full text-xs">🔊 Tone Gen</button>
-                                <button id="addNoiseGeneratorNodeBtn" class="button button-secondary w-full text-xs">🌫️ Noise Gen</button>
+                                <button id="addToneGeneratorNodeBtn" class="button button-secondary w-full text-xs">🔊 VCO</button>
+                                <button id="addNoiseGeneratorNodeBtn" class="button button-secondary w-full text-xs">🌫️ Noise Source</button>
                                 <button id="addWavePlayerNodeBtn" class="button button-secondary w-full text-xs">🎵 Wave Player</button>
                                 <button id="addMicrophoneInputNodeBtn" class="button button-secondary w-full text-xs">🎤 Mic Input</button>
                                 <button id="addChordGeneratorNodeBtn" class="button button-secondary w-full text-xs">🎼 Chord Gen</button>
@@ -368,7 +368,7 @@ layout: none
                         <div class="mb-4">
                             <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 px-1">Effects</h4>
                             <div class="grid grid-cols-2 gap-2">
-                                <button id="addFilterNodeBtn" class="button button-secondary w-full text-xs">📉 Filter</button>
+                                <button id="addFilterNodeBtn" class="button button-secondary w-full text-xs">📉 VCF</button>
                                 <button id="addDelayNodeBtn" class="button button-secondary w-full text-xs">⏳ Delay</button>
                                 <button id="addDistortionNodeBtn" class="button button-secondary w-full text-xs">🎸 Distortion</button>
                                 <button id="addCompressorNodeBtn" class="button button-secondary w-full text-xs">📊 Compressor</button>
@@ -395,9 +395,9 @@ layout: none
                                 <button id="addDrumMachineNodeBtn" class="button button-secondary w-full text-xs">🥁 Drum Machine</button>
                                 <button id="addArpeggiatorNodeBtn" class="button button-secondary w-full text-xs">🎹 Arpeggiator</button>
                                 <button id="addLFONodeBtn" class="button button-secondary w-full text-xs">🌊 LFO</button>
-                                <button id="addADSREnvelopeNodeBtn" class="button button-secondary w-full text-xs">✉️ ADSR</button>
+                                <button id="addADSREnvelopeNodeBtn" class="button button-secondary w-full text-xs">✉️ EG</button>
                                 <button id="addEnvelopeFollowerNodeBtn" class="button button-secondary w-full text-xs">📈 Env Follower</button>
-                                <button id="addManualGateNodeBtn" class="button button-secondary w-full text-xs">🔳 Manual Gate</button>
+                                <button id="addManualGateNodeBtn" class="button button-secondary w-full text-xs">🔳 Gate</button>
                                 <button id="addQuantizerNodeBtn" class="button button-secondary w-full text-xs">🎹 Quantizer</button>
                                 <button id="addBernoulliGateNodeBtn" class="button button-secondary w-full text-xs">🎲 Bernoulli Gate</button>
                                 <button id="addLogicGatesNodeBtn" class="button button-secondary w-full text-xs">🧩 Logic Gates</button>
@@ -416,8 +416,8 @@ layout: none
                                 <button id="addMixerNodeBtn" class="button button-secondary w-full text-xs">🎛️ Mixer</button>
                                 <button id="addVisualizerNodeBtn" class="button button-secondary w-full text-xs">👁️ Visualizer</button>
                                 <button id="addAttenuverterNodeBtn" class="button button-secondary w-full text-xs">🔄 Attenuverter</button>
-                                <button id="addMasterClockNodeBtn" class="button button-secondary w-full text-xs">⏱️ Master Clock</button>
-                                <button id="addMasterGainOutputNodeBtn" class="button button-secondary w-full text-xs">🔊 Master</button>
+                                <button id="addMasterClockNodeBtn" class="button button-secondary w-full text-xs">⏱️ Clock</button>
+                                <button id="addMasterGainOutputNodeBtn" class="button button-secondary w-full text-xs">🔊 Output</button>
                                 <button id="addSignalInverterNodeBtn" class="button button-secondary w-full text-xs">🔄 Inverter</button>
                             </div>
                         </div>
@@ -511,13 +511,53 @@ layout: none
         var audioContext;
         const reteAudioNodes = new Map(); // Maps Rete.js node IDs to Web Audio API nodes
 
+        function translateLegacyLabel(label) {
+            const mapping = {
+                'Tone Generator': 'VCO',
+                'Filter': 'VCF',
+                'ADSR Envelope': 'EG',
+                'Master': 'Output',
+                'Manual Gate': 'Gate',
+                'Signal Inverter': 'Inverter',
+                'Noise Generator': 'Noise Source',
+                'Master Clock': 'Clock'
+            };
+            return mapping[label] || label;
+        }
+
+        function translateLegacyLabelToClassName(label) {
+            const mapping = {
+                // New display names
+                'VCO': 'ToneGeneratorNode',
+                'VCF': 'FilterNode',
+                'EG': 'ADSREnvelopeNode',
+                'Output': 'MasterGainOutputNode',
+                'Gate': 'ManualGateNode',
+                'Inverter': 'SignalInverterNode',
+                'Noise Source': 'NoiseGeneratorNode',
+                'Clock': 'MasterClockNode',
+
+                // Legacy display names
+                'Tone Generator': 'ToneGeneratorNode',
+                'Filter': 'FilterNode',
+                'ADSR Envelope': 'ADSREnvelopeNode',
+                'Master': 'MasterGainOutputNode',
+                'Manual Gate': 'ManualGateNode',
+                'Signal Inverter': 'SignalInverterNode',
+                'Noise Generator': 'NoiseGeneratorNode',
+                'Master Clock': 'MasterClockNode'
+            };
+            return mapping[label] || label;
+        }
+
         const NodeRegistry = {
             _nodes: new Map(),
             register(name, constructor) {
                 this._nodes.set(name, constructor);
             },
-            getConstructor(name) {
-                return this._nodes.get(name);
+            getConstructor(nameOrType) {
+                const className = translateLegacyLabelToClassName(nameOrType);
+                return this._nodes.get(className) || this._nodes.get(nameOrType);
             },
             getConstructors() {
                 const constructors = {};
@@ -891,6 +931,7 @@ layout: none
             for (const node of editor.getNodes()) {
                 nodes.push({
                     id: node.id,
+                    type: node.constructor.name,
                     label: node.label,
                     data: node.data,
                     position: area.nodeViews.get(node.id).position
@@ -936,6 +977,12 @@ layout: none
             try {
                 console.log('Loading editor from JSON:', json);
 
+                if (json && json.nodes) {
+                    for (const nodeData of json.nodes) {
+                        nodeData.label = translateLegacyLabel(nodeData.label);
+                    }
+                }
+
                 const currentNodes = editor.getNodes();
                 const incomingNodeIds = new Set(json.nodes.map(n => n.id));
 
@@ -948,8 +995,9 @@ layout: none
 
                 // 2. Add or update nodes
                 for (const nodeData of json.nodes) {
+                    const nodeType = nodeData.type || translateLegacyLabelToClassName(nodeData.label);
                     let node = editor.getNode(nodeData.id);
-                    if (node && node.label !== nodeData.label) {
+                    if (node && node.constructor.name !== nodeType) {
                         await editor.removeNode(node.id);
                         node = null;
                     }
@@ -989,7 +1037,7 @@ layout: none
                         }
                     } else {
                         // Create new node
-                        const Constructor = NodeRegistry.getConstructor(nodeData.label);
+                        const Constructor = NodeRegistry.getConstructor(nodeType);
                         if (Constructor) {
                             node = new Constructor();
                             node.id = nodeData.id;
@@ -1246,7 +1294,9 @@ layout: none
             const primaryInputMap = {
                 'VCA': 'audio',
                 'Master': 'audio',
+                'Output': 'audio',
                 'Filter': 'audio',
+                'VCF': 'audio',
                 'Delay': 'audio',
                 'Distortion': 'audio',
                 'Compressor': 'audio',
@@ -2676,7 +2726,7 @@ workspace_data: ${base64Data}
 
         class ManualGateNode extends GeneratorNode {
             constructor() {
-                super('Manual Gate');
+                super('Gate');
                 this.addOutput('out', new Classic.Output(voltageSocket, 'Gate Out'));
 
                 this.data.value = false;
@@ -2744,7 +2794,7 @@ workspace_data: ${base64Data}
         
         class ToneGeneratorNode extends WebAudioNode {
             constructor() {
-                super('Tone Generator');
+                super('VCO');
 
                 this.addInput('freq', new Classic.Input(voltageSocket, 'Freq CV', true));
                 this.addInput('midi', new Classic.Input(midiSocket, 'MIDI In'));
@@ -2884,7 +2934,7 @@ workspace_data: ${base64Data}
 
         class NoiseGeneratorNode extends WebAudioNode {
             constructor() {
-                super('Noise Generator');
+                super('Noise Source');
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio'));
 
                 this.data.gainValue = 1;
@@ -3990,7 +4040,7 @@ workspace_data: ${base64Data}
 
         class SignalInverterNode extends WebAudioNode {
             constructor() {
-                super('Signal Inverter');
+                super('Inverter');
                 this.addInput('audio', new Classic.Input(voltageSocket, 'Signal In', true));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Signal Out'));
             }
@@ -4248,7 +4298,7 @@ workspace_data: ${base64Data}
 
         class MasterGainOutputNode extends WebAudioNode {
             constructor() {
-                super('Master');
+                super('Output');
                 this.addInput('audio', new Classic.Input(voltageSocket, 'Audio In', true));
                 this.addInput('gain_cv', new Classic.Input(voltageSocket, 'Gain CV', true));
 
@@ -4280,7 +4330,7 @@ workspace_data: ${base64Data}
 
         class FilterNode extends WebAudioNode {
             constructor() {
-                super('Filter');
+                super('VCF');
 
                 this.addInput('audio', new Classic.Input(voltageSocket, 'Audio In', true));
                 this.addInput('freq', new Classic.Input(voltageSocket, 'Freq CV', true));
@@ -6221,7 +6271,7 @@ workspace_data: ${base64Data}
 
         class MasterClockNode extends GeneratorNode {
             constructor() {
-                super('Master Clock');
+                super('Clock');
                 this.addOutput('clock', new Classic.Output(voltageSocket, 'Clock Out'));
 
                 this.addControl('indicator', new IndicatorControl('indicator', 'Clock Pulse'));
@@ -6929,7 +6979,7 @@ workspace_data: ${base64Data}
 
         class ADSREnvelopeNode extends ModulatorNode {
             constructor() {
-                super('ADSR Envelope');
+                super('EG');
                 this.addInput('gate', new Classic.Input(voltageSocket, 'Gate In', true));
                 this.addOutput('cv', new Classic.Output(voltageSocket, 'CV Out')); // This outputs a control signal
 
@@ -7999,48 +8049,90 @@ workspace_data: ${base64Data}
         });
 
         // Initialize editor on window load
-        NodeRegistry.register('Tone Generator', ToneGeneratorNode);
-        NodeRegistry.register('Noise Generator', NoiseGeneratorNode);
+        NodeRegistry.register('VCO', ToneGeneratorNode);
+        NodeRegistry.register('ToneGeneratorNode', ToneGeneratorNode);
+        NodeRegistry.register('Noise Source', NoiseGeneratorNode);
+        NodeRegistry.register('NoiseGeneratorNode', NoiseGeneratorNode);
         NodeRegistry.register('Wave Player', WavePlayerNode);
+        NodeRegistry.register('WavePlayerNode', WavePlayerNode);
         NodeRegistry.register('Chord Generator', ChordGeneratorNode);
+        NodeRegistry.register('ChordGeneratorNode', ChordGeneratorNode);
         NodeRegistry.register('VCA', VCANode);
-        NodeRegistry.register('Master', MasterGainOutputNode);
-        NodeRegistry.register('Filter', FilterNode);
+        NodeRegistry.register('VCANode', VCANode);
+        NodeRegistry.register('Output', MasterGainOutputNode);
+        NodeRegistry.register('MasterGainOutputNode', MasterGainOutputNode);
+        NodeRegistry.register('VCF', FilterNode);
+        NodeRegistry.register('FilterNode', FilterNode);
         NodeRegistry.register('Delay', DelayNode);
+        NodeRegistry.register('DelayNode', DelayNode);
         NodeRegistry.register('Ping Pong Delay', PingPongDelayNode);
+        NodeRegistry.register('PingPongDelayNode', PingPongDelayNode);
         NodeRegistry.register('Chorus', ChorusNode);
+        NodeRegistry.register('ChorusNode', ChorusNode);
         NodeRegistry.register('Phaser', PhaserNode);
+        NodeRegistry.register('PhaserNode', PhaserNode);
         NodeRegistry.register('Flanger', FlangerNode);
+        NodeRegistry.register('FlangerNode', FlangerNode);
         NodeRegistry.register('Distortion', DistortionNode);
+        NodeRegistry.register('DistortionNode', DistortionNode);
         NodeRegistry.register('Compressor', CompressorNode);
+        NodeRegistry.register('CompressorNode', CompressorNode);
         NodeRegistry.register('Reverb', ReverbNode);
+        NodeRegistry.register('ReverbNode', ReverbNode);
         NodeRegistry.register('Arpeggiator', ArpeggiatorNode);
+        NodeRegistry.register('ArpeggiatorNode', ArpeggiatorNode);
         NodeRegistry.register('LFO', LFONode);
-        NodeRegistry.register('ADSR Envelope', ADSREnvelopeNode);
+        NodeRegistry.register('LFONode', LFONode);
+        NodeRegistry.register('EG', ADSREnvelopeNode);
+        NodeRegistry.register('ADSREnvelopeNode', ADSREnvelopeNode);
         NodeRegistry.register('Envelope Follower', EnvelopeFollowerNode);
+        NodeRegistry.register('EnvelopeFollowerNode', EnvelopeFollowerNode);
         NodeRegistry.register('Bitcrusher', BitcrusherNode);
+        NodeRegistry.register('BitcrusherNode', BitcrusherNode);
         NodeRegistry.register('Sequencer', SequencerNode);
+        NodeRegistry.register('SequencerNode', SequencerNode);
         NodeRegistry.register('Attenuverter', AttenuverterNode);
-        NodeRegistry.register('Master Clock', MasterClockNode);
+        NodeRegistry.register('AttenuverterNode', AttenuverterNode);
+        NodeRegistry.register('Clock', MasterClockNode);
+        NodeRegistry.register('MasterClockNode', MasterClockNode);
         NodeRegistry.register('Vocoder', VocoderNode);
+        NodeRegistry.register('VocoderNode', VocoderNode);
         NodeRegistry.register('🎤 Mic Input', MicrophoneInputNode);
+        NodeRegistry.register('MicrophoneInputNode', MicrophoneInputNode);
         NodeRegistry.register('Granular Synthesizer', GranularSynthesizerNode);
-        NodeRegistry.register('Manual Gate', ManualGateNode);
+        NodeRegistry.register('GranularSynthesizerNode', GranularSynthesizerNode);
+        NodeRegistry.register('Gate', ManualGateNode);
+        NodeRegistry.register('ManualGateNode', ManualGateNode);
         NodeRegistry.register('Quantizer', QuantizerNode);
+        NodeRegistry.register('QuantizerNode', QuantizerNode);
         NodeRegistry.register('Drum Machine', DrumMachineNode);
+        NodeRegistry.register('DrumMachineNode', DrumMachineNode);
         NodeRegistry.register('Mixer', MixerNode);
+        NodeRegistry.register('MixerNode', MixerNode);
         NodeRegistry.register('Visualizer', VisualizerNode);
+        NodeRegistry.register('VisualizerNode', VisualizerNode);
         NodeRegistry.register('Stereo Panner', StereoPannerNode);
+        NodeRegistry.register('StereoPannerNode', StereoPannerNode);
         NodeRegistry.register('DTS Enhancer', DTSEnhancerNode);
+        NodeRegistry.register('DTSEnhancerNode', DTSEnhancerNode);
         NodeRegistry.register('Vector Panner', VectorPannerNode);
+        NodeRegistry.register('VectorPannerNode', VectorPannerNode);
         NodeRegistry.register('Stereo Widener', StereoWidenerNode);
+        NodeRegistry.register('StereoWidenerNode', StereoWidenerNode);
         NodeRegistry.register('Bernoulli Gate', BernoulliGateNode);
+        NodeRegistry.register('BernoulliGateNode', BernoulliGateNode);
         NodeRegistry.register('Logic Gates', LogicGatesNode);
+        NodeRegistry.register('LogicGatesNode', LogicGatesNode);
         NodeRegistry.register('Turing Machine', TuringMachineNode);
+        NodeRegistry.register('TuringMachineNode', TuringMachineNode);
         NodeRegistry.register('Sample & Hold', SampleAndHoldNode);
+        NodeRegistry.register('SampleAndHoldNode', SampleAndHoldNode);
         NodeRegistry.register('Random Voltage', RandomVoltageNode);
+        NodeRegistry.register('RandomVoltageNode', RandomVoltageNode);
         NodeRegistry.register('Clock Divider', ClockDividerNode);
-        NodeRegistry.register('Signal Inverter', SignalInverterNode);
+        NodeRegistry.register('ClockDividerNode', ClockDividerNode);
+        NodeRegistry.register('Inverter', SignalInverterNode);
+        NodeRegistry.register('SignalInverterNode', SignalInverterNode);
 
         window.onload = async () => {
             // Rete.js v2: Define schemes
@@ -8171,13 +8263,13 @@ workspace_data: ${base64Data}
 
             const contextMenu = new ContextMenuPlugin({
                 items: ContextMenuPresets.classic.setup([
-                    ['Tone Generator', () => new ToneGeneratorNode()],
-                    ['Noise Generator', () => new NoiseGeneratorNode()],
+                    ['VCO', () => new ToneGeneratorNode()],
+                    ['Noise Source', () => new NoiseGeneratorNode()],
                     ['Wave Player', () => new WavePlayerNode()],
                     ['Chord Generator', () => new ChordGeneratorNode()],
                     ['VCA', () => new VCANode()],
-                    ['Master', () => new MasterGainOutputNode()],
-                    ['Filter', () => new FilterNode()],
+                    ['Output', () => new MasterGainOutputNode()],
+                    ['VCF', () => new FilterNode()],
                     ['Delay', () => new DelayNode()],
                     ['Ping Pong Delay', () => new PingPongDelayNode()],
                     ['Chorus', () => new ChorusNode()],
@@ -8187,11 +8279,11 @@ workspace_data: ${base64Data}
                     ['Reverb', () => new ReverbNode()],
                     ['Arpeggiator', () => new ArpeggiatorNode()],
                     ['LFO', () => new LFONode()],
-                    ['ADSR Envelope', () => new ADSREnvelopeNode()],
+                    ['EG', () => new ADSREnvelopeNode()],
                     ['Bitcrusher', () => new BitcrusherNode()],
                     ['Sequencer', () => new SequencerNode()],
                     ['Attenuverter', () => new AttenuverterNode()],
-                    ['Master Clock', () => new MasterClockNode()],
+                    ['Clock', () => new MasterClockNode()],
                     ['Vocoder', () => new VocoderNode()],
                     ['Granular Synthesizer', () => new GranularSynthesizerNode()],
                     ['Mixer', () => new MixerNode()],
@@ -8205,7 +8297,7 @@ workspace_data: ${base64Data}
                     ['Sample & Hold', () => new SampleAndHoldNode()],
                     ['Random Voltage', () => new RandomVoltageNode()],
                     ['Clock Divider', () => new ClockDividerNode()],
-                    ['Signal Inverter', () => new SignalInverterNode()],
+                    ['Inverter', () => new SignalInverterNode()],
 
                 ])
             });

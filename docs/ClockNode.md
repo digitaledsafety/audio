@@ -1,6 +1,6 @@
-# Master Clock Node
+# Clock Node
 
-The Master Clock Node is a central timing source for the entire patch. It generates a stable tempo that can be used to synchronize other time-sensitive nodes like sequencers and arpeggiators.
+The Clock Node is a central timing source for the entire patch. It generates a stable tempo that can be used to synchronize other time-sensitive nodes like sequencers and arpeggiators.
 
 ## Outputs
 

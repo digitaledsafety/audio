@@ -41,7 +41,7 @@ test.describe('Enhancements Verification', () => {
     await page.locator('#addNodeToggle').click();
     await page.locator('#addSignalInverterNodeBtn').click();
 
-    const invNode = page.locator('[data-node-label="Signal Inverter"]').first();
+    const invNode = page.locator('[data-node-label="Inverter"]').first();
     await expect(invNode).toBeVisible();
 
     await expect(invNode.locator('.input-title:has-text("Signal In")')).toBeVisible();

@@ -1,8 +1,8 @@
-# Manual Gate Node
+# Gate Node
 
-The **Manual Gate** node is a simple utility that outputs a gate signal. It features a toggle switch that can be used to manually open (gate high) and close (gate low) the gate.
+The **Gate** node is a simple utility that outputs a gate signal. It features a toggle switch that can be used to manually open (gate high) and close (gate low) the gate.
 
-This is useful for manually triggering envelope generators like the `ADSREnvelopeNode`, or for any other module that accepts a gate input.
+This is useful for manually triggering envelope generators like the `EGNode`, or for any other module that accepts a gate input.
 
 ## Outputs
 

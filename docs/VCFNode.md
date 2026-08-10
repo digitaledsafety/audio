@@ -1,6 +1,6 @@
-# Filter Node
+# VCF Node
 
-The Filter Node can be used to filter an audio signal.
+The VCF (Voltage Controlled Filter) Node can be used to filter an audio signal.
 
 ## Inputs
 

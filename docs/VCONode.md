@@ -1,6 +1,6 @@
-# Tone Generator Node
+# VCO Node
 
-The Tone Generator Node is a basic oscillator that can be used to generate a variety of waveforms.
+The VCO (Voltage Controlled Oscillator) Node is a basic oscillator that can be used to generate a variety of waveforms.
 
 ## Inputs
 

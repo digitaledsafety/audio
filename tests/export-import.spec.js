@@ -21,7 +21,7 @@ test.describe('Workspace Export and Import Functionality', () => {
         }
     });
 
-    // 2. Add two nodes: Tone Generator and Master (Output)
+    // 2. Add two nodes: VCO and Output (Output)
     await page.locator('#addNodeToggle').click();
     await page.locator('#addToneGeneratorNodeBtn').click();
 
@@ -29,14 +29,14 @@ test.describe('Workspace Export and Import Functionality', () => {
     await page.locator('#addMasterGainOutputNodeBtn').click();
 
     // Verify nodes are added
-    await expect(page.locator('text=Tone Generator').first()).toBeVisible();
-    await expect(page.locator('text=Master').first()).toBeVisible();
+    await expect(page.locator('text=VCO').first()).toBeVisible();
+    await expect(page.locator('text=Output').first()).toBeVisible();
 
     // 3. Connect them programmatically
     await page.evaluate(async () => {
         const nodes = Array.from(window.editor.getNodes());
-        const toneNode = nodes.find(n => n.label === 'Tone Generator');
-        const masterNode = nodes.find(n => n.label === 'Master');
+        const toneNode = nodes.find(n => n.label === 'VCO');
+        const masterNode = nodes.find(n => n.label === 'Output');
         await window.editor.addConnection(new window.Rete.ClassicPreset.Connection(toneNode, 'audio', masterNode, 'audio'));
     });
 
@@ -74,8 +74,8 @@ test.describe('Workspace Export and Import Functionality', () => {
     if (await settingsDropdown.isVisible()) {
         await page.locator('#settingsToggle').click();
     }
-    await expect(page.locator('text=Tone Generator').first()).toBeVisible();
-    await expect(page.locator('text=Master').first()).toBeVisible();
+    await expect(page.locator('text=VCO').first()).toBeVisible();
+    await expect(page.locator('text=Output').first()).toBeVisible();
 
     const restoredConnectionsCount = await page.evaluate(() => window.editor.getConnections().length);
     expect(restoredConnectionsCount).toBe(1);
@@ -97,8 +97,8 @@ test.describe('Workspace Export and Import Functionality', () => {
     if (await settingsDropdown.isVisible()) {
         await page.locator('#settingsToggle').click();
     }
-    await expect(page.locator('text=Tone Generator').first()).toBeVisible();
-    await expect(page.locator('text=Master').first()).toBeVisible();
+    await expect(page.locator('text=VCO').first()).toBeVisible();
+    await expect(page.locator('text=Output').first()).toBeVisible();
 
     const restoredConnectionsCount2 = await page.evaluate(() => window.editor.getConnections().length);
     expect(restoredConnectionsCount2).toBe(1);

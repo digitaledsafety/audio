@@ -33,10 +33,10 @@ test.describe('Critical Functionality', () => {
     await expect(addToneGenBtn).toBeVisible();
     await addToneGenBtn.click();
 
-    // Verify Tone Generator node exists in the DOM
+    // Verify VCO node exists in the DOM
     // Rete.js v2 nodes typically have a label or specific class
-    // Based on CustomNodeComponent, we can look for the text "Tone Generator"
-    await expect(page.locator('text=Tone Generator').first()).toBeVisible();
+    // Based on CustomNodeComponent, we can look for the text "VCO"
+    await expect(page.locator('text=VCO').first()).toBeVisible();
   });
 
   test('should toggle the visualizer', async ({ page }) => {
@@ -92,6 +92,6 @@ test.describe('Critical Functionality', () => {
     await page.locator('#loadWorkspaceBtn').click();
 
     // Verify node is restored
-    await expect(page.locator('text=Tone Generator').first()).toBeVisible();
+    await expect(page.locator('text=VCO').first()).toBeVisible();
   });
 });
