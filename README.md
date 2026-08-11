@@ -16,6 +16,7 @@
 ## Features
 
 *   **Unified Voltage System**: Inspired by modular hardware, all non-MIDI connections are interchangeable voltage signals, allowing for maximum creative flexibility. See the [Core Concepts](./docs/core-concepts.md) guide to learn more.
+*   **Cyclic Routing**: Route signals back into themselves to create experimental feedback loops. Read our [Feedback Loops & Cyclic Routing](./docs/FeedbackLoops.md) guide to understand Web Audio API limits and valid routing techniques.
 *   **Node-Based-Audio-Processing**: Connect a variety of audio nodes to create custom audio-processing chains.
 *   **Real-Time-Sound-Synthesis**: Generate sound in real time with a variety of oscillator and noise generator nodes.
 *   **MIDI-Support**: Control your synthesizers and sequencers with external MIDI devices.
