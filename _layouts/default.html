@@ -1969,6 +1969,101 @@ workspace_data: ${base64Data}
             }
         };
 
+        function findNodesInCycles() {
+            if (!editor) return new Set();
+
+            const nodes = editor.getNodes();
+            const connections = editor.getConnections();
+
+            const adj = new Map();
+            for (const node of nodes) {
+                adj.set(node.id, []);
+            }
+            for (const conn of connections) {
+                if (adj.has(conn.source)) {
+                    adj.get(conn.source).push(conn.target);
+                }
+            }
+
+            const inCycle = new Set();
+            const visited = new Map(); // id -> 'visiting' or 'visited'
+
+            function dfs(nodeId, path) {
+                visited.set(nodeId, 'visiting');
+                path.push(nodeId);
+
+                const neighbors = adj.get(nodeId) || [];
+                for (const neighbor of neighbors) {
+                    if (visited.get(neighbor) === 'visiting') {
+                        const cycleStartIndex = path.indexOf(neighbor);
+                        if (cycleStartIndex !== -1) {
+                            for (let i = cycleStartIndex; i < path.length; i++) {
+                                inCycle.add(path[i]);
+                            }
+                        }
+                    } else if (!visited.has(neighbor)) {
+                        dfs(neighbor, path);
+                    }
+                }
+
+                path.pop();
+                visited.set(nodeId, 'visited');
+            }
+
+            for (const node of nodes) {
+                if (!visited.has(node.id)) {
+                    dfs(node.id, []);
+                }
+            }
+
+            return inCycle;
+        }
+
+        function applyFeedbackMixClamping() {
+            if (!editor) return;
+
+            setTimeout(() => {
+                const nodesInCycles = findNodesInCycles();
+                console.log("applyFeedbackMixClamping: nodesInCycles =", Array.from(nodesInCycles));
+
+                for (const reteNode of editor.getNodes()) {
+                    const nodeId = reteNode.id;
+                    const audioNode = reteAudioNodes.get(nodeId);
+                    const isInCycle = nodesInCycles.has(nodeId);
+                    console.log(`Node ${nodeId} (${reteNode.label}): isInCycle = ${isInCycle}`);
+
+                    // Determine target mix value
+                    const targetMixValue = isInCycle ? 1.0 : (reteNode.data.mix !== undefined ? reteNode.data.mix : 0.5);
+
+                    // Update the mix in the audio node if it exists
+                    if (audioNode) {
+                        if (typeof audioNode.updateParameter === 'function') {
+                            audioNode.updateParameter('mix', targetMixValue);
+                        } else if (audioNode.dryGain && audioNode.wetGain) {
+                            const now = audioContext.currentTime;
+                            audioNode.dryGain.gain.setTargetAtTime(1 - targetMixValue, now, 0.01);
+                            audioNode.wetGain.gain.setTargetAtTime(targetMixValue, now, 0.01);
+                        }
+                    }
+
+                    // Update the visual disabled/greyed-out state of the Mix control
+                    if (reteNode.controls && reteNode.controls.mix) {
+                        const prevDisabled = reteNode.controls.mix.disabled;
+                        reteNode.controls.mix.disabled = isInCycle;
+                        console.log(`Setting Mix control disabled for Node ${nodeId} to ${isInCycle} (prev: ${prevDisabled})`);
+
+                        // If the disabled state changed, request Rete to update/re-render the node
+                        if (prevDisabled !== isInCycle && area) {
+                            area.update('node', nodeId);
+                        }
+                    }
+                }
+            }, 0);
+        }
+
+        window.findNodesInCycles = findNodesInCycles;
+        window.applyFeedbackMixClamping = applyFeedbackMixClamping;
+
         async function updateAudioGraphConnections() {
             if (!audioContext || !editor) return;
 
@@ -2040,6 +2135,8 @@ workspace_data: ${base64Data}
                     }
                 }
             }
+            // Apply feedback mix clamping
+            applyFeedbackMixClamping();
         }
 
         // --- Rete.js v2 Setup ---
@@ -2390,6 +2487,7 @@ workspace_data: ${base64Data}
                 this.value = initialValue; // Rete v2 controls directly hold their value
                 this.onValueChange = onValueChange;
                 this.isLog = isLog;
+                this.disabled = false;
             }
         }
 
@@ -2401,6 +2499,7 @@ workspace_data: ${base64Data}
                 this.options = options;
                 this.value = initialValue;
                 this.onValueChange = onValueChange;
+                this.disabled = false;
             }
         }
 
@@ -2422,6 +2521,7 @@ workspace_data: ${base64Data}
                 super(id);
                 this.label = label;
                 this.onClick = onClick;
+                this.disabled = false;
             }
         }
 
@@ -2431,6 +2531,7 @@ workspace_data: ${base64Data}
                 this.label = label;
                 this.value = initialValue;
                 this.onValueChange = onValueChange;
+                this.disabled = false;
             }
         }
 
@@ -2447,6 +2548,7 @@ workspace_data: ${base64Data}
                 this.label = label;
                 this.value = initialValue;
                 this.onValueChange = onValueChange;
+                this.disabled = false;
             }
         }
 
@@ -3355,7 +3457,10 @@ workspace_data: ${base64Data}
                 this.addControl('mix', new SliderControl('mixSlider', 'Mix', 0, 1, 0.01, this.data.mix, (val) => {
                     this.data.mix = val;
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode) audioNode.updateParameter('mix', val);
+                    if (audioNode) {
+                        audioNode.updateParameter('mix', val);
+                        applyFeedbackMixClamping();
+                    }
                 }));
             }
 
@@ -4464,7 +4569,10 @@ workspace_data: ${base64Data}
                 this.addControl('mix', new SliderControl('delayMix', 'Mix', 0, 1, 0.01, this.data.mix, (val) => {
                     this.data.mix = val;
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode) audioNode.updateParameter('mix', val);
+                    if (audioNode) {
+                        audioNode.updateParameter('mix', val);
+                        applyFeedbackMixClamping();
+                    }
                 }));
             }
 
@@ -4561,7 +4669,10 @@ workspace_data: ${base64Data}
                 this.addControl('mix', new SliderControl('ppMix', 'Mix', 0, 1, 0.01, this.data.mix, (val) => {
                     this.data.mix = val;
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode) audioNode.updateParameter('mix', val);
+                    if (audioNode) {
+                        audioNode.updateParameter('mix', val);
+                        applyFeedbackMixClamping();
+                    }
                 }));
             }
 
@@ -4662,7 +4773,10 @@ workspace_data: ${base64Data}
                 this.addControl('mix', new SliderControl('chorusMix', 'Mix', 0, 1, 0.01, this.data.mix, (val) => {
                     this.data.mix = val;
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode) audioNode.updateParameter('mix', val);
+                    if (audioNode) {
+                        audioNode.updateParameter('mix', val);
+                        applyFeedbackMixClamping();
+                    }
                 }));
             }
 
@@ -4786,7 +4900,10 @@ workspace_data: ${base64Data}
                 this.addControl('mix', new SliderControl('phaserMix', 'Mix', 0, 1, 0.01, this.data.mix, (val) => {
                     this.data.mix = val;
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode) audioNode.updateParameter('mix', val);
+                    if (audioNode) {
+                        audioNode.updateParameter('mix', val);
+                        applyFeedbackMixClamping();
+                    }
                 }));
             }
 
@@ -4901,7 +5018,10 @@ workspace_data: ${base64Data}
                 this.addControl('mix', new SliderControl('flangerMix', 'Mix', 0, 1, 0.01, this.data.mix, (val) => {
                     this.data.mix = val;
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode) audioNode.updateParameter('mix', val);
+                    if (audioNode) {
+                        audioNode.updateParameter('mix', val);
+                        applyFeedbackMixClamping();
+                    }
                 }));
             }
 
@@ -6419,6 +6539,7 @@ workspace_data: ${base64Data}
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) {
                         audioNode.updateParameter('mix', val);
+                        applyFeedbackMixClamping();
                     }
                 }));
             }
@@ -6550,6 +6671,7 @@ workspace_data: ${base64Data}
                     if (audioNode && audioNode.dryGain && audioNode.wetGain) {
                         audioNode.dryGain.gain.setTargetAtTime(1 - val, audioContext.currentTime, 0.01);
                         audioNode.wetGain.gain.setTargetAtTime(val, audioContext.currentTime, 0.01);
+                        applyFeedbackMixClamping();
                     }
                 }));
 
@@ -7606,6 +7728,9 @@ workspace_data: ${base64Data}
 
                     const controlEl = document.createElement('div');
                     controlEl.className = 'control';
+                    if (control.disabled) {
+                        controlEl.classList.add('opacity-50', 'pointer-events-none');
+                    }
 
                     if (control instanceof SliderControl) {
                         const sliderMin = control.isLog ? 0 : control.min;
@@ -7615,7 +7740,7 @@ workspace_data: ${base64Data}
 
                         controlEl.innerHTML = `
                             <label>${control.label}</label>
-                            <input type="range" min="${sliderMin}" max="${sliderMax}" step="${sliderStep}" value="${sliderValue}">
+                            <input type="range" min="${sliderMin}" max="${sliderMax}" step="${sliderStep}" value="${sliderValue}" ${control.disabled ? 'disabled' : ''}>
                             <span class="value-display">${control.value.toFixed(2)}</span>
                         `;
                         const slider = controlEl.querySelector('input');
@@ -7640,7 +7765,7 @@ workspace_data: ${base64Data}
                         const optionsHtml = control.options.map(opt => `<option value="${opt}">${opt}</option>`).join('');
                         controlEl.innerHTML = `
                             <label>${control.label}</label>
-                            <select>${optionsHtml}</select>
+                            <select ${control.disabled ? 'disabled' : ''}>${optionsHtml}</select>
                         `;
                         const select = controlEl.querySelector('select');
                         select.value = control.value;
@@ -7657,7 +7782,7 @@ workspace_data: ${base64Data}
                             });
                         };
                     } else if (control instanceof ButtonControl) {
-                        controlEl.innerHTML = `<button class="button button-secondary w-full">${control.label}</button>`;
+                        controlEl.innerHTML = `<button class="button button-secondary w-full" ${control.disabled ? 'disabled' : ''}>${control.label}</button>`;
                         const button = controlEl.querySelector('button');
                         button.onclick = () => {
                             control.onClick();
@@ -7672,10 +7797,10 @@ workspace_data: ${base64Data}
                         controlEl.innerHTML = `<div class="clock-indicator" title="${control.label}"></div>`;
                     } else if (control instanceof ToggleControl) {
                         controlEl.innerHTML = `
-                            <label class="flex items-center justify-center cursor-pointer">
+                            <label class="flex items-center justify-center ${control.disabled ? 'cursor-not-allowed' : 'cursor-pointer'}">
                                 <span class="mr-3 text-white">${control.label}</span>
                                 <div class="relative">
-                                    <input type="checkbox" class="sr-only peer" ${control.value ? 'checked' : ''}>
+                                    <input type="checkbox" class="sr-only peer" ${control.value ? 'checked' : ''} ${control.disabled ? 'disabled' : ''}>
                                     <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
                                 </div>
                             </label>
@@ -7694,7 +7819,7 @@ workspace_data: ${base64Data}
                     } else if (control instanceof TextControl) {
                         controlEl.innerHTML = `
                             <label>${control.label}</label>
-                            <input type="text" value="${control.value}" class="w-full p-2 border border-gray-300 rounded mt-1 bg-white text-gray-900">
+                            <input type="text" value="${control.value}" class="w-full p-2 border border-gray-300 rounded mt-1 bg-white text-gray-900" ${control.disabled ? 'disabled' : ''}>
                         `;
                         const input = controlEl.querySelector('input');
                         input.oninput = (e) => {
@@ -8566,6 +8691,8 @@ workspace_data: ${base64Data}
                                 targetAudioNode.start();
                             }
                         }
+                    } else {
+                        applyFeedbackMixClamping();
                     }
                     showMessage('Connection created.', 'info');
                 } else if (context.type === 'connectionremove') {
@@ -8594,6 +8721,8 @@ workspace_data: ${base64Data}
                                 targetAudioNode.start();
                             }
                         }
+                    } else {
+                        applyFeedbackMixClamping();
                     }
                     showMessage('Connection removed.', 'info');
                 } else if (context.type === 'nodeeditorrendered') {
