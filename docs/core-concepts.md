@@ -26,3 +26,13 @@ This opens up a world of experimental sound design, just like on a real modular 
 -   Control a parameter that expects a slow CV signal with a fast-running **Audio** signal to create chaotic, noisy textures.
 
 Think of the labels as helpful guides, not strict rules. Don't be afraid to experiment with unconventional connections—that's where the magic of modular synthesis truly lies.
+
+## Cyclic Routing & Feedback Loops
+
+The synthesizer fully supports creating feedback loops (e.g. routing a delay or effect node's output back into its own input).
+
+In a physical modular synth, creating a feedback loop without hearing the continuous "bleed" of the original raw (dry) input signal requires manually turning down the raw input channel on a mixer. To make this experience seamless, our virtual synthesizer implements **Automatic Feedback Mix Clamping**:
+
+- **Automatic Muting of Raw Signal Bleed**: When a node is routed into itself (either directly or as part of a larger cycle of nodes), the engine automatically and internally clamps the node's **Mix** control to `1.0` (100% wet). This allows the input signal to feed the loop, but prevents the raw, un-delayed signal from bleeding directly to the output.
+- **UI Control Deactivation**: While the node is part of an active feedback cycle, its **Mix** slider control on the UI is visually disabled (greyed out) to clearly indicate that its value is temporarily overridden to 100% wet by the engine.
+- **State Restoration**: The moment the feedback loop is disconnected or deleted, the node's internal mix and its UI control are automatically restored to the user's original slider setting.
