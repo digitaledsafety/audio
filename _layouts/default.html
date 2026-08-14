@@ -5926,20 +5926,100 @@ workspace_data: ${base64Data}
                 }
                 allNotesMidi.sort((a, b) => a - b);
 
+                const sequenceLength = parseInt(this.data.sequenceLength, 10) || 32;
+
                 let selectedNotesMidi = [];
                 switch (pattern) {
-                    case 'Down':
-                        selectedNotesMidi = [...allNotesMidi].reverse();
-                        break;
-                    case 'Up-Down':
-                        selectedNotesMidi = allNotesMidi.concat([...allNotesMidi].reverse().slice(1, -1));
-                        break;
-                    case 'Down-Up':
-                        selectedNotesMidi = [...allNotesMidi].reverse().concat(allNotesMidi.slice(1, -1));
-                        break;
-                    case 'Random':
+                    case 'Down': {
                         selectedNotesMidi = [];
-                        for (let i = 0; i < 16; i++) {
+                        const rev = [...allNotesMidi].reverse();
+                        for (let i = 0; i < sequenceLength; i++) {
+                            selectedNotesMidi.push(rev[i % rev.length]);
+                        }
+                        break;
+                    }
+                    case 'Up-Down': {
+                        selectedNotesMidi = [];
+                        const upDown = allNotesMidi.concat([...allNotesMidi].reverse().slice(1, -1));
+                        for (let i = 0; i < sequenceLength; i++) {
+                            selectedNotesMidi.push(upDown[i % upDown.length]);
+                        }
+                        break;
+                    }
+                    case 'Down-Up': {
+                        selectedNotesMidi = [];
+                        const downUp = [...allNotesMidi].reverse().concat(allNotesMidi.slice(1, -1));
+                        for (let i = 0; i < sequenceLength; i++) {
+                            selectedNotesMidi.push(downUp[i % downUp.length]);
+                        }
+                        break;
+                    }
+                    case 'Scalar Walk': {
+                        selectedNotesMidi = [];
+                        let currentIndex = Math.floor(allNotesMidi.length / 2);
+                        for (let i = 0; i < sequenceLength; i++) {
+                            if (Math.random() < 0.15) { // 15% chance of rest
+                                selectedNotesMidi.push(null);
+                            } else {
+                                selectedNotesMidi.push(allNotesMidi[currentIndex]);
+                                const stepChoice = Math.random();
+                                let stepDelta = 0;
+                                if (stepChoice < 0.45) stepDelta = 1;      // Step up
+                                else if (stepChoice < 0.90) stepDelta = -1; // Step down
+                                else stepDelta = Math.random() < 0.5 ? 2 : -2; // Small leap
+
+                                currentIndex = Math.max(0, Math.min(allNotesMidi.length - 1, currentIndex + stepDelta));
+                            }
+                        }
+                        break;
+                    }
+                    case 'Motif Generator': {
+                        selectedNotesMidi = [];
+                        const motifLength = Math.min(sequenceLength, Math.random() < 0.5 ? 4 : 8);
+                        const motif = [];
+                        let currIdx = Math.floor(allNotesMidi.length / 2);
+                        for (let i = 0; i < motifLength; i++) {
+                            if (Math.random() < 0.15) {
+                                motif.push(null);
+                            } else {
+                                motif.push(allNotesMidi[currIdx]);
+                                const delta = Math.random() < 0.5 ? 1 : -1;
+                                currIdx = Math.max(0, Math.min(allNotesMidi.length - 1, currIdx + delta));
+                            }
+                        }
+                        for (let i = 0; i < sequenceLength; i++) {
+                            let note = motif[i % motifLength];
+                            // 20% chance of subtle variation in repeated motif
+                            if (note !== null && Math.random() < 0.2) {
+                                const origIdx = allNotesMidi.indexOf(note);
+                                const varDelta = Math.random() < 0.5 ? 1 : -1;
+                                const newIdx = Math.max(0, Math.min(allNotesMidi.length - 1, origIdx + varDelta));
+                                note = allNotesMidi[newIdx];
+                            }
+                            selectedNotesMidi.push(note);
+                        }
+                        break;
+                    }
+                    case 'Pentatonic Groove': {
+                        selectedNotesMidi = [];
+                        for (let i = 0; i < sequenceLength; i++) {
+                            const isDownbeat = (i % 4 === 0);
+                            const isOffbeat = (i % 2 === 1);
+                            if (isOffbeat && Math.random() < 0.35) { // higher rest chance on offbeats
+                                selectedNotesMidi.push(null);
+                            } else if (isDownbeat) {
+                                // Downbeats favor root/chord lower notes
+                                const rootOrLow = allNotesMidi[Math.floor(Math.random() * Math.min(3, allNotesMidi.length))];
+                                selectedNotesMidi.push(rootOrLow);
+                            } else {
+                                selectedNotesMidi.push(allNotesMidi[Math.floor(Math.random() * allNotesMidi.length)]);
+                            }
+                        }
+                        break;
+                    }
+                    case 'Random': {
+                        selectedNotesMidi = [];
+                        for (let i = 0; i < sequenceLength; i++) {
                             if (Math.random() < 0.2) {
                                 selectedNotesMidi.push(null); // represent rest
                             } else {
@@ -5947,9 +6027,14 @@ workspace_data: ${base64Data}
                             }
                         }
                         break;
-                    default: // 'Up'
-                        selectedNotesMidi = allNotesMidi;
+                    }
+                    default: { // 'Up'
+                        selectedNotesMidi = [];
+                        for (let i = 0; i < sequenceLength; i++) {
+                            selectedNotesMidi.push(allNotesMidi[i % allNotesMidi.length]);
+                        }
                         break;
+                    }
                 }
 
                 return selectedNotesMidi.map(midi => (midi === null || !midiToNoteName[midi]) ? '~' : midiToNoteName[midi]).join(' ');
@@ -5995,6 +6080,7 @@ workspace_data: ${base64Data}
                     this.controls.scaleType.hidden = !show || (this.data.randomizeMode === 'Chord');
                     this.controls.rootNote.hidden = !show;
                     this.controls.octaveRange.hidden = !show;
+                    this.controls.sequenceLength.hidden = !show;
                     this.controls.arpeggioPattern.hidden = !show;
                     this.controls.randomize.hidden = !show;
                     area.update('node', this.id);
@@ -6038,8 +6124,15 @@ workspace_data: ${base64Data}
                 }));
                 this.controls.octaveRange.hidden = true;
 
+                this.data.sequenceLength = this.data.sequenceLength || 32;
+                this.addControl('sequenceLength', new SliderControl('seqLengthSlider', 'Sequence Length', 4, 64, 1, this.data.sequenceLength, (val) => {
+                    this.data.sequenceLength = val;
+                    this.randomize();
+                }));
+                this.controls.sequenceLength.hidden = true;
+
                 this.data.arpeggioPattern = this.data.arpeggioPattern || 'Random';
-                this.addControl('arpeggioPattern', new SelectControl('arpPattern', 'Gen Pattern', ['Up', 'Down', 'Up-Down', 'Down-Up', 'Random'], this.data.arpeggioPattern, (val) => {
+                this.addControl('arpeggioPattern', new SelectControl('arpPattern', 'Gen Pattern', ['Up', 'Down', 'Up-Down', 'Down-Up', 'Scalar Walk', 'Motif Generator', 'Pentatonic Groove', 'Random'], this.data.arpeggioPattern, (val) => {
                     this.data.arpeggioPattern = val;
                     this.randomize();
                 }));
