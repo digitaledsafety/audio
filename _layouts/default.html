@@ -510,6 +510,7 @@ layout: none
         // Global variables for Web Audio API
         var audioContext;
         const reteAudioNodes = new Map(); // Maps Rete.js node IDs to Web Audio API nodes
+        window.reteAudioNodes = reteAudioNodes;
 
         function translateLegacyLabel(label) {
             const mapping = {
@@ -5420,8 +5421,8 @@ workspace_data: ${base64Data}
                 this.mainOutput = this.audioContext.createGain();
                 this.mainOutput.gain.value = 0.8; // Drums can be loud
 
-                // Note map for drum sounds
-                const drumNoteMap = { 'k': 60, 's': 62, 'h': 64 }; // Using midi numbers as placeholders
+                // Note map for drum sounds (k: Kick, s: Snare, h: Closed Hat, o: Open Hat, c: Clap, t: Tom)
+                const drumNoteMap = { 'k': 60, 's': 62, 'h': 64, 'o': 66, 'c': 68, 't': 70 };
                 this.parser = new MiniNotationParser(drumNoteMap);
                 this.sequenceEvents = this.parseSequence();
                 this.tickListeners = [];
@@ -5478,79 +5479,336 @@ workspace_data: ${base64Data}
                 return this.parser.parse(this.data.sequence || '');
             }
 
+            createNoiseBuffer(durationSeconds) {
+                const bufferSize = Math.floor(this.audioContext.sampleRate * durationSeconds);
+                const buffer = this.audioContext.createBuffer(1, Math.max(1, bufferSize), this.audioContext.sampleRate);
+                const output = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+                return buffer;
+            }
+
             // --- Sound Synthesis ---
-            createKick(now) {
-                const osc = this.audioContext.createOscillator();
+            createKick(now, kit = '808') {
+                if (kit === 'Chiptune') {
+                    const osc = this.audioContext.createOscillator();
+                    const gain = this.audioContext.createGain();
+                    osc.type = 'square';
+                    osc.connect(gain);
+                    gain.connect(this.mainOutput);
+
+                    osc.frequency.setValueAtTime(220, now);
+                    osc.frequency.exponentialRampToValueAtTime(30, now + 0.08);
+                    gain.gain.setValueAtTime(0.8, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                } else if (kit === '909') {
+                    const osc = this.audioContext.createOscillator();
+                    const gain = this.audioContext.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.mainOutput);
+
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(48, now + 0.08);
+                    gain.gain.setValueAtTime(1.0, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+                    // Click transient for 909 punch
+                    const clickOsc = this.audioContext.createOscillator();
+                    const clickGain = this.audioContext.createGain();
+                    clickOsc.type = 'triangle';
+                    clickOsc.connect(clickGain);
+                    clickGain.connect(this.mainOutput);
+                    clickOsc.frequency.setValueAtTime(800, now);
+                    clickOsc.frequency.exponentialRampToValueAtTime(100, now + 0.015);
+                    clickGain.gain.setValueAtTime(0.7, now);
+                    clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.015);
+
+                    osc.start(now);
+                    osc.stop(now + 0.35);
+                    clickOsc.start(now);
+                    clickOsc.stop(now + 0.015);
+                } else if (kit === 'Acoustic') {
+                    const osc = this.audioContext.createOscillator();
+                    const filter = this.audioContext.createBiquadFilter();
+                    const gain = this.audioContext.createGain();
+                    filter.type = 'lowpass';
+                    filter.frequency.value = 250;
+
+                    osc.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.mainOutput);
+
+                    osc.frequency.setValueAtTime(110, now);
+                    osc.frequency.exponentialRampToValueAtTime(45, now + 0.06);
+                    gain.gain.setValueAtTime(0.9, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                } else {
+                    // Default / 808
+                    const osc = this.audioContext.createOscillator();
+                    const gain = this.audioContext.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.mainOutput);
+
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+                    gain.gain.setValueAtTime(1.0, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+                    osc.start(now);
+                    osc.stop(now + 0.5);
+                }
+            }
+
+            createSnare(now, kit = '808') {
+                if (kit === 'Chiptune') {
+                    const noise = this.audioContext.createBufferSource();
+                    noise.buffer = this.createNoiseBuffer(0.1);
+                    const gain = this.audioContext.createGain();
+                    noise.connect(gain);
+                    gain.connect(this.mainOutput);
+
+                    gain.gain.setValueAtTime(0.8, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+                    // Square pop
+                    const osc = this.audioContext.createOscillator();
+                    const oscGain = this.audioContext.createGain();
+                    osc.type = 'square';
+                    osc.frequency.value = 150;
+                    osc.connect(oscGain);
+                    oscGain.connect(this.mainOutput);
+                    oscGain.gain.setValueAtTime(0.4, now);
+                    oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+
+                    noise.start(now);
+                    noise.stop(now + 0.09);
+                    osc.start(now);
+                    osc.stop(now + 0.04);
+                } else if (kit === '909') {
+                    const noise = this.audioContext.createBufferSource();
+                    noise.buffer = this.createNoiseBuffer(0.2);
+
+                    const filter = this.audioContext.createBiquadFilter();
+                    filter.type = 'bandpass';
+                    filter.frequency.value = 1200;
+                    filter.Q.value = 1.5;
+
+                    const noiseGain = this.audioContext.createGain();
+                    noise.connect(filter);
+                    filter.connect(noiseGain);
+                    noiseGain.connect(this.mainOutput);
+
+                    noiseGain.gain.setValueAtTime(1.0, now);
+                    noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+
+                    // Dual sine shell
+                    const osc = this.audioContext.createOscillator();
+                    const oscGain = this.audioContext.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = 180;
+                    osc.connect(oscGain);
+                    oscGain.connect(this.mainOutput);
+                    oscGain.gain.setValueAtTime(0.6, now);
+                    oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.07);
+
+                    noise.start(now);
+                    noise.stop(now + 0.18);
+                    osc.start(now);
+                    osc.stop(now + 0.07);
+                } else if (kit === 'Acoustic') {
+                    const noise = this.audioContext.createBufferSource();
+                    noise.buffer = this.createNoiseBuffer(0.2);
+
+                    const filter = this.audioContext.createBiquadFilter();
+                    filter.type = 'bandpass';
+                    filter.frequency.value = 2000;
+                    filter.Q.value = 1.0;
+
+                    const noiseGain = this.audioContext.createGain();
+                    noise.connect(filter);
+                    filter.connect(noiseGain);
+                    noiseGain.connect(this.mainOutput);
+
+                    noiseGain.gain.setValueAtTime(0.8, now);
+                    noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.14);
+
+                    const osc = this.audioContext.createOscillator();
+                    const oscGain = this.audioContext.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(90, now + 0.05);
+                    osc.connect(oscGain);
+                    oscGain.connect(this.mainOutput);
+                    oscGain.gain.setValueAtTime(0.6, now);
+                    oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+
+                    noise.start(now);
+                    noise.stop(now + 0.14);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                } else {
+                    // Default / 808
+                    const noise = this.audioContext.createBufferSource();
+                    noise.buffer = this.createNoiseBuffer(0.2);
+
+                    const noiseFilter = this.audioContext.createBiquadFilter();
+                    noiseFilter.type = 'highpass';
+                    noiseFilter.frequency.value = 1500;
+                    noise.connect(noiseFilter);
+
+                    const noiseEnvelope = this.audioContext.createGain();
+                    noiseFilter.connect(noiseEnvelope);
+                    noiseEnvelope.connect(this.mainOutput);
+
+                    noiseEnvelope.gain.setValueAtTime(1, now);
+                    noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    noise.start(now);
+                    noise.stop(now + 0.1);
+
+                    // Snare body
+                    const osc = this.audioContext.createOscillator();
+                    const oscEnvelope = this.audioContext.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = 180;
+                    osc.connect(oscEnvelope);
+                    oscEnvelope.connect(this.mainOutput);
+                    oscEnvelope.gain.setValueAtTime(0.5, now);
+                    oscEnvelope.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                }
+            }
+
+            createHiHat(now, kit = '808') {
+                const noise = this.audioContext.createBufferSource();
+                const dur = kit === 'Chiptune' ? 0.04 : (kit === '909' ? 0.06 : 0.1);
+                noise.buffer = this.createNoiseBuffer(dur);
+
+                const filter = this.audioContext.createBiquadFilter();
+                if (kit === '909') {
+                    filter.type = 'bandpass';
+                    filter.frequency.value = 8000;
+                    filter.Q.value = 3.0;
+                } else if (kit === 'Chiptune') {
+                    filter.type = 'highpass';
+                    filter.frequency.value = 9000;
+                } else if (kit === 'Acoustic') {
+                    filter.type = 'highpass';
+                    filter.frequency.value = 8500;
+                } else {
+                    filter.type = 'highpass';
+                    filter.frequency.value = 7000;
+                }
+                noise.connect(filter);
+
+                const noiseEnvelope = this.audioContext.createGain();
+                filter.connect(noiseEnvelope);
+                noiseEnvelope.connect(this.mainOutput);
+
+                const decayTime = kit === 'Chiptune' ? 0.025 : (kit === '909' ? 0.04 : 0.05);
+                noiseEnvelope.gain.setValueAtTime(1, now);
+                noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, now + decayTime);
+                noise.start(now);
+                noise.stop(now + decayTime);
+            }
+
+            createOpenHat(now, kit = '808') {
+                const noise = this.audioContext.createBufferSource();
+                const dur = kit === 'Chiptune' ? 0.2 : 0.5;
+                noise.buffer = this.createNoiseBuffer(dur);
+
+                const filter = this.audioContext.createBiquadFilter();
+                filter.type = 'highpass';
+                filter.frequency.value = kit === 'Acoustic' ? 8000 : (kit === '909' ? 7500 : 7000);
+                noise.connect(filter);
+
+                const noiseEnvelope = this.audioContext.createGain();
+                filter.connect(noiseEnvelope);
+                noiseEnvelope.connect(this.mainOutput);
+
+                const decayTime = kit === 'Chiptune' ? 0.18 : (kit === 'Acoustic' ? 0.38 : (kit === '909' ? 0.4 : 0.35));
+                noiseEnvelope.gain.setValueAtTime(1, now);
+                noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, now + decayTime);
+                noise.start(now);
+                noise.stop(now + decayTime);
+            }
+
+            createClap(now, kit = '808') {
+                const noise = this.audioContext.createBufferSource();
+                noise.buffer = this.createNoiseBuffer(0.25);
+
+                const filter = this.audioContext.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = kit === '909' ? 1500 : 1100;
+                filter.Q.value = 1.2;
+                noise.connect(filter);
+
                 const gain = this.audioContext.createGain();
-                osc.connect(gain);
+                filter.connect(gain);
                 gain.connect(this.mainOutput);
 
-                osc.frequency.setValueAtTime(150, now);
-                osc.frequency.exponentialRampToValueAtTime(50, now + 0.1);
-                gain.gain.setValueAtTime(1, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                // Burst pulse envelope simulating handclap transients
+                const burstSpacing = kit === '909' ? 0.008 : 0.01;
+                gain.gain.setValueAtTime(0.9, now);
+                gain.gain.exponentialRampToValueAtTime(0.05, now + burstSpacing * 0.8);
+                gain.gain.setValueAtTime(0.9, now + burstSpacing);
+                gain.gain.exponentialRampToValueAtTime(0.05, now + burstSpacing * 1.8);
+                gain.gain.setValueAtTime(0.9, now + burstSpacing * 2);
+                const mainDecay = kit === 'Chiptune' ? 0.08 : 0.18;
+                gain.gain.exponentialRampToValueAtTime(0.001, now + mainDecay);
 
-                osc.start(now);
-                osc.stop(now + 0.5);
+                noise.start(now);
+                noise.stop(now + mainDecay);
             }
 
-            createSnare(now) {
-                const noise = this.audioContext.createBufferSource();
-                const noiseBuffer = this.audioContext.createBuffer(1, this.audioContext.sampleRate * 0.2, this.audioContext.sampleRate);
-                const output = noiseBuffer.getChannelData(0);
-                for (let i = 0; i < noiseBuffer.length; i++) {
-                    output[i] = Math.random() * 2 - 1;
-                }
-                noise.buffer = noiseBuffer;
-
-                const noiseFilter = this.audioContext.createBiquadFilter();
-                noiseFilter.type = 'highpass';
-                noiseFilter.frequency.value = 1500;
-                noise.connect(noiseFilter);
-
-                const noiseEnvelope = this.audioContext.createGain();
-                noiseFilter.connect(noiseEnvelope);
-                noiseEnvelope.connect(this.mainOutput);
-
-                noiseEnvelope.gain.setValueAtTime(1, now);
-                noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                noise.start(now);
-                noise.stop(now + 0.1);
-
-                // Snare body
+            createTom(now, kit = '808') {
                 const osc = this.audioContext.createOscillator();
-                const oscEnvelope = this.audioContext.createGain();
-                osc.type = 'triangle';
-                osc.frequency.value = 180;
-                osc.connect(oscEnvelope);
-                oscEnvelope.connect(this.mainOutput);
-                oscEnvelope.gain.setValueAtTime(0.5, now);
-                oscEnvelope.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
-                osc.start(now);
-                osc.stop(now + 0.08);
-            }
+                const gain = this.audioContext.createGain();
 
-            createHiHat(now) {
-                const noise = this.audioContext.createBufferSource();
-                const noiseBuffer = this.audioContext.createBuffer(1, this.audioContext.sampleRate * 0.1, this.audioContext.sampleRate);
-                const output = noiseBuffer.getChannelData(0);
-                for (let i = 0; i < noiseBuffer.length; i++) {
-                    output[i] = Math.random() * 2 - 1;
+                if (kit === 'Chiptune') {
+                    osc.type = 'square';
+                    osc.connect(gain);
+                    gain.connect(this.mainOutput);
+
+                    osc.frequency.setValueAtTime(240, now);
+                    osc.frequency.exponentialRampToValueAtTime(80, now + 0.1);
+                    gain.gain.setValueAtTime(0.8, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else {
+                    osc.type = 'sine';
+                    if (kit === 'Acoustic') {
+                        const filter = this.audioContext.createBiquadFilter();
+                        filter.type = 'lowpass';
+                        filter.frequency.value = 400;
+                        osc.connect(filter);
+                        filter.connect(gain);
+                    } else {
+                        osc.connect(gain);
+                    }
+                    gain.connect(this.mainOutput);
+
+                    const startFreq = kit === '909' ? 160 : 130;
+                    const endFreq = kit === '909' ? 65 : 50;
+                    const decayTime = kit === '909' ? 0.25 : 0.3;
+
+                    osc.frequency.setValueAtTime(startFreq, now);
+                    osc.frequency.exponentialRampToValueAtTime(endFreq, now + 0.12);
+                    gain.gain.setValueAtTime(0.9, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + decayTime);
+
+                    osc.start(now);
+                    osc.stop(now + decayTime);
                 }
-                noise.buffer = noiseBuffer;
-
-                const noiseFilter = this.audioContext.createBiquadFilter();
-                noiseFilter.type = 'highpass';
-                noiseFilter.frequency.value = 7000;
-                noise.connect(noiseFilter);
-
-                const noiseEnvelope = this.audioContext.createGain();
-                noiseFilter.connect(noiseEnvelope);
-                noiseEnvelope.connect(this.mainOutput);
-                noiseEnvelope.gain.setValueAtTime(1, now);
-                noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
-                noise.start(now);
-                noise.stop(now + 0.05);
             }
 
 
@@ -5558,16 +5816,26 @@ workspace_data: ${base64Data}
                 if (!this.audioContext) return;
                 const now = startTime || this.audioContext.currentTime;
 
+                const kit = (this.data && this.data.kit) || '808';
                 const normalizedNote = typeof noteName === 'string' ? noteName.toLowerCase() : noteName;
                 switch (normalizedNote) {
                     case 'k':
-                        this.createKick(now);
+                        this.createKick(now, kit);
                         break;
                     case 's':
-                        this.createSnare(now);
+                        this.createSnare(now, kit);
                         break;
                     case 'h':
-                        this.createHiHat(now);
+                        this.createHiHat(now, kit);
+                        break;
+                    case 'o':
+                        this.createOpenHat(now, kit);
+                        break;
+                    case 'c':
+                        this.createClap(now, kit);
+                        break;
+                    case 't':
+                        this.createTom(now, kit);
                         break;
                 }
             }
@@ -5659,17 +5927,19 @@ workspace_data: ${base64Data}
                 if (sequence[12] === '~') sequence[12] = 's';
                 else sequence[12] = '[' + sequence[12] + ' s]';
 
-                // Random Hi-hats and occasional extra kicks/snares
+                // Random Hi-hats/Open hats, claps, toms and extra kicks/snares
                 for (let i = 0; i < steps; i++) {
-                    if (Math.random() < 0.5) { // 50% chance for hi-hats
+                    if (Math.random() < 0.5) {
+                        const hat = Math.random() < 0.25 ? 'o' : 'h';
                         if (sequence[i] === '~') {
-                            sequence[i] = 'h';
+                            sequence[i] = hat;
                         } else {
-                            sequence[i] = '[' + sequence[i] + ' h]';
+                            sequence[i] = '[' + sequence[i] + ' ' + hat + ']';
                         }
                     }
-                    if (Math.random() < 0.1 && sequence[i] === '~') {
-                        sequence[i] = Math.random() < 0.5 ? 'k' : 's';
+                    if (Math.random() < 0.15 && sequence[i] === '~') {
+                        const extras = ['c', 't', 'k', 's'];
+                        sequence[i] = extras[Math.floor(Math.random() * extras.length)];
                     }
                 }
                 return sequence.join(' ');
@@ -6220,6 +6490,13 @@ workspace_data: ${base64Data}
                 super('Drum Machine');
                 this.addInput('clock', new Classic.Input(voltageSocket, 'Clock In'));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio'));
+
+                this.data.kit = this.data.kit || '808';
+                this.addControl('kit', new SelectControl('dmKit', 'Kit', ['808', '909', 'Chiptune', 'Acoustic'], this.data.kit, (val) => {
+                    this.data.kit = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode && audioNode.updateParameter) audioNode.updateParameter('kit', val);
+                }));
 
                 this.data.bpm = 120;
                 this.addControl('bpm', new SliderControl('dmBpm', 'BPM', 60, 240, 1, this.data.bpm, (val) => {
