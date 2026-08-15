@@ -26,7 +26,7 @@ The Sequencer Node can be used to create musical sequences.
 | **Randomize Settings**   | Toggle button to show or hide the algorithmic note sequence generation controls. |
 | **Random Mode**          | Mode for pitch quantization during sequence generation (`Chord` or `Scale`).   |
 | **Chord Type**           | Harmonic chord interval selection when in `Chord` mode.                        |
-| **Scale Type**           | Scale/mode selection when in `Scale` mode (e.g., Major, Minor, Dorian, Pentatonic, Blues). |
+| **Scale Type**           | Scale/mode selection when in `Scale` mode (e.g., Major, Harmonic Major, Minor, Dorian, Phrygian Dominant, Hungarian Minor, Pentatonic, Blues). |
 | **Root Note**            | Base root pitch for generating notes (e.g. `C4`, `G3`).                         |
 | **Octave Spread**        | Number of additional octaves across which notes can be distributed (0-3).      |
 | **Sequence Length**      | Target step length for generated sequence (4 to 64 steps, default 32).          |

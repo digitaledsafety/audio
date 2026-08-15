@@ -4,6 +4,12 @@ test.describe('Sequencer Randomization & Scaled Sequences', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.locator('#cta-button').click();
+    await page.waitForTimeout(500);
+    await page.evaluate(async () => {
+      if (window.editor) {
+        await window.editor.clear();
+      }
+    });
   });
 
   test('should add Sequencer node and configure sequence length and patterns', async ({ page }) => {
