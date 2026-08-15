@@ -1608,54 +1608,31 @@ workspace_data: ${base64Data}
 
             // Stop all audio nodes
             reteAudioNodes.forEach((audioNode, id) => {
-                const reteNode = editor.getNode(id); // Use editor.getNode(id) in v2
+                const reteNode = editor.getNode(id);
 
-                // Stop oscillators
-                if (reteNode && (reteNode.label === 'Tone Generator' || reteNode.label === 'Noise Generator') && audioNode.stop && audioNode.started) {
+                if (reteNode && typeof reteNode.stop === 'function') {
                     try {
-                        audioNode.stop();
-                        audioNode.started = false;
+                        reteNode.stop();
                     } catch (e) {
-                        console.warn(`Oscillator for node ${id} already stopped or could not be stopped.`, e);
+                        console.warn(`Rete node ${id} stop error:`, e);
                     }
                 }
-                // Stop arpeggiator, sequencer, drum machine, visualizer, effects
-                if (reteNode && ['Arpeggiator', 'Sequencer', 'Drum Machine', 'Visualizer', 'Phaser', 'Chorus', 'Flanger', 'Delay', 'Ping Pong Delay', 'Envelope Follower'].includes(reteNode.label) && audioNode.stop) {
+
+                if (audioNode && typeof audioNode.stop === 'function') {
                     try {
                         audioNode.stop();
-                        if (audioNode.hasOwnProperty('started')) {
+                        if (Object.prototype.hasOwnProperty.call(audioNode, 'started')) {
                             audioNode.started = false;
                         }
                     } catch (e) {
-                        console.warn(`${reteNode.label} for node ${id} could not be stopped.`, e);
+                        console.warn(`Audio node ${id} stop error:`, e);
                     }
                 }
 
-                // Stop Chord Generator
-                if (reteNode && reteNode.label === 'Chord Generator' && audioNode.stop && audioNode.started) {
-                    try {
-                        audioNode.stop();
-                        audioNode.started = false;
-                    } catch (e) {
-                        console.warn(`Chord Generator for node ${id} could not be stopped.`, e);
-                    }
-                }
-
-                // Stop master clock (hard stop)
-                if (reteNode && reteNode.label === 'Master Clock' && audioNode.started) {
-                    try {
-                        reteNode.stop(); // This will call the new immediateStop method
-                    } catch (e) {
-                        console.warn(`Master Clock for node ${id} could not be stopped.`, e);
-                    }
-                }
-                
-                // Disconnect each main audio node from the graph (for Arpeggiator, this would be its master gain)
                 try {
-                    // For Arpeggiator, we disconnect its master output. Other nodes are direct Web Audio nodes.
-                    if (audioNode.mainOutput) { // Arpeggiator has a mainOutput
+                    if (audioNode && audioNode.mainOutput && typeof audioNode.mainOutput.disconnect === 'function') {
                         audioNode.mainOutput.disconnect();
-                    } else if (audioNode.disconnect) { // Regular Web Audio nodes
+                    } else if (audioNode && typeof audioNode.disconnect === 'function') {
                         audioNode.disconnect();
                     }
                 } catch (e) {
@@ -7706,21 +7683,27 @@ workspace_data: ${base64Data}
                         const sliderStep = control.isLog ? 0.1 : control.step;
                         const sliderValue = control.isLog ? logToLinear(control.value, control.min, control.max) : control.value;
 
-                        controlEl.innerHTML = `
-                            <label>${control.label}</label>
-                            <input type="range" min="${sliderMin}" max="${sliderMax}" step="${sliderStep}" value="${sliderValue}">
-                            <span class="value-display">${control.value.toFixed(2)}</span>
-                        `;
-                        const slider = controlEl.querySelector('input');
-                        const valueDisplay = controlEl.querySelector('.value-display');
+                        const labelEl = document.createElement('label');
+                        labelEl.textContent = control.label;
+
+                        const slider = document.createElement('input');
+                        slider.type = 'range';
+                        slider.min = sliderMin;
+                        slider.max = sliderMax;
+                        slider.step = sliderStep;
+                        slider.value = sliderValue;
+
+                        const valueDisplay = document.createElement('span');
+                        valueDisplay.className = 'value-display';
+                        valueDisplay.textContent = typeof control.value === 'number' ? control.value.toFixed(2) : control.value;
 
                         slider.oninput = (e) => {
                             const linearValue = parseFloat(e.target.value);
                             const finalValue = control.isLog ? linearToLog(linearValue, control.min, control.max) : linearValue;
 
-                            control.value = finalValue; // Update control's internal value
-                            valueDisplay.textContent = finalValue.toFixed(2);
-                            control.onValueChange(finalValue); // Trigger custom callback
+                            control.value = finalValue;
+                            valueDisplay.textContent = typeof finalValue === 'number' ? finalValue.toFixed(2) : finalValue;
+                            control.onValueChange(finalValue);
                             autoSave();
                             multiplayer.broadcast({
                                 type: 'control-update',
@@ -7728,52 +7711,86 @@ workspace_data: ${base64Data}
                             });
                         };
 
-                        valueDisplay.textContent = control.value.toFixed(2);
+                        if (control.disabled) {
+                            slider.disabled = true;
+                            controlEl.classList.add('opacity-50', 'pointer-events-none');
+                        }
+
+                        controlEl.appendChild(labelEl);
+                        controlEl.appendChild(slider);
+                        controlEl.appendChild(valueDisplay);
                     } else if (control instanceof SelectControl) {
-                        const optionsHtml = control.options.map(opt => `<option value="${opt}">${opt}</option>`).join('');
-                        controlEl.innerHTML = `
-                            <label>${control.label}</label>
-                            <select>${optionsHtml}</select>
-                        `;
-                        const select = controlEl.querySelector('select');
+                        const labelEl = document.createElement('label');
+                        labelEl.textContent = control.label;
+
+                        const select = document.createElement('select');
+                        (control.options || []).forEach(opt => {
+                            const option = document.createElement('option');
+                            option.value = opt;
+                            option.textContent = opt;
+                            select.appendChild(option);
+                        });
                         select.value = control.value;
 
                         select.onchange = () => {
                             const newValue = select.value;
                             control.value = newValue;
                             control.onValueChange(newValue);
-                            // The onValueChange already calls area.update('node', this.node.id); in the node classes
                             autoSave();
                             multiplayer.broadcast({
                                 type: 'control-update',
                                 data: { nodeId: this.node.id, key, value: newValue }
                             });
                         };
+
+                        if (control.disabled) {
+                            select.disabled = true;
+                            controlEl.classList.add('opacity-50', 'pointer-events-none');
+                        }
+
+                        controlEl.appendChild(labelEl);
+                        controlEl.appendChild(select);
                     } else if (control instanceof ButtonControl) {
-                        controlEl.innerHTML = `<button class="button button-secondary w-full">${control.label}</button>`;
-                        const button = controlEl.querySelector('button');
+                        const button = document.createElement('button');
+                        button.className = 'button button-secondary w-full';
+                        button.textContent = control.label;
+
                         button.onclick = () => {
                             control.onClick();
                             autoSave();
-                            // Buttons don't always represent a single value change,
-                            // but some (like 'Randomize') change the whole sequence.
-                            // For simplicity, we broadcast the full workspace after a button click
-                            // until we have more granular button event synchronization.
                             multiplayer.broadcast({ type: 'workspace', data: editorToJSON() });
                         };
+
+                        if (control.disabled) {
+                            button.disabled = true;
+                            controlEl.classList.add('opacity-50', 'pointer-events-none');
+                        }
+
+                        controlEl.appendChild(button);
                     } else if (control instanceof IndicatorControl) {
-                        controlEl.innerHTML = `<div class="clock-indicator" title="${control.label}"></div>`;
+                        const indicator = document.createElement('div');
+                        indicator.className = 'clock-indicator';
+                        indicator.title = control.label;
+                        controlEl.appendChild(indicator);
                     } else if (control instanceof ToggleControl) {
-                        controlEl.innerHTML = `
-                            <label class="flex items-center justify-center cursor-pointer">
-                                <span class="mr-3 text-white">${control.label}</span>
-                                <div class="relative">
-                                    <input type="checkbox" class="sr-only peer" ${control.value ? 'checked' : ''}>
-                                    <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                                </div>
-                            </label>
-                        `;
-                        const checkbox = controlEl.querySelector('input[type="checkbox"]');
+                        const labelEl = document.createElement('label');
+                        labelEl.className = 'flex items-center justify-center cursor-pointer';
+
+                        const spanEl = document.createElement('span');
+                        spanEl.className = 'mr-3 text-white';
+                        spanEl.textContent = control.label;
+
+                        const wrapperDiv = document.createElement('div');
+                        wrapperDiv.className = 'relative';
+
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.className = 'sr-only peer';
+                        checkbox.checked = !!control.value;
+
+                        const toggleBg = document.createElement('div');
+                        toggleBg.className = "w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600";
+
                         checkbox.onchange = (e) => {
                             const newValue = e.target.checked;
                             control.value = newValue;
@@ -7784,12 +7801,26 @@ workspace_data: ${base64Data}
                                 data: { nodeId: this.node.id, key, value: newValue }
                             });
                         };
+
+                        if (control.disabled) {
+                            checkbox.disabled = true;
+                            controlEl.classList.add('opacity-50', 'pointer-events-none');
+                        }
+
+                        wrapperDiv.appendChild(checkbox);
+                        wrapperDiv.appendChild(toggleBg);
+                        labelEl.appendChild(spanEl);
+                        labelEl.appendChild(wrapperDiv);
+                        controlEl.appendChild(labelEl);
                     } else if (control instanceof TextControl) {
-                        controlEl.innerHTML = `
-                            <label>${control.label}</label>
-                            <input type="text" value="${control.value}" class="w-full p-2 border border-gray-300 rounded mt-1 bg-white text-gray-900">
-                        `;
-                        const input = controlEl.querySelector('input');
+                        const labelEl = document.createElement('label');
+                        labelEl.textContent = control.label;
+
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.value = control.value !== undefined ? control.value : '';
+                        input.className = 'w-full p-2 border border-gray-300 rounded mt-1 bg-white text-gray-900';
+
                         input.oninput = (e) => {
                             const newValue = e.target.value;
                             control.value = newValue;
@@ -7800,6 +7831,14 @@ workspace_data: ${base64Data}
                                 data: { nodeId: this.node.id, key, value: newValue }
                             });
                         };
+
+                        if (control.disabled) {
+                            input.disabled = true;
+                            controlEl.classList.add('opacity-50', 'pointer-events-none');
+                        }
+
+                        controlEl.appendChild(labelEl);
+                        controlEl.appendChild(input);
                     } else if (control instanceof CanvasControl) {
                         controlEl.classList.add('canvas-control');
                         controlEl.appendChild(control.canvas);
@@ -8237,6 +8276,7 @@ workspace_data: ${base64Data}
 
             // NodeEditor is correctly destructured from window.Rete
             window.editor = editor = new NodeEditor(schemes);
+            window.reteAudioNodes = reteAudioNodes;
             // DataflowEngine is correctly destructured from window.ReteEngine
             window.engine = engine = new DataflowEngine(schemes);
             window.AreaExtensions = AreaExtensions;
@@ -8568,13 +8608,6 @@ workspace_data: ${base64Data}
                     autoSave();
                 }
                 if (context.type === 'nodecreate' && context.data instanceof WebAudioNode) {
-                    if (context.data.label === 'Master') {
-                        const existingMaster = editor.getNodes().find(n => n.label === 'Master');
-                        if (existingMaster) {
-                            showMessage('Only one Master Output node is allowed.', 'error');
-                            return;
-                        }
-                    }
                     if(!audioContext) {
                         console.warn('AudioContext not active, Nodes will be created when "Start Audio" is clicked.');
                         showMessage(`AudioContext not active, Nodes will be created when "Start Audio" is clicked.`, 'error');
@@ -8601,33 +8634,34 @@ workspace_data: ${base64Data}
                     }
                 } else if (context.type === 'noderemove') {
                     const node = context.data;
-                    if (node.drawTimeout) {
+                    if (node && node.drawTimeout) {
                         clearTimeout(node.drawTimeout);
                     }
+
+                    if (node && typeof node.stop === 'function') {
+                        try {
+                            node.stop();
+                        } catch (e) {
+                            console.warn(`Rete node ${node.id} stop error on remove:`, e);
+                        }
+                    }
+
                     const audioNode = reteAudioNodes.get(node.id);
                     if (audioNode) {
-                        if ((node.label === 'Tone Generator' || node.label === 'Noise Generator') && audioNode.stop && audioNode.started) {
+                        if (typeof audioNode.stop === 'function') {
                             try {
                                 audioNode.stop();
-                                audioNode.started = false;
-                            } catch (e) {
-                                console.warn(`Oscillator for node ${node.id} already stopped or could not be stopped.`, e);
-                            }
-                        }
-                        if (['Arpeggiator', 'Sequencer', 'Drum Machine', 'Visualizer'].includes(node.label) && audioNode.stop) {
-                            try {
-                                audioNode.stop();
-                                if (audioNode.hasOwnProperty('started')) {
+                                if (Object.prototype.hasOwnProperty.call(audioNode, 'started')) {
                                     audioNode.started = false;
                                 }
                             } catch (e) {
-                                console.warn(`${node.label} for node ${node.id} could not be stopped.`, e);
+                                console.warn(`Audio node ${node.id} stop error on remove:`, e);
                             }
                         }
                         try {
-                            if (audioNode.mainOutput) {
+                            if (audioNode.mainOutput && typeof audioNode.mainOutput.disconnect === 'function') {
                                 audioNode.mainOutput.disconnect();
-                            } else if (audioNode.disconnect) {
+                            } else if (typeof audioNode.disconnect === 'function') {
                                 audioNode.disconnect();
                             }
                         } catch(e) {
