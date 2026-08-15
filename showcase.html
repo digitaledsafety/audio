@@ -471,7 +471,7 @@ title: Showcase Gallery
 
                         <!-- Action Buttons -->
                         <div class="p-4 bg-slate-950/30 border-t border-slate-800/50 flex items-center gap-2.5">
-                            <button onclick="openLivePreview('${escapeHTML(preset.title)}', '${escapeHTML(preset.url)}')"
+                            <button data-preset-title="${escapeHTML(preset.title)}" data-preset-url="${escapeHTML(preset.url)}" onclick="openLivePreviewFromBtn(this)"
                                     class="flex-1 px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-indigo-600 hover:text-white text-slate-300 transition-all duration-200 shadow-md flex items-center justify-center gap-1">
                                 <span>▶️ Quick Preview</span>
                             </button>
@@ -486,6 +486,12 @@ title: Showcase Gallery
         }
 
         // Live Preview Modal Interaction
+        window.openLivePreviewFromBtn = function(btn) {
+            const title = btn.getAttribute('data-preset-title') || '';
+            const url = btn.getAttribute('data-preset-url') || '';
+            openLivePreview(title, url);
+        };
+
         window.openLivePreview = function(title, url) {
             const modal = document.getElementById("preview-modal");
             const iframe = document.getElementById("preview-iframe");
@@ -495,7 +501,7 @@ title: Showcase Gallery
 
             // Format title
             const prettyTitle = title.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-            modalTitle.textContent = escapeHTML(prettyTitle) + " — Live Audio Preview";
+            modalTitle.textContent = prettyTitle + " — Live Audio Preview";
 
             // Open full builder link
             studioBtn.onclick = () => {
