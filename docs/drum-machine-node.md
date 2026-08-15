@@ -6,12 +6,15 @@ The Drum Machine node is a sequencer specifically designed for creating drum pat
 
 The drum machine uses the same powerful mini-notation parser as the `Sequencer` node, but with a focus on drum-specific sounds:
 
-*   `k`: A synthesized kick drum.
-*   `s`: A synthesized snare drum.
-*   `h`: A synthesized hi-hat.
+*   `k`: Synthesized kick drum.
+*   `s`: Synthesized snare drum.
+*   `h`: Synthesized closed hi-hat.
+*   `o`: Synthesized open hi-hat.
+*   `c`: Synthesized handclap.
+*   `t`: Synthesized tom drum.
 *   `~`: Represents a rest (silence).
 
-Events are separated by spaces. For example, a classic four-on-the-floor beat would be written as: `k h s h`
+Events are separated by spaces. For example, a classic beat with open hats and claps could be written as: `k [h c] [k o] [s h]`
 
 ## Inputs
 
@@ -23,6 +26,11 @@ Events are separated by spaces. For example, a classic four-on-the-floor beat wo
 
 ## Controls
 
+*   **Kit**: Selects the active drum kit sound flavor for synthesis:
+    *   `808`: Classic analog synthesis featuring punchy sub kicks, snappy noise snares, highpass hats, and multi-burst claps.
+    *   `909`: Techno-focused kit with pitch-swept punchy kicks, dual-sine shell snares, metallic bandpass hats, and sharp claps.
+    *   `Chiptune`: Retro 8-bit chip synthesis with square-wave pitch sweeps and low-bit noise bursts.
+    *   `Acoustic`: Natural drum synthesis with organic lowpass body thuds, warm filtered snares, and smooth cymbal decays.
 *   **BPM**: Sets the tempo of the drum machine in beats per minute. This control is only active when no external clock is connected.
     *   Range: 60 to 240 BPM
 *   **Note Duration**: Determines the time division for each step in the sequence (e.g., 1/16 for sixteenth notes).

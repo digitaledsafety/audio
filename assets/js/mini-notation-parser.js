@@ -130,8 +130,8 @@ class MiniNotationParser {
             return eventString.flatMap(s => this.parseNoteEvent(s));
         }
 
-        // Updated regex to include drum notation 'k', 's', 'h'
-        let noteName = eventString.match(/[A-Ga-g]#?[0-9]|k|s|h/i)?.[0] || (eventString.includes('~') ? '~' : null);
+        // Updated regex to include drum notation 'k', 's', 'h', 'o', 'c', 't'
+        let noteName = eventString.match(/[A-Ga-g]#?[0-9]|[kshoct]/i)?.[0] || (eventString.includes('~') ? '~' : null);
         let speed = 1;
         let duration = 1;
         let elongation = 1;
