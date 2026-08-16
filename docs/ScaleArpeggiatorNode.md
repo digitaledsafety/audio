@@ -22,7 +22,7 @@ The **Scale Arpeggiator Node** generates melodic sequences of notes based on a s
 | --------------- | ------------------------------------------------------------------------------ |
 | **BPM**           | Sets the tempo of the arpeggio in beats per minute when no external clock is connected. |
 | **Note Duration** | The time value of each note in the sequence (e.g., 1/8, 1/16).                 |
-| **Scale Type**    | The musical scale to generate notes from (e.g., Major, Harmonic Minor, Pentatonic Minor). |
+| **Scale Type**    | The musical scale to generate notes from (e.g., Major, Harmonic Major, Harmonic Minor, Phrygian Dominant, Pentatonic Minor, Hungarian Minor). |
 | **Root Note**     | The starting note (tonic) of the scale.                                        |
 | **Pattern**       | The order in which the notes of the scale are played (e.g., Up, Down, Up-Down, Random). |
 | **Octaves**       | The number of octaves the arpeggio will span.                                  |
