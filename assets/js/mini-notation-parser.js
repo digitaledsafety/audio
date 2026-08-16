@@ -19,9 +19,11 @@ class MiniNotationParser {
 
     generateEuclidean(pulses, steps) {
         const pattern = [];
-        for (let i = 0; i < steps; i++) {
+        const safeSteps = Math.min(Math.max(1, steps), 128);
+        const safePulses = Math.max(0, pulses);
+        for (let i = 0; i < safeSteps; i++) {
             // This generates a well-distributed pattern
-            pattern.push(Math.floor(i * pulses / steps) !== Math.floor((i - 1) * pulses / steps) ? 1 : 0);
+            pattern.push(Math.floor(i * safePulses / safeSteps) !== Math.floor((i - 1) * safePulses / safeSteps) ? 1 : 0);
         }
         return pattern;
     }
@@ -40,8 +42,9 @@ class MiniNotationParser {
                 const steps = parseInt(euclideanMatch[3], 10);
 
                 if (steps > 0) {
-                    const pattern = this.generateEuclidean(pulses, steps);
-                    const speedModifier = `/${steps}`;
+                    const safeSteps = Math.min(steps, 128);
+                    const pattern = this.generateEuclidean(pulses, safeSteps);
+                    const speedModifier = `/${safeSteps}`;
                     const generatedTokens = pattern.map(p => (p === 1 ? note : '~') + speedModifier);
                     tokens.unshift(...generatedTokens);
                     continue;
