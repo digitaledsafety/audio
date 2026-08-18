@@ -37,9 +37,11 @@ process(inputs, outputs, parameters) {
     // Get the parameter values
     const bits = parameters.bits[0];
     const sampleRateReduction = parameters.sampleRateReduction[0];
+    const step = Math.pow(0.5, bits);
+    const numChannels = input.length;
 
     // Process each channel independently
-    for (let channel = 0; channel < input.length; ++channel) {
+    for (let channel = 0; channel < numChannels; ++channel) {
         if (this.lastSamples[channel] === undefined) {
             this.lastSamples[channel] = 0;
             this.phases[channel] = 0;
@@ -49,11 +51,11 @@ process(inputs, outputs, parameters) {
         const outputChannel = output[channel];
         if (!outputChannel) continue;
 
-        for (let i = 0; i < inputChannel.length; ++i) {
+        const channelLen = inputChannel.length;
+        for (let i = 0; i < channelLen; ++i) {
             let currentSample = inputChannel[i];
 
             // --- Bit Depth Reduction ---
-            const step = Math.pow(0.5, bits);
             currentSample = Math.floor(currentSample / step) * step;
 
             // --- Sample Rate Reduction (simple hold method) ---

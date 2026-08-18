@@ -1459,15 +1459,15 @@ workspace_data: ${base64Data}
          */
         function generateImpulseResponse(audioContext, duration, decay) {
             const sampleRate = audioContext.sampleRate;
-            const length = sampleRate * duration;
+            const length = Math.floor(sampleRate * duration);
             const impulse = audioContext.createBuffer(2, length, sampleRate);
             const left = impulse.getChannelData(0);
             const right = impulse.getChannelData(1);
 
             for (let i = 0; i < length; i++) {
-                const n = length - i;
-                left[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
-                right[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+                const decayFactor = Math.pow(1 - i / length, decay);
+                left[i] = (Math.random() * 2 - 1) * decayFactor;
+                right[i] = (Math.random() * 2 - 1) * decayFactor;
             }
             return impulse;
         }
@@ -1486,10 +1486,11 @@ workspace_data: ${base64Data}
             const n_samples = 44100;
             const curve = new Float32Array(n_samples);
             const deg = Math.PI / 180;
+            const numeratorFactor = (3 + k) * (20 + d) * deg;
             for (let i = 0; i < n_samples; ++i) {
                 const x = i * 2 / n_samples - 1;
                 // The drive parameter 'd' will control the aggressiveness of the curve
-                curve[i] = (3 + k) * x * (20 + d) * deg / (Math.PI + k * Math.abs(x));
+                curve[i] = x * numeratorFactor / (Math.PI + k * Math.abs(x));
             }
             return curve;
         }
