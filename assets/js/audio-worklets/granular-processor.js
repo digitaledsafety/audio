@@ -1,11 +1,5 @@
 // assets/js/audio-worklets/granular-processor.js
 
-const SINE_TABLE_SIZE = 1024;
-const SINE_TABLE = new Float32Array(SINE_TABLE_SIZE);
-for (let i = 0; i < SINE_TABLE_SIZE; i++) {
-    SINE_TABLE[i] = Math.sin(Math.PI * (i / (SINE_TABLE_SIZE - 1)));
-}
-
 class GranularProcessor extends AudioWorkletProcessor {
   static get parameterDescriptors() {
     return [
@@ -29,18 +23,12 @@ class GranularProcessor extends AudioWorkletProcessor {
   process(inputs, outputs, parameters) {
     const input = inputs[0];
     const output = outputs[0];
-    if (!output || output.length === 0) return true;
-
-    const inputChannel = input ? input[0] : null;
-    const numChannels = output.length;
-    const blockLen = output[0].length;
-    const bufferLen = this.buffer.length;
+    const inputChannel = input[0];
 
     if (inputChannel && inputChannel.length > 0) {
-      const inLen = inputChannel.length;
-      for (let i = 0; i < inLen; i++) {
+      for (let i = 0; i < inputChannel.length; i++) {
         this.buffer[this.writeIndex] = inputChannel[i];
-        this.writeIndex = (this.writeIndex + 1) % bufferLen;
+        this.writeIndex = (this.writeIndex + 1) % this.buffer.length;
       }
     }
 
@@ -50,53 +38,52 @@ class GranularProcessor extends AudioWorkletProcessor {
     const positionJitter = parameters.positionJitter[0];
 
     // Simple scheduling
-    this.grainScheduler.nextGrainTime -= blockLen / sampleRate;
+    this.grainScheduler.nextGrainTime -= output[0].length / sampleRate;
     if (this.grainScheduler.nextGrainTime <= 0) {
         this.grainScheduler.nextGrainTime = 1.0 / grainDensity;
 
         const grain = {
-            startPosition: (this.writeIndex - grainSize - (Math.random() * positionJitter * bufferLen)) % bufferLen,
+            startPosition: (this.writeIndex - grainSize - (Math.random() * positionJitter * this.buffer.length)) % this.buffer.length,
             playbackPosition: 0,
             size: grainSize,
             pitch: 1.0 * Math.pow(2, pitchShift / 1200),
         };
-        if (grain.startPosition < 0) grain.startPosition += bufferLen;
+        if(grain.startPosition < 0) grain.startPosition += this.buffer.length;
 
         this.activeGrains.push(grain);
     }
 
-    for (let c = 0; c < numChannels; c++) {
-      output[c].fill(0);
+    for (const channel of output) {
+      channel.fill(0);
     }
 
     for (let i = this.activeGrains.length - 1; i >= 0; i--) {
         const grain = this.activeGrains[i];
 
-        for (let j = 0; j < blockLen; j++) {
+        for (let j = 0; j < output[0].length; j++) {
             const bufferIndex = Math.floor(grain.startPosition + grain.playbackPosition);
 
             // Basic linear interpolation for pitch shifting
-            const index1 = bufferIndex % bufferLen;
-            const index2 = (bufferIndex + 1) % bufferLen;
+            const index1 = bufferIndex % this.buffer.length;
+            const index2 = (bufferIndex + 1) % this.buffer.length;
             const fraction = grain.startPosition + grain.playbackPosition - bufferIndex;
             const sample = (this.buffer[index1] * (1 - fraction)) + (this.buffer[index2] * fraction);
 
-            // Apply a simple window using lookup table to avoid transcendental calls in loop
-            const normPos = grain.playbackPosition / grain.size;
-            const tableIdx = normPos >= 1.0 ? SINE_TABLE_SIZE - 1 : (normPos <= 0.0 ? 0 : (normPos * (SINE_TABLE_SIZE - 1)) | 0);
-            const window = SINE_TABLE[tableIdx];
+            // Apply a simple window to avoid clicks
+            const window = Math.sin(Math.PI * (grain.playbackPosition / grain.size));
 
-            for (let c = 0; c < numChannels; c++) {
-                output[c][j] += sample * window;
+            for(const channel of output) {
+                channel[j] += sample * window;
             }
 
             grain.playbackPosition += grain.pitch;
         }
 
-        if (grain.playbackPosition >= grain.size) {
+        if(grain.playbackPosition >= grain.size) {
             this.activeGrains.splice(i, 1);
         }
     }
+
 
     return true;
   }
