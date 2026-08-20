@@ -1531,7 +1531,7 @@ workspace_data: ${base64Data}
         
             //showMessage('Audio context started! Nodes in the editor are now active.', 'success');
 
-            // Initialize/start audio nodes that are already in the editor
+            // 1. Build audio nodes for all editor nodes if not created yet
             for (const reteNode of editor.getNodes()) {
                 let audioNode = reteAudioNodes.get(reteNode.id);
 
@@ -1547,12 +1547,15 @@ workspace_data: ${base64Data}
                         reteAudioNodes.set(reteNode.id, audioNode);
                     }
                 }
+            }
 
-                // Start the audio node by calling its start method.
-                // The node itself will handle whether it needs to perform an action.
+            // 2. Establish audio graph & event connections (clock, gate, midi) before starting nodes
+            updateAudioGraphConnections();
+
+            // 3. Start all nodes now that connections and listeners are in place
+            for (const reteNode of editor.getNodes()) {
                 reteNode.start();
             }
-            updateAudioGraphConnections();
         }
 
         function stopAll() {
@@ -5246,9 +5249,12 @@ workspace_data: ${base64Data}
                     this.mainOutput.gain.setTargetAtTime(value, this.audioContext.currentTime, 0.01);
                 }
                 if (this.started) {
-                    // Restart arpeggiator to apply new tempo/notes/pattern
-                    this.stop();
-                    this.start();
+                    const hasClockConnection = editor.getConnections().some(conn => conn.target === this.reteNodeId && conn.targetInput === 'clock');
+                    if (!hasClockConnection) {
+                        // Restart arpeggiator to apply new tempo/notes/pattern when running without external clock
+                        this.stop();
+                        this.start();
+                    }
                 }
             }
         }
