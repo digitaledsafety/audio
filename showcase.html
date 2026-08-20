@@ -358,9 +358,10 @@ title: Showcase Gallery
                 const activeClasses = "bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-600/20";
                 const inactiveClasses = "bg-slate-900 border-slate-800/80 text-slate-400 hover:text-slate-200 hover:border-slate-700 hover:bg-slate-850";
 
+                const safeCat = escapeHTML(cat);
                 return `
-                    <button onclick="setCategory('${cat}')" class="px-4 py-2 text-xs font-semibold rounded-lg border flex items-center gap-1.5 transition-all duration-200 ${isActive ? activeClasses : inactiveClasses}">
-                        <span>${cat}</span>
+                    <button onclick="setCategory('${safeCat}')" class="px-4 py-2 text-xs font-semibold rounded-lg border flex items-center gap-1.5 transition-all duration-200 ${isActive ? activeClasses : inactiveClasses}">
+                        <span>${safeCat}</span>
                         <span class="px-1.5 py-0.5 rounded-full text-[10px] ${isActive ? 'bg-indigo-500 text-white' : 'bg-slate-950 text-slate-500'} font-bold">${count}</span>
                     </button>
                 `;
