@@ -2090,7 +2090,7 @@ workspace_data: ${base64Data}
 
                 if (sourceAudioNode && typeof sourceAudioNode.removeMidiListener === 'function') {
                     const listenerKey = `${sourceReteNode.id}-${sourceOutputKey}`;
-                    if (targetAudioNode._midiListeners && targetAudioNode._midiListeners.has(listenerKey)) {
+                    if (targetAudioNode && targetAudioNode._midiListeners && targetAudioNode._midiListeners.has(listenerKey)) {
                         const listener = targetAudioNode._midiListeners.get(listenerKey);
                         sourceAudioNode.removeMidiListener(listener, sourceOutputKey);
                         targetAudioNode._midiListeners.delete(listenerKey);
@@ -2098,6 +2098,7 @@ workspace_data: ${base64Data}
                 }
             }
         }
+        window.MidiConnectionStrategy = MidiConnectionStrategy;
 
         class VoltageConnectionStrategy extends ConnectionStrategy {
             constructor() {
