@@ -22,17 +22,14 @@ class QuantizerProcessor extends AudioWorkletProcessor {
         // We'll take the first value as the current value for this block.
         const rootNote = parameters.rootNote[0];
 
-        if (!input || input.length === 0 || !input[0] || input[0].length === 0) {
+        if (input.length === 0 || input[0].length === 0) {
             return true; // No input to process
         }
 
         const inputChannel = input[0];
         const outputChannel = output[0];
-        const inputLen = inputChannel.length;
-        const intervals = this.scaleIntervals;
-        const numIntervals = intervals.length;
 
-        for (let i = 0; i < inputLen; i++) {
+        for (let i = 0; i < inputChannel.length; i++) {
             const voltage = inputChannel[i];
 
             // 1. Convert incoming voltage to a total number of semitones from C-1 (MIDI 0)
@@ -47,11 +44,10 @@ class QuantizerProcessor extends AudioWorkletProcessor {
             const rawSemitoneInOctave = (totalSemitonesFromC - rootNoteMidi) % 12;
             const semitoneInOctave = ((rawSemitoneInOctave % 12) + 12) % 12;
 
-            let closestInterval = intervals[0];
+            let closestInterval = this.scaleIntervals[0];
             let minDistance = Infinity;
 
-            for (let k = 0; k < numIntervals; k++) {
-                const interval = intervals[k];
+            for (const interval of this.scaleIntervals) {
                 const distance = Math.abs(semitoneInOctave - interval);
                 if (distance < minDistance) {
                     minDistance = distance;
@@ -72,8 +68,7 @@ class QuantizerProcessor extends AudioWorkletProcessor {
             outputChannel[i] = outputVoltage;
         }
 
-        const numChannels = output.length;
-        for (let channel = 1; channel < numChannels; channel++) {
+        for (let channel = 1; channel < output.length; channel++) {
             output[channel].set(outputChannel);
         }
 
