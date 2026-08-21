@@ -5188,7 +5188,7 @@ workspace_data: ${base64Data}
             }
 
             schedule() {
-                if (!this.started || (typeof audioState !== 'undefined' && audioState !== 'playing')) return;
+                if (!this.started) return;
 
                 const hasClockConnection = editor.getConnections().some(conn => conn.target === this.reteNodeId && conn.targetInput === 'clock');
                 if (hasClockConnection) {
@@ -5865,7 +5865,7 @@ workspace_data: ${base64Data}
             }
 
             schedule() {
-                if (!this.started || (typeof audioState !== 'undefined' && audioState !== 'playing')) return;
+                if (!this.started) return;
 
                 const hasClockConnection = editor.getConnections().some(conn => conn.target === this.reteNodeId && conn.targetInput === 'clock');
                 if (hasClockConnection) {
@@ -8940,7 +8940,7 @@ workspace_data: ${base64Data}
                     if (audioNode) {
                         reteAudioNodes.set(reteNode.id, audioNode);
                         showMessage(`${reteNode.label} node added to editor.`, 'info');
-                        if (audioContext && audioContext.state === 'running' && audioState === 'playing' && _isLocalChange) {
+                        if (audioContext && audioContext.state === 'running') {
                             reteNode.start();
                             updateAudioGraphConnections();
                         }
