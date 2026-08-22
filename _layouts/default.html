@@ -400,6 +400,7 @@ layout: none
                                 <button id="addManualGateNodeBtn" class="button button-secondary w-full text-xs">🔳 Gate</button>
                                 <button id="addQuantizerNodeBtn" class="button button-secondary w-full text-xs">🎹 Quantizer</button>
                                 <button id="addBernoulliGateNodeBtn" class="button button-secondary w-full text-xs">🎲 Bernoulli Gate</button>
+                                <button id="addProbabilityNodeBtn" class="button button-secondary w-full text-xs">🎲 Probability</button>
                                 <button id="addLogicGatesNodeBtn" class="button button-secondary w-full text-xs">🧩 Logic Gates</button>
                                 <button id="addTuringMachineNodeBtn" class="button button-secondary w-full text-xs">🌀 Turing Machine</button>
                                 <button id="addSampleAndHoldNodeBtn" class="button button-secondary w-full text-xs">🧊 S&H</button>
@@ -697,6 +698,7 @@ layout: none
         const addVectorPannerNodeBtn = document.getElementById('addVectorPannerNodeBtn');
         const addStereoWidenerNodeBtn = document.getElementById('addStereoWidenerNodeBtn');
         const addBernoulliGateNodeBtn = document.getElementById('addBernoulliGateNodeBtn');
+        const addProbabilityNodeBtn = document.getElementById('addProbabilityNodeBtn');
         const addLogicGatesNodeBtn = document.getElementById('addLogicGatesNodeBtn');
         const addTuringMachineNodeBtn = document.getElementById('addTuringMachineNodeBtn');
         const addSampleAndHoldNodeBtn = document.getElementById('addSampleAndHoldNodeBtn');
@@ -3874,6 +3876,123 @@ workspace_data: ${base64Data}
 
             build() {
                 return new BernoulliGate(audioContext, this.id, this.data);
+            }
+        }
+
+        class Probability {
+            constructor(audioContext, reteNodeId, data) {
+                this.audioContext = audioContext;
+                this.reteNodeId = reteNodeId;
+                this.data = data;
+                this.tickListeners = [];
+                this.gateListeners = [];
+
+                this.mainOutput = this.audioContext.createConstantSource();
+                this.mainOutput.start();
+
+                this.probInput = this.audioContext.createGain();
+                this.probInput.gain.value = 1.0;
+            }
+
+            addTickListener(callback) {
+                if (!this.tickListeners.includes(callback)) this.tickListeners.push(callback);
+            }
+
+            removeTickListener(callback) {
+                const index = this.tickListeners.indexOf(callback);
+                if (index > -1) this.tickListeners.splice(index, 1);
+            }
+
+            addGateListener(callback) {
+                if (!this.gateListeners.includes(callback)) this.gateListeners.push(callback);
+            }
+
+            removeGateListener(callback) {
+                const index = this.gateListeners.indexOf(callback);
+                if (index > -1) this.gateListeners.splice(index, 1);
+            }
+
+            getProbability() {
+                let cvProbability = 0;
+                if (this.probInput) {
+                    if (!this.probAnalyser) {
+                        this.probAnalyser = this.audioContext.createAnalyser();
+                        this.probAnalyser.fftSize = 32;
+                        this.probBuffer = new Float32Array(1);
+                        this.probInput.connect(this.probAnalyser);
+                    }
+                    this.probAnalyser.getFloatTimeDomainData(this.probBuffer);
+                    cvProbability = this.probBuffer[0];
+                }
+                const manualProb = this.data.probability !== undefined ? this.data.probability : 0.5;
+                return Math.max(0, Math.min(1, manualProb + cvProbability));
+            }
+
+            onTick(tickTime, tickDuration) {
+                const probability = this.getProbability();
+                if (Math.random() < probability) {
+                    this.tickListeners.forEach(l => l(tickTime, tickDuration));
+                    firePulse(this.mainOutput, tickTime);
+                }
+            }
+
+            handleGate(isGateHigh) {
+                if (isGateHigh) {
+                    const probability = this.getProbability();
+                    const passed = Math.random() < probability;
+                    if (passed) {
+                        this.gateListeners.forEach(l => l(true));
+                        setGate(this.mainOutput, true, this.audioContext.currentTime);
+                    } else {
+                        this.gateListeners.forEach(l => l(false));
+                        setGate(this.mainOutput, false, this.audioContext.currentTime);
+                    }
+                } else {
+                    this.gateListeners.forEach(l => l(false));
+                    setGate(this.mainOutput, false, this.audioContext.currentTime);
+                }
+            }
+
+            connect(destination) {
+                if (this.mainOutput && typeof destination.connect === 'function') {
+                    this.mainOutput.connect(destination);
+                } else if (this.mainOutput && destination instanceof AudioParam) {
+                    this.mainOutput.connect(destination);
+                }
+            }
+
+            disconnect(destination) {
+                if (this.mainOutput && destination) {
+                    try {
+                        this.mainOutput.disconnect(destination);
+                    } catch (e) {}
+                }
+            }
+
+            start() {}
+            stop() {}
+            updateParameter(paramName, value) {
+                this.data[paramName] = value;
+            }
+        }
+
+        class ProbabilityNode extends ModulatorNode {
+            constructor() {
+                super('Probability');
+                this.addInput('clock', new Classic.Input(voltageSocket, 'Clock/Gate'));
+                this.addInput('prob', new Classic.Input(voltageSocket, 'Prob CV'));
+                this.addOutput('out', new Classic.Output(voltageSocket, 'Out'));
+
+                this.data.probability = 0.5;
+                this.addControl('probability', new SliderControl('probSlider', 'Probability', 0, 1, 0.01, this.data.probability, (val) => {
+                    this.data.probability = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) audioNode.updateParameter('probability', val);
+                }));
+            }
+
+            build() {
+                return new Probability(audioContext, this.id, this.data);
             }
         }
 
@@ -8274,6 +8393,16 @@ workspace_data: ${base64Data}
             clearEditorBtn.disabled = false;
         });
 
+        if (addProbabilityNodeBtn) {
+            addProbabilityNodeBtn.addEventListener('click', async () => {
+                const node = new ProbabilityNode();
+                const existingNodesCount = editor.getNodes().length;
+                node.position = { x: 50 + (existingNodesCount % 5) * 220, y: 50 + Math.floor(existingNodesCount / 5) * 200 };
+                await editor.addNode(node);
+                clearEditorBtn.disabled = false;
+            });
+        }
+
         const addFlangerNodeBtn = document.getElementById('addFlangerNodeBtn');
         addFlangerNodeBtn.addEventListener('click', async () => {
             const node = new FlangerNode();
@@ -8562,6 +8691,8 @@ workspace_data: ${base64Data}
         NodeRegistry.register('StereoWidenerNode', StereoWidenerNode);
         NodeRegistry.register('Bernoulli Gate', BernoulliGateNode);
         NodeRegistry.register('BernoulliGateNode', BernoulliGateNode);
+        NodeRegistry.register('Probability', ProbabilityNode);
+        NodeRegistry.register('ProbabilityNode', ProbabilityNode);
         NodeRegistry.register('Logic Gates', LogicGatesNode);
         NodeRegistry.register('LogicGatesNode', LogicGatesNode);
         NodeRegistry.register('Turing Machine', TuringMachineNode);
