@@ -3140,6 +3140,23 @@ workspace_data: ${base64Data}
 
                 this.audioOutput = this.clarityFilter;
                 this.lfeOutput = this.lfeGainNode;
+                this.mainOutput = this.clarityFilter;
+            }
+
+            connect(destination) {
+                if (this.mainOutput) {
+                    this.mainOutput.connect(destination);
+                }
+            }
+
+            disconnect(destination) {
+                if (this.mainOutput) {
+                    if (destination) {
+                        this.mainOutput.disconnect(destination);
+                    } else {
+                        this.mainOutput.disconnect();
+                    }
+                }
             }
 
             updateParameter(paramName, value) {
