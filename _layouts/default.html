@@ -6587,12 +6587,21 @@ workspace_data: ${base64Data}
 
             randomize() {
                 const audioNode = reteAudioNodes.get(this.id);
-                if (audioNode) {
-                    const newSequence = audioNode.generateRandomSequence();
+                let newSequence;
+                if (audioNode && typeof audioNode.generateRandomSequence === 'function') {
+                    newSequence = audioNode.generateRandomSequence();
+                } else if (typeof Sequencer !== 'undefined' && Sequencer.prototype && Sequencer.prototype.generateRandomSequence) {
+                    newSequence = Sequencer.prototype.generateRandomSequence.call({ data: this.data });
+                }
+                if (newSequence) {
                     this.controls.sequence.value = newSequence;
                     this.data.sequence = newSequence;
-                    audioNode.updateParameter('sequence', newSequence);
-                    area.update('node', this.id);
+                    if (audioNode && typeof audioNode.updateParameter === 'function') {
+                        audioNode.updateParameter('sequence', newSequence);
+                    }
+                    if (typeof area !== 'undefined' && area.update) {
+                        area.update('node', this.id);
+                    }
                 }
             }
 
@@ -6648,15 +6657,28 @@ workspace_data: ${base64Data}
                 }));
 
                 this.addControl('randomize', new ButtonControl('randomizeDm', '🎲', () => {
-                    const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode) {
-                        const newSequence = audioNode.generateRandomSequence();
-                        this.controls.sequence.value = newSequence;
-                        this.data.sequence = newSequence;
+                    this.randomize();
+                }));
+            }
+
+            randomize() {
+                const audioNode = reteAudioNodes.get(this.id);
+                let newSequence;
+                if (audioNode && typeof audioNode.generateRandomSequence === 'function') {
+                    newSequence = audioNode.generateRandomSequence();
+                } else if (typeof DrumMachine !== 'undefined' && DrumMachine.prototype && DrumMachine.prototype.generateRandomSequence) {
+                    newSequence = DrumMachine.prototype.generateRandomSequence.call({ data: this.data });
+                }
+                if (newSequence) {
+                    this.controls.sequence.value = newSequence;
+                    this.data.sequence = newSequence;
+                    if (audioNode && typeof audioNode.updateParameter === 'function') {
                         audioNode.updateParameter('sequence', newSequence);
+                    }
+                    if (typeof area !== 'undefined' && area.update) {
                         area.update('node', this.id);
                     }
-                }));
+                }
             }
 
             build() {
@@ -8733,6 +8755,12 @@ workspace_data: ${base64Data}
             multiplayer.on('peer-id-ready', (id) => {
                 document.getElementById('peerIdDisplay').textContent = id;
             });
+
+            multiplayer.on('connection-opened', (peerId) => {
+                if (!multiplayer.isHost) {
+                    multiplayer.broadcast({ type: 'request-workspace' });
+                }
+            });
             
             multiplayer.on('data-received', async (msg) => {
                 _isLocalChange = false;
@@ -8743,6 +8771,13 @@ workspace_data: ${base64Data}
                 }
                 try {
                     switch (msg.type) {
+                        case 'request-workspace': {
+                            if (multiplayer.isHost) {
+                                const workspaceData = editorToJSON();
+                                multiplayer.broadcast({ type: 'workspace', data: workspaceData });
+                            }
+                            break;
+                        }
                         case 'workspace': {
                             if (msg.data && msg.data.nodes && msg.data.connections) {
                                 await editorFromJSON(msg.data, false);
