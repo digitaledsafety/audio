@@ -22,7 +22,7 @@ class QuantizerProcessor extends AudioWorkletProcessor {
         // We'll take the first value as the current value for this block.
         const rootNote = parameters.rootNote[0];
 
-        if (input.length === 0 || input[0].length === 0) {
+        if (!input || input.length === 0 || input[0].length === 0 || !output || output.length === 0) {
             return true; // No input to process
         }
 
@@ -36,12 +36,13 @@ class QuantizerProcessor extends AudioWorkletProcessor {
             const totalSemitonesFromC = voltage * 12;
 
             // 2. Calculate the base MIDI note for the current root note, treating C4 (60) as the central point.
-            // The rootNote parameter is the absolute MIDI note value.
             const rootNoteMidi = rootNote;
 
             // 3. Determine the target semitone based on the scale intervals relative to the root note.
-            const octaveOffset = Math.floor((totalSemitonesFromC - rootNoteMidi) / 12);
-            const semitoneInOctave = (totalSemitonesFromC - rootNoteMidi) % 12;
+            const relativeSemitones = totalSemitonesFromC - rootNoteMidi;
+            const octaveOffset = Math.floor(relativeSemitones / 12);
+            // Proper mathematical modulo for negative numbers
+            const semitoneInOctave = ((relativeSemitones % 12) + 12) % 12;
 
             let closestInterval = this.scaleIntervals[0];
             let minDistance = Infinity;
@@ -65,6 +66,13 @@ class QuantizerProcessor extends AudioWorkletProcessor {
             const outputVoltage = finalMidiNote / 12.0;
 
             outputChannel[i] = outputVoltage;
+        }
+
+        // Copy channel 0 to all other output channels for multi-channel compatibility
+        for (let channel = 1; channel < output.length; channel++) {
+            if (output[channel]) {
+                output[channel].set(outputChannel);
+            }
         }
 
         return true;
