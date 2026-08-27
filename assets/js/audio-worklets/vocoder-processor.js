@@ -145,14 +145,25 @@ class VocoderProcessor extends AudioWorkletProcessor {
         const carrier = carrierInput[0];
         const modulator = modulatorInput[0];
         const out = output[0];
+        const len = out.length;
 
-        for (let i = 0; i < out.length; i++) {
+        const modFilters = this.modulatorFilters;
+        const carFilters = this.carrierFilters;
+        const envFollowers = this.envelopeFollowers;
+        const activeBands = this.numBands;
+
+        const noiseFilter = this.noiseFilter;
+        const modulatorEnvelopeFollower = this.modulatorEnvelopeFollower;
+
+        for (let i = 0; i < len; i++) {
             let vocodedSample = 0;
+            const modVal = modulator[i];
+            const carVal = carrier[i];
 
-            for (let j = 0; j < this.numBands; j++) {
-                const modSample = this.modulatorFilters[j].process(modulator[i]);
-                const envelope = this.envelopeFollowers[j].process(modSample);
-                const carSample = this.carrierFilters[j].process(carrier[i]);
+            for (let j = 0; j < activeBands; j++) {
+                const modSample = modFilters[j].process(modVal);
+                const envelope = envFollowers[j].process(modSample);
+                const carSample = carFilters[j].process(carVal);
                 vocodedSample += carSample * envelope;
             }
 
@@ -160,9 +171,9 @@ class VocoderProcessor extends AudioWorkletProcessor {
             // 1. Generate white noise
             const whiteNoise = Math.random() * 2 - 1;
             // 2. Filter it to get a "hiss"
-            const filteredNoise = this.noiseFilter.process(whiteNoise);
+            const filteredNoise = noiseFilter.process(whiteNoise);
             // 3. Get the overall volume of the modulator (the voice)
-            const modulatorEnvelope = this.modulatorEnvelopeFollower.process(modulator[i]);
+            const modulatorEnvelope = modulatorEnvelopeFollower.process(modVal);
             // 4. Shape the hiss with the voice's volume and the unvoicedLevel knob
             const unvoicedSound = filteredNoise * modulatorEnvelope * unvoicedLevel * 5;
 
