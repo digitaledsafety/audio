@@ -47,6 +47,7 @@ Audio supports real-time multiplayer, allowing you to collaborate with others on
 ## Available Nodes
 
 *   [Clock](./docs/ClockNode.md)
+*   [Composite Node](./docs/CompositeNode.md)
 *   [EG](./docs/EGNode.md)
 *   [Gate](./docs/GateNode.md)
 *   [Noise Source](./docs/NoiseSourceNode.md)

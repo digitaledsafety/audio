@@ -328,6 +328,59 @@ layout: none
     <div class="rete-container">
         <div id="messageBox" class="message-box hidden"></div>
         
+
+    <!-- Composite Sub-Circuit Modal Overlay (Mobile-Responsive) -->
+    <div id="subCircuitModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex flex-col p-2 sm:p-4 transition-all duration-300">
+        <div class="bg-gray-900 border border-gray-700 rounded-xl flex-1 flex flex-col overflow-hidden shadow-2xl">
+            <!-- Header Bar -->
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between px-3 py-3 sm:px-6 sm:py-4 bg-gray-800/80 border-b border-gray-700 gap-2 sm:gap-0">
+                <div class="flex items-center space-x-2 sm:space-x-3 flex-wrap">
+                    <span class="text-base sm:text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 flex items-center gap-1.5 sm:gap-2">
+                        <span>🧩 Sub-Circuit Editor</span>
+                    </span>
+                    <span class="text-gray-500 hidden sm:inline">|</span>
+                    <nav id="subCircuitBreadcrumbs" class="flex items-center space-x-1.5 text-xs sm:text-sm text-gray-300 font-mono flex-wrap">
+                        <span class="cursor-pointer hover:text-white transition-colors" onclick="closeSubCircuitModal()">Studio</span>
+                        <span>/</span>
+                        <span id="subCircuitCurrentNodeTitle" class="text-blue-400 font-semibold truncate max-w-[150px] sm:max-w-none">Composite Node</span>
+                    </nav>
+                </div>
+                <div class="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-end">
+                    <button id="addSubInputBtn" onclick="addPortToSubCircuit('input')" class="flex-1 sm:flex-initial px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow transition-all flex items-center justify-center gap-1">
+                        <span>+ Input Port</span>
+                    </button>
+                    <button id="addSubOutputBtn" onclick="addPortToSubCircuit('output')" class="flex-1 sm:flex-initial px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow transition-all flex items-center justify-center gap-1">
+                        <span>+ Output Port</span>
+                    </button>
+                    <button id="closeSubCircuitBtn" onclick="closeSubCircuitModal()" class="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors text-base sm:text-lg">
+                        ✕
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sub Editor Canvas Area -->
+            <div class="relative flex-1 bg-gray-950 overflow-hidden" id="subEditorContainer">
+                <div id="subReteCanvas" class="w-full h-full relative"></div>
+                <div class="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 bg-gray-900/90 border border-gray-800 rounded-lg p-2 sm:p-3 text-[10px] sm:text-xs text-gray-400 pointer-events-none shadow-lg backdrop-blur max-w-[220px] sm:max-w-xs">
+                    <p class="font-semibold text-gray-300 mb-0.5 sm:mb-1">Sub-Circuit Tip:</p>
+                    <p>• Add <span class="text-blue-400">Sub-Circuit Input/Output</span> nodes to define outer sockets.</p>
+                </div>
+            </div>
+
+            <!-- Footer Action Bar -->
+            <div class="px-3 py-2 sm:px-6 sm:py-3 bg-gray-800/80 border-t border-gray-700 flex flex-col sm:flex-row justify-between items-center text-[10px] sm:text-xs text-gray-400 gap-2 sm:gap-0">
+                <div class="text-center sm:text-left">
+                    Changes update the outer Composite Node in real time.
+                </div>
+                <div class="flex space-x-2 w-full sm:w-auto justify-end">
+                    <button id="saveCloseSubCircuitBtn" onclick="closeSubCircuitModal()" class="w-full sm:w-auto px-4 py-1.5 sm:py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-semibold shadow transition-all text-xs">
+                        Done & Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
         <div id="workspace-view" class="flex-grow h-full active">
             {{ content }}
             <div id="rete-container" class="relative h-full"></div>
@@ -420,6 +473,7 @@ layout: none
                                 <button id="addMasterClockNodeBtn" class="button button-secondary w-full text-xs">⏱️ Clock</button>
                                 <button id="addMasterGainOutputNodeBtn" class="button button-secondary w-full text-xs">🔊 Output</button>
                                 <button id="addSignalInverterNodeBtn" class="button button-secondary w-full text-xs">🔄 Inverter</button>
+                                <button id="addCompositeNodeBtn" class="button button-secondary w-full text-xs">🧩 Sub-Circuit</button>
                             </div>
                         </div>
                     </div>
@@ -552,7 +606,7 @@ layout: none
             return mapping[label] || label;
         }
 
-        const NodeRegistry = {
+        const NodeRegistry = window.NodeRegistry = {
             _nodes: new Map(),
             register(name, constructor) {
                 this._nodes.set(name, constructor);
@@ -2113,10 +2167,17 @@ workspace_data: ${base64Data}
                 const targetAudioNode = reteAudioNodes.get(targetReteNode.id);
                 if (!sourceAudioNode || !targetAudioNode) return;
 
-                const sourceToConnect = sourceAudioNode[sourceOutputKey + 'Output'] || sourceAudioNode.mainOutput || sourceAudioNode;
+                let sourceToConnect = sourceAudioNode[sourceOutputKey + 'Output'];
+                if (!sourceToConnect && sourceAudioNode.outputGains && sourceAudioNode.outputGains.has(sourceOutputKey)) {
+                    sourceToConnect = sourceAudioNode.outputGains.get(sourceOutputKey);
+                }
+                if (!sourceToConnect) sourceToConnect = sourceAudioNode.mainOutput || sourceAudioNode;
 
                 // Check for specifically named inputs (e.g., carrierInput, in1Input)
-                const namedInput = targetAudioNode[targetInputKey + 'Input'];
+                let namedInput = targetAudioNode[targetInputKey + 'Input'];
+                if (!namedInput && targetAudioNode.inputGains && targetAudioNode.inputGains.has(targetInputKey)) {
+                    namedInput = targetAudioNode.inputGains.get(targetInputKey);
+                }
                 if (namedInput && typeof sourceToConnect.connect === 'function') {
                     sourceToConnect.connect(namedInput);
                     return;
@@ -4166,6 +4227,240 @@ workspace_data: ${base64Data}
             stop() {}
             updateParameter() {}
         }
+
+
+        // --- Composite & Sub-Circuit Architecture ---
+
+        class SubCircuitInputPort {
+            constructor(audioContext, reteNodeId, data) {
+                this.audioContext = audioContext;
+                this.reteNodeId = reteNodeId;
+                this.data = data || {};
+                this.mainInput = this.audioContext.createGain();
+                this.mainOutput = this.mainInput;
+            }
+            start() {}
+            stop() {}
+            updateParameter() {}
+        }
+
+        class SubCircuitInputNode extends WebAudioNode {
+            constructor() {
+                super('Sub-Circuit Input');
+                this.addControl('portName', new TextControl('portName', 'Port Name', 'In 1', (val) => {
+                    this.label = 'In: ' + (val || 'In 1');
+                    if (window.updateCompositeSockets) window.updateCompositeSockets();
+                }));
+                this.addOutput('audio', new Classic.Output(voltageSocket, 'Signal Out'));
+            }
+            build() {
+                return new SubCircuitInputPort(audioContext, this.id, this.data);
+            }
+        }
+
+        class SubCircuitOutputPort {
+            constructor(audioContext, reteNodeId, data) {
+                this.audioContext = audioContext;
+                this.reteNodeId = reteNodeId;
+                this.data = data || {};
+                this.mainInput = this.audioContext.createGain();
+                this.mainOutput = this.mainInput;
+            }
+            start() {}
+            stop() {}
+            updateParameter() {}
+        }
+
+        class SubCircuitOutputNode extends WebAudioNode {
+            constructor() {
+                super('Sub-Circuit Output');
+                this.addControl('portName', new TextControl('portName', 'Port Name', 'Out 1', (val) => {
+                    this.label = 'Out: ' + (val || 'Out 1');
+                    if (window.updateCompositeSockets) window.updateCompositeSockets();
+                }));
+                this.addInput('audio', new Classic.Input(voltageSocket, 'Signal In', true));
+            }
+            build() {
+                return new SubCircuitOutputPort(audioContext, this.id, this.data);
+            }
+        }
+
+        class CompositeAudio {
+            constructor(audioContext, reteNodeId, data) {
+                this.audioContext = audioContext;
+                this.reteNodeId = reteNodeId;
+                this.data = data || {};
+                this.subAudioNodes = new Map();
+                this.inputGains = new Map();  // portKey -> GainNode
+                this.outputGains = new Map(); // portKey -> GainNode
+            }
+            start() {
+                this.subAudioNodes.forEach(node => {
+                    if (node && typeof node.start === 'function') {
+                        try { node.start(); } catch(e) {}
+                    }
+                });
+            }
+            stop() {
+                this.subAudioNodes.forEach(node => {
+                    if (node && typeof node.stop === 'function') {
+                        try { node.stop(); } catch(e) {}
+                    }
+                });
+            }
+            updateParameter() {}
+        }
+
+        class CompositeNode extends WebAudioNode {
+            constructor() {
+                super('Composite Node');
+                this.subWorkspace = {
+                    nodes: [
+                        { id: 'in_1', type: 'SubCircuitInputNode', label: 'Sub-Circuit Input', data: { portName: 'In 1' }, position: [50, 100] },
+                        { id: 'out_1', type: 'SubCircuitOutputNode', label: 'Sub-Circuit Output', data: { portName: 'Out 1' }, position: [550, 100] }
+                    ],
+                    connections: []
+                };
+                this.presetType = 'custom';
+
+                this.addControl('preset', new SelectControl('preset', 'Preset Template', ['Custom', 'Chorus Sub-Circuit', 'Ping-Pong Delay Sub-Circuit'], 'Custom', (val) => {
+                    this.applyPreset(val);
+                }));
+
+                this.addControl('editBtn', new ButtonControl('editBtn', '🔍 Edit Sub-Circuit', () => {
+                    openSubCircuitModal(this);
+                }));
+
+                this.syncSocketsFromSubWorkspace();
+            }
+
+            applyPreset(presetName) {
+                if (presetName === 'Chorus Sub-Circuit') {
+                    this.label = 'Chorus Sub-Circuit';
+                    this.subWorkspace = {
+                        nodes: [
+                            { id: 'in1', type: 'SubCircuitInputNode', label: 'Sub-Circuit Input', data: { portName: 'In 1' }, position: [50, 150] },
+                            { id: 'delay1', type: 'DelayNode', label: 'Delay', data: { delayTime: 0.025, feedback: 0.3, mix: 0.7 }, position: [250, 100] },
+                            { id: 'lfo1', type: 'LFONode', label: 'LFO', data: { frequency: 1.5, depth: 0.005 }, position: [50, 320] },
+                            { id: 'out1', type: 'SubCircuitOutputNode', label: 'Sub-Circuit Output', data: { portName: 'Out 1' }, position: [550, 150] }
+                        ],
+                        connections: [
+                            { id: 'c1', source: 'in1', sourceOutput: 'audio', target: 'delay1', targetInput: 'audio' },
+                            { id: 'c2', source: 'lfo1', sourceOutput: 'audio', target: 'delay1', targetInput: 'time' },
+                            { id: 'c3', source: 'delay1', sourceOutput: 'audio', target: 'out1', targetInput: 'audio' }
+                        ]
+                    };
+                } else if (presetName === 'Ping-Pong Delay Sub-Circuit') {
+                    this.label = 'Ping-Pong Delay Sub-Circuit';
+                    this.subWorkspace = {
+                        nodes: [
+                            { id: 'in1', type: 'SubCircuitInputNode', label: 'Sub-Circuit Input', data: { portName: 'In 1' }, position: [50, 150] },
+                            { id: 'd1', type: 'DelayNode', label: 'Delay Left', data: { delayTime: 0.3, feedback: 0.4 }, position: [250, 80] },
+                            { id: 'd2', type: 'DelayNode', label: 'Delay Right', data: { delayTime: 0.6, feedback: 0.4 }, position: [250, 280] },
+                            { id: 'out1', type: 'SubCircuitOutputNode', label: 'Sub-Circuit Output', data: { portName: 'Out 1' }, position: [550, 180] }
+                        ],
+                        connections: [
+                            { id: 'c1', source: 'in1', sourceOutput: 'audio', target: 'd1', targetInput: 'audio' },
+                            { id: 'c2', source: 'd1', sourceOutput: 'audio', target: 'd2', targetInput: 'audio' },
+                            { id: 'c3', source: 'd2', sourceOutput: 'audio', target: 'out1', targetInput: 'audio' }
+                        ]
+                    };
+                }
+                this.syncSocketsFromSubWorkspace();
+                if (window.updateAudioGraphConnections) {
+                    window.updateAudioGraphConnections();
+                }
+            }
+
+            syncSocketsFromSubWorkspace() {
+                if (!this.subWorkspace || !this.subWorkspace.nodes) return;
+
+                const inputsInSub = [];
+                const outputsInSub = [];
+
+                this.subWorkspace.nodes.forEach(n => {
+                    if (n.type === 'SubCircuitInputNode') {
+                        const portName = (n.data && n.data.portName) || n.id;
+                        inputsInSub.push({ id: n.id, name: portName });
+                    } else if (n.type === 'SubCircuitOutputNode') {
+                        const portName = (n.data && n.data.portName) || n.id;
+                        outputsInSub.push({ id: n.id, name: portName });
+                    }
+                });
+
+                // Re-populate inputs
+                Object.keys(this.inputs).forEach(key => this.removeInput(key));
+                inputsInSub.forEach((port, idx) => {
+                    const key = 'in_' + port.id;
+                    this.addInput(key, new Classic.Input(voltageSocket, port.name, true));
+                });
+
+                // Re-populate outputs
+                Object.keys(this.outputs).forEach(key => this.removeOutput(key));
+                outputsInSub.forEach((port, idx) => {
+                    const key = 'out_' + port.id;
+                    this.addOutput(key, new Classic.Output(voltageSocket, port.name));
+                });
+            }
+
+            build() {
+                const compAudio = new CompositeAudio(audioContext, this.id, this.data);
+                this.buildSubCircuitAudio(compAudio);
+                return compAudio;
+            }
+
+            buildSubCircuitAudio(compAudio) {
+                if (!this.subWorkspace || !this.subWorkspace.nodes) return;
+
+                compAudio.subAudioNodes.clear();
+                compAudio.inputGains.clear();
+                compAudio.outputGains.clear();
+
+                // 1. Build sub audio nodes
+                this.subWorkspace.nodes.forEach(subNodeData => {
+                    const Constructor = NodeRegistry.getConstructor(subNodeData.type);
+                    if (Constructor) {
+                        const tempReteNode = new Constructor();
+                        tempReteNode.id = subNodeData.id;
+                        tempReteNode.data = { ...tempReteNode.data, ...(subNodeData.data || {}) };
+
+                        if (typeof tempReteNode.build === 'function') {
+                            const subAudio = tempReteNode.build();
+                            compAudio.subAudioNodes.set(subNodeData.id, subAudio);
+
+                            if (subNodeData.type === 'SubCircuitInputNode') {
+                                compAudio.inputGains.set('in_' + subNodeData.id, subAudio.mainOutput);
+                            } else if (subNodeData.type === 'SubCircuitOutputNode') {
+                                compAudio.outputGains.set('out_' + subNodeData.id, subAudio.mainInput);
+                            }
+                        }
+                    }
+                });
+
+                // 2. Internal routing among sub-nodes
+                if (this.subWorkspace.connections) {
+                    this.subWorkspace.connections.forEach(conn => {
+                        const srcAudio = compAudio.subAudioNodes.get(conn.source);
+                        const tgtAudio = compAudio.subAudioNodes.get(conn.target);
+                        if (srcAudio && tgtAudio) {
+                            const srcOutputNode = srcAudio.mainOutput || srcAudio;
+                            let tgtInputNode = tgtAudio.mainInput || tgtAudio;
+
+                            if (conn.targetInput && conn.targetInput !== 'audio' && tgtAudio[conn.targetInput]) {
+                                tgtInputNode = tgtAudio[conn.targetInput];
+                            }
+
+                            try {
+                                srcOutputNode.connect(tgtInputNode);
+                            } catch(e) {
+                                console.warn('Composite inner connect error:', e);
+                            }
+                        }
+                    });
+                }
+            }
+        }
+        window.CompositeNode = CompositeNode;
 
         class SignalInverterNode extends WebAudioNode {
             constructor() {
@@ -8705,6 +9000,181 @@ workspace_data: ${base64Data}
         NodeRegistry.register('ClockDividerNode', ClockDividerNode);
         NodeRegistry.register('Inverter', SignalInverterNode);
         NodeRegistry.register('SignalInverterNode', SignalInverterNode);
+        NodeRegistry.register('Composite Node', CompositeNode);
+        NodeRegistry.register('CompositeNode', CompositeNode);
+        NodeRegistry.register('SubCircuitInputNode', SubCircuitInputNode);
+        NodeRegistry.register('SubCircuitOutputNode', SubCircuitOutputNode);
+
+
+
+        // --- Sub-Circuit Modal & Inner Editor Logic ---
+        let currentEditingCompositeNode = null;
+        let subEditor = null;
+        let subArea = null;
+
+        async function openSubCircuitModal(compositeNode) {
+            currentEditingCompositeNode = compositeNode;
+            const modal = document.getElementById('subCircuitModal');
+            if (!modal) return;
+
+            document.getElementById('subCircuitCurrentNodeTitle').textContent = compositeNode.label || 'Composite Node';
+            modal.classList.remove('hidden');
+
+            const container = document.getElementById('subReteCanvas');
+            container.innerHTML = '';
+
+            const schemes = {
+                Node: WebAudioNode,
+                Connection: WebAudioConnection,
+                Socket: Classic.Socket
+            };
+
+            subEditor = new NodeEditor(schemes);
+            subArea = new AreaPlugin(container);
+            const connection = new ConnectionPlugin();
+            const render = new ReactRenderPlugin({ createRoot });
+
+            render.addPreset(ReactPresets.classic.setup({
+                customize: {
+                    node() {
+                        return CustomNodeComponent;
+                    }
+                }
+            }));
+
+            connection.addPreset(ConnectionPresets.classic.setup());
+
+            subEditor.use(subArea);
+            subArea.use(render);
+            subArea.use(connection);
+
+            AreaExtensions.selectableNodes(subArea, AreaExtensions.selector(), {
+                accumulate: AreaExtensions.accumulateOnCtrl()
+            });
+
+            subArea.addPipe(context => {
+                if (context.type === 'render' && context.data.type === 'node') {
+                    context.data.element.setAttribute('data-node-label', context.data.payload.label);
+                }
+                return context;
+            });
+
+            // Handle connections inside sub-editor
+            subEditor.addPipe(context => {
+                if (context.type === 'connectioncreated' || context.type === 'connectionremoved') {
+                    saveSubCircuitToCompositeNode();
+                }
+                return context;
+            });
+
+            subArea.addPipe(context => {
+                if (context.type === 'nodemoved') {
+                    saveSubCircuitToCompositeNode();
+                }
+                return context;
+            });
+
+            // Load existing subWorkspace or defaults
+            if (compositeNode.subWorkspace && compositeNode.subWorkspace.nodes) {
+                const idMap = new Map();
+                for (const nodeData of compositeNode.subWorkspace.nodes) {
+                    const Constructor = NodeRegistry.getConstructor(nodeData.type);
+                    if (Constructor) {
+                        const n = new Constructor();
+                        n.id = nodeData.id;
+                        n.data = { ...n.data, ...(nodeData.data || {}) };
+                        for (const k in n.controls) {
+                            if (n.data.hasOwnProperty(k) && n.controls[k]) {
+                                n.controls[k].value = n.data[k];
+                            }
+                        }
+                        try {
+                            await subEditor.addNode(n);
+                            if (nodeData.position) {
+                                await subArea.translate(n.id, { x: nodeData.position[0], y: nodeData.position[1] });
+                            }
+                        } catch(e) {}
+                    }
+                }
+                if (compositeNode.subWorkspace.connections) {
+                    for (const conn of compositeNode.subWorkspace.connections) {
+                        try {
+                            const srcNode = subEditor.getNode(conn.source);
+                            const tgtNode = subEditor.getNode(conn.target);
+                            if (srcNode && tgtNode) {
+                                await subEditor.addConnection(new WebAudioConnection(srcNode, conn.sourceOutput, tgtNode, conn.targetInput));
+                            }
+                        } catch(e) {}
+                    }
+                }
+            }
+
+            AreaExtensions.zoomAt(subArea, subEditor.getNodes());
+        }
+
+        function saveSubCircuitToCompositeNode() {
+            if (!currentEditingCompositeNode || !subEditor) return;
+
+            const nodes = [];
+            for (const n of subEditor.getNodes()) {
+                const view = subArea.nodeViews.get(n.id);
+                const pos = view ? [view.position.x, view.position.y] : [0, 0];
+                nodes.push({
+                    id: n.id,
+                    type: n.constructor.name,
+                    label: n.label,
+                    data: { ...n.data },
+                    position: pos
+                });
+            }
+
+            const connections = [];
+            for (const c of subEditor.getConnections()) {
+                connections.push({
+                    id: c.id,
+                    source: c.source,
+                    sourceOutput: c.sourceOutput,
+                    target: c.target,
+                    targetInput: c.targetInput
+                });
+            }
+
+            currentEditingCompositeNode.subWorkspace = { nodes, connections };
+            currentEditingCompositeNode.syncSocketsFromSubWorkspace();
+
+            if (window.area && currentEditingCompositeNode.id) {
+                window.area.update('node', currentEditingCompositeNode.id);
+            }
+
+            if (window.updateAudioGraphConnections) {
+                window.updateAudioGraphConnections();
+            }
+        }
+
+        async function addPortToSubCircuit(type) {
+            if (!subEditor || !subArea) return;
+            const Constructor = type === 'input' ? SubCircuitInputNode : SubCircuitOutputNode;
+            const n = new Constructor();
+            await subEditor.addNode(n);
+            await subArea.translate(n.id, { x: 100 + Math.random() * 200, y: 100 + Math.random() * 200 });
+            saveSubCircuitToCompositeNode();
+        }
+
+        function closeSubCircuitModal() {
+            saveSubCircuitToCompositeNode();
+            const modal = document.getElementById('subCircuitModal');
+            if (modal) modal.classList.add('hidden');
+            currentEditingCompositeNode = null;
+            subEditor = null;
+            subArea = null;
+        }
+
+        window.openSubCircuitModal = openSubCircuitModal;
+        window.closeSubCircuitModal = closeSubCircuitModal;
+        window.addPortToSubCircuit = addPortToSubCircuit;
+        window.updateCompositeSockets = () => {
+            saveSubCircuitToCompositeNode();
+        };
 
         window.onload = async () => {
             // Rete.js v2: Define schemes
