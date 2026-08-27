@@ -1,5 +1,0 @@
----
-layout: default
-title: Outdated Workspace
-workspace_data: eyJub2RlcyI6IFt7ICJpZCI6ICIzNTg3NjYiLCAibGFiZWwiOiAiTEZPIiwgImRhdGEiOiB7ICJmcmVxdWVuY3kiOiA1LCAid2F2ZWZvcm0iOiAic2luZSIsICJhbW91bnQiOiAwLjUgfSwgInBvc2l0aW9uIjogeyAieCI6IDEwMCwgInkiOiAxMDAgfSB9XSwgImNvbm5lY3Rpb25zIjogW119
----
