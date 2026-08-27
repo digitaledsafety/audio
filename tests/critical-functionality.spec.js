@@ -94,4 +94,12 @@ test.describe('Critical Functionality', () => {
     // Verify node is restored
     await expect(page.locator('text=VCO').first()).toBeVisible();
   });
+
+  test('should verify Service Worker fetch logic bypasses non-GET requests', async ({ page }) => {
+    const swResponse = await page.goto('/sw.js');
+    expect(swResponse.status()).toBe(200);
+    const swContent = await swResponse.text();
+    expect(swContent).toContain("event.request.method !== 'GET'");
+    expect(swContent).toContain("!requestUrl.protocol.startsWith('http')");
+  });
 });
