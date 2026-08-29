@@ -4165,6 +4165,22 @@ workspace_data: ${base64Data}
             start() {}
             stop() {}
             updateParameter() {}
+
+            connect(destination) {
+                if (this.mainOutput && typeof this.mainOutput.connect === 'function') {
+                    this.mainOutput.connect(destination);
+                }
+            }
+
+            disconnect(destination) {
+                if (this.mainOutput && typeof this.mainOutput.disconnect === 'function') {
+                    if (destination) {
+                        this.mainOutput.disconnect(destination);
+                    } else {
+                        this.mainOutput.disconnect();
+                    }
+                }
+            }
         }
 
         class SignalInverterNode extends WebAudioNode {
