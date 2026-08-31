@@ -7692,6 +7692,22 @@ workspace_data: ${base64Data}
 
             start() {}
             stop() {}
+
+            connect(destination) {
+                if (this.mainOutput && typeof this.mainOutput.connect === 'function') {
+                    return this.mainOutput.connect(destination);
+                }
+            }
+
+            disconnect(destination) {
+                if (this.mainOutput && typeof this.mainOutput.disconnect === 'function') {
+                    if (destination) {
+                        return this.mainOutput.disconnect(destination);
+                    } else {
+                        return this.mainOutput.disconnect();
+                    }
+                }
+            }
         }
 
         class QuantizerNode extends WebAudioNode {
@@ -7852,6 +7868,22 @@ workspace_data: ${base64Data}
                         break;
                 }
             }
+
+            connect(destination) {
+                if (this.mainOutput && typeof this.mainOutput.connect === 'function') {
+                    return this.mainOutput.connect(destination);
+                }
+            }
+
+            disconnect(destination) {
+                if (this.mainOutput && typeof this.mainOutput.disconnect === 'function') {
+                    if (destination) {
+                        return this.mainOutput.disconnect(destination);
+                    } else {
+                        return this.mainOutput.disconnect();
+                    }
+                }
+            }
         }
 
         class GranularSynthesizer {
@@ -7889,6 +7921,22 @@ workspace_data: ${base64Data}
 
             start() {}
             stop() {}
+
+            connect(destination) {
+                if (this.mainOutput && typeof this.mainOutput.connect === 'function') {
+                    return this.mainOutput.connect(destination);
+                }
+            }
+
+            disconnect(destination) {
+                if (this.mainOutput && typeof this.mainOutput.disconnect === 'function') {
+                    if (destination) {
+                        return this.mainOutput.disconnect(destination);
+                    } else {
+                        return this.mainOutput.disconnect();
+                    }
+                }
+            }
         }
 
         class Multiplayer {

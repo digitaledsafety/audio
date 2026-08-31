@@ -10,11 +10,12 @@ class BiquadFilter {
         const cosW0 = Math.cos(w0);
         const sinW0 = Math.sin(w0);
         const alpha = sinW0 / (2 * q);
-
-        this.b0 = alpha;
-        this.b1 = 0;
-        this.b2 = -alpha;
         const a0 = 1 + alpha;
+
+        // Correctly normalize all transfer function coefficients by a0
+        this.b0 = alpha / a0;
+        this.b1 = 0;
+        this.b2 = -alpha / a0;
         this.a1 = -2 * cosW0 / a0;
         this.a2 = (1 - alpha) / a0;
     }
@@ -24,12 +25,13 @@ class BiquadFilter {
         const cosW0 = Math.cos(w0);
         const sinW0 = Math.sin(w0);
         const alpha = sinW0 / (2 * q);
+        const a0 = 1 + alpha;
 
-        this.b0 = (1 + cosW0) / 2 / (1 + alpha);
-        this.b1 = -(1 + cosW0) / (1 + alpha);
-        this.b2 = (1 + cosW0) / 2 / (1 + alpha);
-        this.a1 = -2 * cosW0 / (1 + alpha);
-        this.a2 = (1 - alpha) / (1 + alpha);
+        this.b0 = (1 + cosW0) / 2 / a0;
+        this.b1 = -(1 + cosW0) / a0;
+        this.b2 = (1 + cosW0) / 2 / a0;
+        this.a1 = -2 * cosW0 / a0;
+        this.a2 = (1 - alpha) / a0;
     }
 
     process(input) {
@@ -107,19 +109,17 @@ class VocoderProcessor extends AudioWorkletProcessor {
             const shiftedFreq = freq * formantRatio;
 
             const modFilter = new BiquadFilter();
-            modFilter.setBandpass(shiftedFreq, 20, this.sampleRate); // Increased Q
+            modFilter.setBandpass(shiftedFreq, 20, this.sampleRate);
             this.modulatorFilters.push(modFilter);
 
             const carFilter = new BiquadFilter();
-            carFilter.setBandpass(shiftedFreq, 20, this.sampleRate); // Increased Q
+            carFilter.setBandpass(shiftedFreq, 20, this.sampleRate);
             this.carrierFilters.push(carFilter);
 
-            // Faster attack/release
             const envFollower = new EnvelopeFollower(0.002, 0.01, this.sampleRate);
             this.envelopeFollowers.push(envFollower);
         }
     }
-
 
     process(inputs, outputs, parameters) {
         const carrierInput = inputs[0];
@@ -135,9 +135,12 @@ class VocoderProcessor extends AudioWorkletProcessor {
             this.rebuildFilters(numBands, formantShift);
         }
 
-        if (!carrierInput[0] || !modulatorInput[0] || this.numBands === 0) {
-            for (let i = 0; i < output[0].length; i++) {
-                output[0][i] = 0;
+        if (!carrierInput || !carrierInput[0] || !modulatorInput || !modulatorInput[0] || this.numBands === 0) {
+            if (output && output[0]) {
+                const len = output[0].length;
+                for (let i = 0; i < len; i++) {
+                    output[0][i] = 0;
+                }
             }
             return true;
         }
@@ -145,31 +148,33 @@ class VocoderProcessor extends AudioWorkletProcessor {
         const carrier = carrierInput[0];
         const modulator = modulatorInput[0];
         const out = output[0];
+        const blockLen = out.length;
+        const bandCount = this.numBands;
 
-        for (let i = 0; i < out.length; i++) {
+        for (let i = 0; i < blockLen; i++) {
             let vocodedSample = 0;
 
-            for (let j = 0; j < this.numBands; j++) {
-                const modSample = this.modulatorFilters[j].process(modulator[i]);
+            const modVal = modulator[i];
+            const carVal = carrier[i];
+
+            for (let j = 0; j < bandCount; j++) {
+                const modSample = this.modulatorFilters[j].process(modVal);
                 const envelope = this.envelopeFollowers[j].process(modSample);
-                const carSample = this.carrierFilters[j].process(carrier[i]);
+                const carSample = this.carrierFilters[j].process(carVal);
                 vocodedSample += carSample * envelope;
             }
 
             // --- Unvoiced Sound Processing ---
-            // 1. Generate white noise
             const whiteNoise = Math.random() * 2 - 1;
-            // 2. Filter it to get a "hiss"
             const filteredNoise = this.noiseFilter.process(whiteNoise);
-            // 3. Get the overall volume of the modulator (the voice)
-            const modulatorEnvelope = this.modulatorEnvelopeFollower.process(modulator[i]);
-            // 4. Shape the hiss with the voice's volume and the unvoicedLevel knob
+            const modulatorEnvelope = this.modulatorEnvelopeFollower.process(modVal);
             const unvoicedSound = filteredNoise * modulatorEnvelope * unvoicedLevel * 5;
 
             out[i] = (vocodedSample + unvoicedSound) * OUTPUT_GAIN;
         }
 
-        for (let channel = 1; channel < output.length; channel++) {
+        const numOutChannels = output.length;
+        for (let channel = 1; channel < numOutChannels; channel++) {
             output[channel].set(out);
         }
 
