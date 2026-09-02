@@ -2313,6 +2313,10 @@ workspace_data: ${base64Data}
                         return targetNode.formantShift;
                     case 'unvoiced_cv':
                         return targetNode.unvoicedLevel;
+                    case 'bits_cv':
+                        return targetNode.bits || (targetNode.parameters ? targetNode.parameters.get('bits') : null);
+                    case 'sr_cv':
+                        return targetNode.sampleRateReduction || (targetNode.parameters ? targetNode.parameters.get('sampleRateReduction') : null);
                     case 'grainSizeCV':
                         return targetNode.grainSize;
                     case 'grainDensityCV':
@@ -7526,44 +7530,78 @@ workspace_data: ${base64Data}
             constructor() {
                 super('Bitcrusher');
                 this.addInput('audio', new Classic.Input(voltageSocket, 'Audio In', true));
+                this.addInput('bits_cv', new Classic.Input(voltageSocket, 'Bits CV', true));
+                this.addInput('sr_cv', new Classic.Input(voltageSocket, 'SR CV', true));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
-
-                // The actual AudioWorkletNode will be created in startAudio().
-                // this.audioNode will be assigned there.
-                this.audioNode = null; // Placeholder for the live Web Audio API node
 
                 this.data.bits = 8;
                 this.addControl('bits', new SliderControl('bits', 'Bit Depth', 1, 16, 1, this.data.bits, (val) => {
                     this.data.bits = val;
-                    const liveAudioNode = reteAudioNodes.get(this.id); // Assuming reteAudioNodes maps Rete node IDs to live audio nodes
-                    if (liveAudioNode && liveAudioNode.parameters) {
-                        // Use setValueAtTime for smooth automation of AudioParam
-                        liveAudioNode.parameters.get('bits').setValueAtTime(val, audioContext.currentTime);
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode && typeof audioNode.updateParameter === 'function') {
+                        audioNode.updateParameter('bits', val);
                     }
                 }));
 
                 this.data.sampleRateReduction = 1;
                 this.addControl('sampleRateReduction', new SliderControl('sampleRateReduction', 'Sample Rate Reduction', 1, 20, 1, this.data.sampleRateReduction, (val) => {
                     this.data.sampleRateReduction = val;
-                    const liveAudioNode = reteAudioNodes.get(this.id);
-                    if (liveAudioNode && liveAudioNode.parameters) {
-                        liveAudioNode.parameters.get('sampleRateReduction').setValueAtTime(val, audioContext.currentTime);
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode && typeof audioNode.updateParameter === 'function') {
+                        audioNode.updateParameter('sampleRateReduction', val);
                     }
                 }));
             }
 
             build() {
-                const audioNode = new AudioWorkletNode(audioContext, 'bitcrusher-processor');
-                audioNode.parameters.get('bits').setValueAtTime(
-                    this.data.bits !== undefined ? this.data.bits : 8,
-                    audioContext.currentTime
-                );
-                audioNode.parameters.get('sampleRateReduction').setValueAtTime(
-                    this.data.sampleRateReduction !== undefined ? this.data.sampleRateReduction : 1,
-                    audioContext.currentTime
-                );
-                return audioNode;
+                return new Bitcrusher(audioContext, this.id, this.data);
             }
+        }
+
+        class Bitcrusher {
+            constructor(audioContext, reteNodeId, data) {
+                this.audioContext = audioContext;
+                this.reteNodeId = reteNodeId;
+                this.data = data;
+
+                this.workletNode = new AudioWorkletNode(this.audioContext, 'bitcrusher-processor');
+                this.mainInput = this.audioContext.createGain();
+                this.mainInput.connect(this.workletNode);
+                this.mainOutput = this.workletNode;
+
+                this.bits = this.workletNode.parameters.get('bits');
+                this.sampleRateReduction = this.workletNode.parameters.get('sampleRateReduction');
+
+                this.updateParameter('bits', this.data.bits !== undefined ? this.data.bits : 8);
+                this.updateParameter('sampleRateReduction', this.data.sampleRateReduction !== undefined ? this.data.sampleRateReduction : 1);
+            }
+
+            updateParameter(paramName, value) {
+                this.data[paramName] = value;
+                const param = this.workletNode.parameters.get(paramName);
+                if (param) {
+                    param.setTargetAtTime(value, this.audioContext.currentTime, 0.005);
+                }
+            }
+
+            connect(destination) {
+                if (this.mainOutput && typeof this.mainOutput.connect === 'function') {
+                    this.mainOutput.connect(destination);
+                }
+            }
+
+            disconnect(destination) {
+                if (this.mainOutput && typeof this.mainOutput.disconnect === 'function') {
+                    if (destination) {
+                        this.mainOutput.disconnect(destination);
+                    } else {
+                        this.mainOutput.disconnect();
+                    }
+                }
+            }
+
+            start() {}
+            stop() {}
         }
 
         class VocoderNode extends WebAudioNode {
