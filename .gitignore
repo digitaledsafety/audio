@@ -5,6 +5,5 @@ _site/
 node_modules
 playwright-report/
 server.log
-webserver.log
 test-results/
 vendor/
