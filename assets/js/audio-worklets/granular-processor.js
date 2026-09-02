@@ -24,11 +24,13 @@ class GranularProcessor extends AudioWorkletProcessor {
     const input = inputs[0];
     const output = outputs[0];
     const inputChannel = input[0];
+    const bufferLen = this.buffer.length;
 
     if (inputChannel && inputChannel.length > 0) {
-      for (let i = 0; i < inputChannel.length; i++) {
+      const inLen = inputChannel.length;
+      for (let i = 0; i < inLen; i++) {
         this.buffer[this.writeIndex] = inputChannel[i];
-        this.writeIndex = (this.writeIndex + 1) % this.buffer.length;
+        this.writeIndex = (this.writeIndex + 1) % bufferLen;
       }
     }
 
@@ -36,54 +38,57 @@ class GranularProcessor extends AudioWorkletProcessor {
     const grainDensity = parameters.grainDensity[0];
     const pitchShift = parameters.pitchShift[0];
     const positionJitter = parameters.positionJitter[0];
+    const outputLength = output[0] ? output[0].length : 0;
+    const numChannels = output.length;
 
     // Simple scheduling
-    this.grainScheduler.nextGrainTime -= output[0].length / sampleRate;
-    if (this.grainScheduler.nextGrainTime <= 0) {
-        this.grainScheduler.nextGrainTime = 1.0 / grainDensity;
+    if (outputLength > 0) {
+      this.grainScheduler.nextGrainTime -= outputLength / sampleRate;
+      if (this.grainScheduler.nextGrainTime <= 0) {
+          this.grainScheduler.nextGrainTime = 1.0 / grainDensity;
 
-        const grain = {
-            startPosition: (this.writeIndex - grainSize - (Math.random() * positionJitter * this.buffer.length)) % this.buffer.length,
-            playbackPosition: 0,
-            size: grainSize,
-            pitch: 1.0 * Math.pow(2, pitchShift / 1200),
-        };
-        if(grain.startPosition < 0) grain.startPosition += this.buffer.length;
+          const grain = {
+              startPosition: (this.writeIndex - grainSize - (Math.random() * positionJitter * bufferLen)) % bufferLen,
+              playbackPosition: 0,
+              size: grainSize,
+              pitch: 1.0 * Math.pow(2, pitchShift / 1200),
+          };
+          if (grain.startPosition < 0) grain.startPosition += bufferLen;
 
-        this.activeGrains.push(grain);
+          this.activeGrains.push(grain);
+      }
     }
 
-    for (const channel of output) {
-      channel.fill(0);
+    for (let c = 0; c < numChannels; c++) {
+      output[c].fill(0);
     }
 
     for (let i = this.activeGrains.length - 1; i >= 0; i--) {
         const grain = this.activeGrains[i];
 
-        for (let j = 0; j < output[0].length; j++) {
+        for (let j = 0; j < outputLength; j++) {
             const bufferIndex = Math.floor(grain.startPosition + grain.playbackPosition);
 
             // Basic linear interpolation for pitch shifting
-            const index1 = bufferIndex % this.buffer.length;
-            const index2 = (bufferIndex + 1) % this.buffer.length;
+            const index1 = bufferIndex % bufferLen;
+            const index2 = (bufferIndex + 1) % bufferLen;
             const fraction = grain.startPosition + grain.playbackPosition - bufferIndex;
             const sample = (this.buffer[index1] * (1 - fraction)) + (this.buffer[index2] * fraction);
 
             // Apply a simple window to avoid clicks
             const window = Math.sin(Math.PI * (grain.playbackPosition / grain.size));
 
-            for(const channel of output) {
-                channel[j] += sample * window;
+            for (let c = 0; c < numChannels; c++) {
+                output[c][j] += sample * window;
             }
 
             grain.playbackPosition += grain.pitch;
         }
 
-        if(grain.playbackPosition >= grain.size) {
+        if (grain.playbackPosition >= grain.size) {
             this.activeGrains.splice(i, 1);
         }
     }
-
 
     return true;
   }
