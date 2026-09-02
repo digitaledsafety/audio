@@ -34,8 +34,8 @@ self.addEventListener('install', event => {
 self.addEventListener('fetch', event => {
   const requestUrl = new URL(event.request.url);
 
-  // Skip non-GET requests and unsupported protocols
-  if (event.request.method !== 'GET' || !['http:', 'https:'].includes(requestUrl.protocol)) {
+  // Skip caching for chrome-extension requests
+  if (requestUrl.protocol === 'chrome-extension:') {
     return; // Do not attempt to cache
   }
 
