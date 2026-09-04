@@ -569,6 +569,7 @@ layout: none
                 return constructors;
             }
         };
+        window.NodeRegistry = NodeRegistry;
 
         const legacyNameMap = {
             nodes: {
@@ -1135,6 +1136,9 @@ layout: none
                         await AreaExtensions.zoomAt(area, editor.getNodes());
                     });
                 }
+
+                // Scan for any cycles after loading the workspace
+                logGraphCycles();
             } catch (error) {
                 console.error('Error syncing workspace:', error);
                 showMessage('Error syncing workspace: ' + error.message, 'error');
@@ -1634,6 +1638,7 @@ workspace_data: ${base64Data}
             clearEditorBtn.disabled = true;
             showMessage('Editor cleared.', 'info');
         }
+        window.clearEditor = clearEditor;
 
         async function stopAudio() {
             // Cancel any loop recording
@@ -1980,6 +1985,97 @@ workspace_data: ${base64Data}
                 return workspace;
             }
         };
+
+        function detectCycles(candidateConnection = null) {
+            if (typeof editor === 'undefined' || !editor) return [];
+            const nodes = editor.getNodes();
+            const connections = [...editor.getConnections()];
+            if (candidateConnection) {
+                connections.push(candidateConnection);
+            }
+
+            // Build adjacency list
+            const adj = new Map();
+            nodes.forEach(n => adj.set(n.id, []));
+            connections.forEach(c => {
+                if (adj.has(c.source)) {
+                    adj.get(c.source).push({ target: c.target, connection: c });
+                }
+            });
+
+            const visited = new Set();
+            const recStack = new Set();
+            const cycles = [];
+
+            function dfs(nodeId, path) {
+                visited.add(nodeId);
+                recStack.add(nodeId);
+                path.push(nodeId);
+
+                const neighbors = adj.get(nodeId) || [];
+                for (const neighbor of neighbors) {
+                    const nextId = neighbor.target;
+                    if (!visited.has(nextId)) {
+                        dfs(nextId, path);
+                    } else if (recStack.has(nextId)) {
+                        const startIndex = path.indexOf(nextId);
+                        if (startIndex !== -1) {
+                            const cycleNodes = path.slice(startIndex);
+                            const sortedIds = [...cycleNodes].sort();
+                            const cycleKey = sortedIds.join(',');
+                            if (!cycles.some(c => c.key === cycleKey)) {
+                                cycles.push({
+                                    key: cycleKey,
+                                    nodes: cycleNodes,
+                                    hasDelay: cycleNodes.some(id => {
+                                        const node = editor.getNode(id);
+                                        if (!node) return false;
+                                        const label = (node.label || '').toLowerCase();
+                                        const type = (node.constructor.name || '').toLowerCase();
+                                        return label.includes('delay') || type.includes('delay');
+                                    })
+                                });
+                            }
+                        }
+                    }
+                }
+
+                recStack.delete(nodeId);
+                path.pop();
+            }
+
+            nodes.forEach(n => {
+                if (!visited.has(n.id)) {
+                    dfs(n.id, []);
+                }
+            });
+
+            return cycles;
+        }
+
+        function logGraphCycles(candidateConnection = null) {
+            const cycles = detectCycles(candidateConnection);
+            if (cycles.length > 0) {
+                let hasInvalidCycle = false;
+                let hasValidCycle = false;
+                cycles.forEach(cycle => {
+                    if (cycle.hasDelay) {
+                        hasValidCycle = true;
+                    } else {
+                        hasInvalidCycle = true;
+                    }
+                });
+                if (hasInvalidCycle) {
+                    console.warn("[Cycle Detection] ⚠️ Warning: Feedback loop detected without a Delay node! Web Audio API will mute this connection. Add a Delay or Ping Pong Delay node to make it audible.");
+                }
+                if (hasValidCycle) {
+                    console.log("[Cycle Detection] Valid feedback loop detected (contains Delay)!");
+                }
+            }
+        }
+
+        window.detectCycles = detectCycles;
+        window.logGraphCycles = logGraphCycles;
 
         async function updateAudioGraphConnections() {
             if (!audioContext || !editor) return;
@@ -9135,6 +9231,7 @@ workspace_data: ${base64Data}
                         }
                     }
                     showMessage('Connection created.', 'info');
+                    logGraphCycles(connection);
                 } else if (context.type === 'connectionremove') {
                     const connection = context.data;
                     const sourceReteNode = editor.getNode(connection.source);
