@@ -569,6 +569,7 @@ layout: none
                 return constructors;
             }
         };
+        window.NodeRegistry = NodeRegistry;
 
         const legacyNameMap = {
             nodes: {
@@ -1985,9 +1986,9 @@ workspace_data: ${base64Data}
             if (!audioContext || !editor) return;
 
             const connectionStrategies = {
-                'voltage': new VoltageConnectionStrategy(),
-                'midi': new MidiConnectionStrategy(),
-                'default': new VoltageConnectionStrategy()
+                'voltage': voltageConnectionStrategy,
+                'midi': midiConnectionStrategy,
+                'default': voltageConnectionStrategy
             };
 
             function getDisconnectionStrategy(targetReteNode, targetInputKey, sourceSocket) {
@@ -2009,7 +2010,9 @@ workspace_data: ${base64Data}
                 try {
                     // Disconnect from global masterGain, if connected
                     const source = audioNode.mainOutput ? audioNode.mainOutput : audioNode;
-                    source.disconnect(masterGain);
+                    if (source && source !== masterGain) {
+                        source.disconnect(masterGain);
+                    }
                 } catch (e) {
                     // Ignore errors, the node may not have been connected.
                 }
@@ -2018,6 +2021,7 @@ workspace_data: ${base64Data}
             for (const connection of editor.getConnections()) {
                 const sourceReteNode = editor.getNode(connection.source);
                 const targetReteNode = editor.getNode(connection.target);
+                if (!sourceReteNode || !targetReteNode) continue;
                 const sourceAudioNode = reteAudioNodes.get(connection.source);
                 const targetAudioNode = reteAudioNodes.get(connection.target);
 
@@ -2036,6 +2040,7 @@ workspace_data: ${base64Data}
             for (const connection of editor.getConnections()) {
                 const sourceReteNode = editor.getNode(connection.source);
                 const targetReteNode = editor.getNode(connection.target);
+                if (!sourceReteNode || !targetReteNode) continue;
                 const sourceAudioNode = reteAudioNodes.get(sourceReteNode.id);
                 const targetAudioNode = reteAudioNodes.get(targetReteNode.id);
 
@@ -2069,6 +2074,7 @@ workspace_data: ${base64Data}
         
         class MidiConnectionStrategy extends ConnectionStrategy {
             connect(sourceReteNode, targetReteNode, targetInputKey, sourceOutputKey) {
+                if (!sourceReteNode || !targetReteNode) return;
                 const sourceAudioNode = reteAudioNodes.get(sourceReteNode.id);
                 const targetAudioNode = reteAudioNodes.get(targetReteNode.id);
 
@@ -2086,12 +2092,13 @@ workspace_data: ${base64Data}
             }
 
             disconnect(sourceReteNode, targetReteNode, targetInputKey, sourceOutputKey) {
+                if (!sourceReteNode || !targetReteNode) return;
                 const sourceAudioNode = reteAudioNodes.get(sourceReteNode.id);
                 const targetAudioNode = reteAudioNodes.get(targetReteNode.id);
 
                 if (sourceAudioNode && typeof sourceAudioNode.removeMidiListener === 'function') {
                     const listenerKey = `${sourceReteNode.id}-${sourceOutputKey}`;
-                    if (targetAudioNode._midiListeners && targetAudioNode._midiListeners.has(listenerKey)) {
+                    if (targetAudioNode && targetAudioNode._midiListeners && targetAudioNode._midiListeners.has(listenerKey)) {
                         const listener = targetAudioNode._midiListeners.get(listenerKey);
                         sourceAudioNode.removeMidiListener(listener, sourceOutputKey);
                         targetAudioNode._midiListeners.delete(listenerKey);
@@ -2336,6 +2343,11 @@ workspace_data: ${base64Data}
                 }
             }
         }
+
+        const midiConnectionStrategy = new MidiConnectionStrategy();
+        const voltageConnectionStrategy = new VoltageConnectionStrategy();
+        window.midiConnectionStrategy = midiConnectionStrategy;
+        window.voltageConnectionStrategy = voltageConnectionStrategy;
 
 
         // Define Schemes for type safety (even in plain JS, helps define structure)
@@ -9137,14 +9149,14 @@ workspace_data: ${base64Data}
                     showMessage('Connection created.', 'info');
                 } else if (context.type === 'connectionremove') {
                     const connection = context.data;
-                    const sourceReteNode = editor.getNode(connection.source);
-                    const targetReteNode = editor.getNode(connection.target);
+                    const sourceReteNode = connection ? editor.getNode(connection.source) : null;
+                    const targetReteNode = connection ? editor.getNode(connection.target) : null;
 
                     // Explicitly disconnect the connection being removed
-                    const strategy = (connection.targetInput === 'midi') ? new MidiConnectionStrategy() : new VoltageConnectionStrategy();
+                    const strategy = (connection.targetInput === 'midi') ? midiConnectionStrategy : voltageConnectionStrategy;
                     strategy.disconnect(sourceReteNode, targetReteNode, connection.targetInput, connection.sourceOutput);
 
-                    if (connection.targetInput === 'clock' && targetReteNode.label === 'LFO') {
+                    if (targetReteNode && connection.targetInput === 'clock' && targetReteNode.label === 'LFO') {
                         targetReteNode.data.sync = false;
                         targetReteNode.controls.frequency.hidden = false;
                         targetReteNode.controls.division.hidden = true;
@@ -9154,7 +9166,7 @@ workspace_data: ${base64Data}
                     }
                     if (audioContext && audioContext.state === 'running') {
                         updateAudioGraphConnections();
-                        if (connection.targetInput === 'clock') {
+                        if (connection.targetInput === 'clock' && targetReteNode) {
                             const targetAudioNode = reteAudioNodes.get(connection.target);
                             if (targetAudioNode && ['Arpeggiator', 'Sequencer'].includes(targetReteNode.label) && targetAudioNode.started) {
                                 targetAudioNode.stop();

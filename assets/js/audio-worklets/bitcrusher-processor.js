@@ -43,6 +43,7 @@ class BitcrusherProcessor extends AudioWorkletProcessor {
 
         let step = isBitsConstant ? Math.pow(0.5, bitsParam[0]) : 0;
         let srReduction = isSrConstant ? srReductionParam[0] : 1;
+        let srStep = isSrConstant ? 1 / (srReduction || 1) : 0;
 
         const numChannels = input.length;
 
@@ -70,6 +71,7 @@ class BitcrusherProcessor extends AudioWorkletProcessor {
 
                 if (!isSrConstant) {
                     srReduction = srReductionParam[i];
+                    srStep = 1 / (srReduction || 1);
                 }
 
                 // --- Bit Depth Reduction ---
@@ -78,7 +80,7 @@ class BitcrusherProcessor extends AudioWorkletProcessor {
                 }
 
                 // --- Sample Rate Reduction (simple hold method) ---
-                phase += 1 / (srReduction || 1);
+                phase += srStep;
                 if (phase >= 1) {
                     phase -= 1; // Reset phase
                     lastSample = currentSample; // Store the new "processed" sample
