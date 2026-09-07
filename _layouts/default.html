@@ -569,6 +569,7 @@ layout: none
                 return constructors;
             }
         };
+        window.NodeRegistry = NodeRegistry;
 
         const legacyNameMap = {
             nodes: {
@@ -1981,7 +1982,7 @@ workspace_data: ${base64Data}
             }
         };
 
-        async function updateAudioGraphConnections() {
+        async function updateAudioGraphConnections(skipConnectionId = null) {
             if (!audioContext || !editor) return;
 
             const connectionStrategies = {
@@ -2016,6 +2017,7 @@ workspace_data: ${base64Data}
             });
 
             for (const connection of editor.getConnections()) {
+                if (skipConnectionId && connection.id === skipConnectionId) continue;
                 const sourceReteNode = editor.getNode(connection.source);
                 const targetReteNode = editor.getNode(connection.target);
                 const sourceAudioNode = reteAudioNodes.get(connection.source);
@@ -2034,6 +2036,7 @@ workspace_data: ${base64Data}
 
             // 2. Reconnect based on Rete.js editor's connections
             for (const connection of editor.getConnections()) {
+                if (skipConnectionId && connection.id === skipConnectionId) continue;
                 const sourceReteNode = editor.getNode(connection.source);
                 const targetReteNode = editor.getNode(connection.target);
                 const sourceAudioNode = reteAudioNodes.get(sourceReteNode.id);
@@ -2151,6 +2154,14 @@ workspace_data: ${base64Data}
                         targetAudioNode._gateListeners.set(listenerKey, listener);
                         sourceAudioNode.addGateListener(listener, sourceOutputKey);
                         connected = true;
+
+                        let initialState = false;
+                        if (typeof sourceAudioNode.getGateState === 'function') {
+                            initialState = sourceAudioNode.getGateState(sourceOutputKey);
+                        } else if (sourceAudioNode.data && sourceAudioNode.data.value !== undefined) {
+                            initialState = !!sourceAudioNode.data.value;
+                        }
+                        gateHandler.call(targetAudioNode, initialState);
                     }
 
                     if (!connected) {
@@ -2202,6 +2213,12 @@ workspace_data: ${base64Data}
                         const listener = targetAudioNode._gateListeners.get(listenerKey);
                         sourceAudioNode.removeGateListener(listener, sourceOutputKey);
                         targetAudioNode._gateListeners.delete(listenerKey);
+
+                        const gateHandlerName = targetInputKey === 'gate' ? 'handleGate' : `handleGate_${targetInputKey}`;
+                        const gateHandler = targetAudioNode[gateHandlerName] || targetAudioNode.handleGate;
+                        if (typeof gateHandler === 'function') {
+                            gateHandler.call(targetAudioNode, true);
+                        }
                         return;
                     }
                 }
@@ -2224,6 +2241,13 @@ workspace_data: ${base64Data}
                         console.warn(`Error disconnecting analyser: ${e.message}`);
                     }
                     this.analysers.delete(key);
+                    if (targetInputKey.includes('gate')) {
+                        const gateHandlerName = targetInputKey === 'gate' ? 'handleGate' : `handleGate_${targetInputKey}`;
+                        const gateHandler = targetAudioNode[gateHandlerName] || targetAudioNode.handleGate;
+                        if (typeof gateHandler === 'function') {
+                            gateHandler.call(targetAudioNode, true);
+                        }
+                    }
                 } else {
                     const audioParam = this.getAudioParam(targetAudioNode, targetInputKey);
                     if (audioParam) {
@@ -2697,6 +2721,10 @@ workspace_data: ${base64Data}
                 this.source = this.audioContext.createConstantSource();
                 this.source.offset.value = this.data.value ? 1 : 0;
                 this.mainOutput = this.source;
+            }
+
+            getGateState(outputKey) {
+                return !!this.data.value;
             }
 
             addGateListener(callback, outputKey) {
@@ -9047,7 +9075,7 @@ workspace_data: ${base64Data}
                     multiplayer.broadcast({ type: 'workspace', data: editorToJSON() });
                     autoSave();
                 }
-                if (context.type === 'nodecreate' && context.data instanceof WebAudioNode) {
+                if ((context.type === 'nodecreated' || context.type === 'nodecreate') && context.data instanceof WebAudioNode) {
                     if(!audioContext) {
                         console.warn('AudioContext not active, Nodes will be created when "Start Audio" is clicked.');
                         showMessage(`AudioContext not active, Nodes will be created when "Start Audio" is clicked.`, 'error');
@@ -9113,7 +9141,7 @@ workspace_data: ${base64Data}
                             updateAudioGraphConnections();
                         }
                     }
-                } else if (context.type === 'connectioncreate') {
+                } else if (context.type === 'connectioncreated' || context.type === 'connectioncreate') {
                     const connection = context.data;
                     const targetReteNode = editor.getNode(connection.target);
                     if (connection.targetInput === 'clock' && targetReteNode.label === 'LFO') {
@@ -9135,7 +9163,7 @@ workspace_data: ${base64Data}
                         }
                     }
                     showMessage('Connection created.', 'info');
-                } else if (context.type === 'connectionremove') {
+                } else if (context.type === 'connectionremoved' || context.type === 'connectionremove') {
                     const connection = context.data;
                     const sourceReteNode = editor.getNode(connection.source);
                     const targetReteNode = editor.getNode(connection.target);
@@ -9153,7 +9181,7 @@ workspace_data: ${base64Data}
                         if (audioNode) audioNode.updateParameter('sync', false);
                     }
                     if (audioContext && audioContext.state === 'running') {
-                        updateAudioGraphConnections();
+                        updateAudioGraphConnections(connection.id);
                         if (connection.targetInput === 'clock') {
                             const targetAudioNode = reteAudioNodes.get(connection.target);
                             if (targetAudioNode && ['Arpeggiator', 'Sequencer'].includes(targetReteNode.label) && targetAudioNode.started) {
