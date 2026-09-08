@@ -36,16 +36,16 @@ class MiniNotationParser {
             const euclideanMatch = token.match(/^([A-Ga-g#?0-9~_@]+)\*(\d+)\/(\d+)$/);
             if (euclideanMatch) {
                 const note = euclideanMatch[1];
-                const pulses = parseInt(euclideanMatch[2], 10);
-                const steps = parseInt(euclideanMatch[3], 10);
+                const rawPulses = parseInt(euclideanMatch[2], 10);
+                const rawSteps = parseInt(euclideanMatch[3], 10);
+                const steps = Math.min(Math.max(1, rawSteps || 1), 128);
+                const pulses = Math.min(Math.max(0, rawPulses || 0), steps);
 
-                if (steps > 0) {
-                    const pattern = this.generateEuclidean(pulses, steps);
-                    const speedModifier = `/${steps}`;
-                    const generatedTokens = pattern.map(p => (p === 1 ? note : '~') + speedModifier);
-                    tokens.unshift(...generatedTokens);
-                    continue;
-                }
+                const pattern = this.generateEuclidean(pulses, steps);
+                const speedModifier = `/${steps}`;
+                const generatedTokens = pattern.map(p => (p === 1 ? note : '~') + speedModifier);
+                tokens.unshift(...generatedTokens);
+                continue;
             }
 
             if (openers.includes(token)) {
@@ -76,7 +76,8 @@ class MiniNotationParser {
         // Repetition (* operator)
         const repetitionMatch = modifiers.match(/\*(\d+)/);
         if (repetitionMatch) {
-            const count = parseInt(repetitionMatch[1], 10);
+            const rawCount = parseInt(repetitionMatch[1], 10);
+            const count = Math.min(Math.max(0, rawCount || 0), 128);
             const originalGroup = [...modifiedGroup];
             if (count > 1) {
                 for (let i = 1; i < count; i++) {
