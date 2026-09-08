@@ -32,10 +32,15 @@ class GranularProcessor extends AudioWorkletProcessor {
       }
     }
 
-    const grainSize = parameters.grainSize[0] * sampleRate;
-    const grainDensity = parameters.grainDensity[0];
-    const pitchShift = parameters.pitchShift[0];
-    const positionJitter = parameters.positionJitter[0];
+    const rawGrainSize = (parameters.grainSize && parameters.grainSize.length > 0) ? parameters.grainSize[0] : 0.1;
+    const rawGrainDensity = (parameters.grainDensity && parameters.grainDensity.length > 0) ? parameters.grainDensity[0] : 20;
+    const rawPitchShift = (parameters.pitchShift && parameters.pitchShift.length > 0) ? parameters.pitchShift[0] : 0;
+    const rawPositionJitter = (parameters.positionJitter && parameters.positionJitter.length > 0) ? parameters.positionJitter[0] : 0;
+
+    const grainSize = Math.max(0.01, Math.min(0.5, isNaN(rawGrainSize) ? 0.1 : rawGrainSize)) * sampleRate;
+    const grainDensity = Math.max(1, Math.min(100, isNaN(rawGrainDensity) ? 20 : rawGrainDensity));
+    const pitchShift = isNaN(rawPitchShift) ? 0 : rawPitchShift;
+    const positionJitter = Math.max(0, Math.min(1, isNaN(rawPositionJitter) ? 0 : rawPositionJitter));
 
     // Simple scheduling
     this.grainScheduler.nextGrainTime -= output[0].length / sampleRate;
@@ -61,13 +66,17 @@ class GranularProcessor extends AudioWorkletProcessor {
         const grain = this.activeGrains[i];
 
         for (let j = 0; j < output[0].length; j++) {
-            const bufferIndex = Math.floor(grain.startPosition + grain.playbackPosition);
+            const rawIndex = grain.startPosition + grain.playbackPosition;
+            const bufferIndex = Math.floor(rawIndex);
 
-            // Basic linear interpolation for pitch shifting
-            const index1 = bufferIndex % this.buffer.length;
-            const index2 = (bufferIndex + 1) % this.buffer.length;
-            const fraction = grain.startPosition + grain.playbackPosition - bufferIndex;
-            const sample = (this.buffer[index1] * (1 - fraction)) + (this.buffer[index2] * fraction);
+            // Basic linear interpolation with non-negative modulo for safe buffer access
+            const len = this.buffer.length;
+            const index1 = ((bufferIndex % len) + len) % len;
+            const index2 = (((bufferIndex + 1) % len) + len) % len;
+            const fraction = rawIndex - bufferIndex;
+            const s1 = this.buffer[index1] || 0;
+            const s2 = this.buffer[index2] || 0;
+            const sample = (s1 * (1 - fraction)) + (s2 * fraction);
 
             // Apply a simple window to avoid clicks
             const window = Math.sin(Math.PI * (grain.playbackPosition / grain.size));
