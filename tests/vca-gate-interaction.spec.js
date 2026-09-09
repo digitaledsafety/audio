@@ -55,7 +55,7 @@ test.describe('VCA Gate Input Interaction', () => {
 
       const vcaAudio = window.reteAudioNodes.get(vcaId);
       return {
-        vcaGateHighAfterConnect: vcaAudio.gateHigh
+        vcaGateHighAfterConnect: vcaAudio ? vcaAudio.gateHigh : null
       };
     }, { gateId: nodeState.gateId, vcaId: nodeState.vcaId });
 
@@ -69,7 +69,7 @@ test.describe('VCA Gate Input Interaction', () => {
 
       const vcaAudio = window.reteAudioNodes.get(vcaId);
       return {
-        vcaGateHighWhenGateHigh: vcaAudio.gateHigh
+        vcaGateHighWhenGateHigh: vcaAudio ? vcaAudio.gateHigh : null
       };
     }, { gateId: nodeState.gateId, vcaId: nodeState.vcaId });
 
@@ -83,7 +83,7 @@ test.describe('VCA Gate Input Interaction', () => {
 
     const lowState = await page.evaluate(({ vcaId }) => {
       const vcaAudio = window.reteAudioNodes.get(vcaId);
-      return vcaAudio.gateHigh;
+      return vcaAudio ? vcaAudio.gateHigh : null;
     }, { vcaId: nodeState.vcaId });
 
     expect(lowState).toBe(false);
@@ -100,7 +100,7 @@ test.describe('VCA Gate Input Interaction', () => {
 
       const vcaAudio = window.reteAudioNodes.get(vcaId);
       return {
-        vcaGateHighAfterDisconnect: vcaAudio.gateHigh
+        vcaGateHighAfterDisconnect: vcaAudio ? vcaAudio.gateHigh : null
       };
     }, { gateId: nodeState.gateId, vcaId: nodeState.vcaId });
 

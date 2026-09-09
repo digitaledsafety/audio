@@ -9100,7 +9100,7 @@ workspace_data: ${base64Data}
                     } else {
                         showMessage(`${reteNode.label} node added to editor. Audio node will be active on "Start Audio".`, 'info');
                     }
-                } else if (context.type === 'noderemove') {
+                } else if (context.type === 'noderemove' || context.type === 'noderemoved') {
                     const node = context.data;
                     if (node && node.drawTimeout) {
                         clearTimeout(node.drawTimeout);
