@@ -2345,6 +2345,10 @@ workspace_data: ${base64Data}
                         return targetNode.pitchShift;
                     case 'positionJitterCV':
                         return targetNode.positionJitter;
+                    case 'bits_cv':
+                        return targetNode.parameters ? targetNode.parameters.get('bits') : null;
+                    case 'sr_cv':
+                        return targetNode.parameters ? targetNode.parameters.get('sampleRateReduction') : null;
                     case 'probability_cv':
                         return targetNode.probabilityControl ? targetNode.probabilityControl.gain : null;
                     case 'gain1_cv': return targetNode.channels ? targetNode.channels[0].gain.gain : null;
@@ -7554,6 +7558,8 @@ workspace_data: ${base64Data}
             constructor() {
                 super('Bitcrusher');
                 this.addInput('audio', new Classic.Input(voltageSocket, 'Audio In', true));
+                this.addInput('bits_cv', new Classic.Input(voltageSocket, 'Bits CV', true));
+                this.addInput('sr_cv', new Classic.Input(voltageSocket, 'SR CV', true));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
                 // The actual AudioWorkletNode will be created in startAudio().
