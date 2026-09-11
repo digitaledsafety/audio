@@ -28,8 +28,17 @@ test.describe('VCA Gate Input Interaction', () => {
       await editor.addNode(gateNode);
       await editor.addNode(vcaNode);
 
-      const gateAudio = window.reteAudioNodes.get(gateNode.id);
-      const vcaAudio = window.reteAudioNodes.get(vcaNode.id);
+      const getAudioNode = async (id) => {
+        for (let i = 0; i < 20; i++) {
+          const node = window.reteAudioNodes.get(id);
+          if (node) return node;
+          await new Promise(r => setTimeout(r, 50));
+        }
+        return window.reteAudioNodes.get(id);
+      };
+
+      const gateAudio = await getAudioNode(gateNode.id);
+      const vcaAudio = await getAudioNode(vcaNode.id);
 
       return {
         gateId: gateNode.id,

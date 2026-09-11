@@ -50,7 +50,7 @@ test.describe('Multiplayer Synchronization', () => {
     await expect(toneNode2).toBeVisible({ timeout: 25000 });
 
     // Give some time for PeerJS connection to stabilize
-    await page1.waitForTimeout(3000);
+    await page1.waitForTimeout(5000);
 
     // Get initial position of the node on Player 2
     const box2Before = await toneNode2.boundingBox();
