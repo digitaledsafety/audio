@@ -476,6 +476,14 @@ layout: none
                                 </ul>
                             </div>
                         </div>
+                        <!-- Performance Controls -->
+                        <div class="flex flex-col gap-2 p-3 bg-gray-50 rounded-lg border">
+                            <h4 class="font-semibold text-center">Performance</h4>
+                            <label class="flex items-center justify-between text-xs cursor-pointer select-none">
+                                <span class="font-medium text-gray-700">Disable Visualizer</span>
+                                <input type="checkbox" id="disableVisualizerToggle" class="form-checkbox h-4 w-4 text-blue-600 rounded">
+                            </label>
+                        </div>
                          <button id="clearEditorBtn" class="button button-danger" disabled>🗑️ Clear All</button>
                     </div>
                 </div>
@@ -862,6 +870,11 @@ layout: none
 
         function startMediaRecording() {
             if (!mediaStreamDestination) return;
+
+            if (disableVisualizerToggle && disableVisualizerToggle.checked) {
+                disableVisualizerToggle.checked = false;
+                disableVisualizerToggle.dispatchEvent(new Event('change'));
+            }
 
             // Ensure the visualizer is active before recording
             if (!visualizerView.classList.contains('active')) {
@@ -1460,17 +1473,20 @@ workspace_data: ${base64Data}
          * @param {number} decay - The decay rate of the impulse response.
          * @returns {AudioBuffer} The generated impulse response as an AudioBuffer.
          */
+        const sharedSingleSampleBuffer = new Float32Array(1);
+
         function generateImpulseResponse(audioContext, duration, decay) {
             const sampleRate = audioContext.sampleRate;
-            const length = sampleRate * duration;
+            const length = Math.floor(sampleRate * duration);
             const impulse = audioContext.createBuffer(2, length, sampleRate);
             const left = impulse.getChannelData(0);
             const right = impulse.getChannelData(1);
+            const invLength = 1 / length;
 
             for (let i = 0; i < length; i++) {
-                const n = length - i;
-                left[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
-                right[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+                const env = Math.pow(1 - i * invLength, decay);
+                left[i] = (Math.random() * 2 - 1) * env;
+                right[i] = (Math.random() * 2 - 1) * env;
             }
             return impulse;
         }
@@ -2274,7 +2290,7 @@ workspace_data: ${base64Data}
 
                 const analyser = audioContext.createAnalyser();
                 analyser.fftSize = 32;
-                const buffer = new Float32Array(1);
+                const buffer = sharedSingleSampleBuffer;
                 let lastValue = 0;
                 let lastTickTime = audioContext.currentTime;
 
@@ -3946,11 +3962,10 @@ workspace_data: ${base64Data}
                     if (!this.probAnalyser) {
                         this.probAnalyser = this.audioContext.createAnalyser();
                         this.probAnalyser.fftSize = 32;
-                        this.probBuffer = new Float32Array(1);
                         this.probInput.connect(this.probAnalyser);
                     }
-                    this.probAnalyser.getFloatTimeDomainData(this.probBuffer);
-                    cvProbability = this.probBuffer[0];
+                    this.probAnalyser.getFloatTimeDomainData(sharedSingleSampleBuffer);
+                    cvProbability = sharedSingleSampleBuffer[0];
                 }
                 const manualProb = this.data.probability !== undefined ? this.data.probability : 0.5;
                 return Math.max(0, Math.min(1, manualProb + cvProbability));
@@ -4252,7 +4267,6 @@ workspace_data: ${base64Data}
                     if (!this.probAnalyser) {
                         this.probAnalyser = this.audioContext.createAnalyser();
                         this.probAnalyser.fftSize = 32;
-                        this.probBuffer = new Float32Array(1);
                         // We need a source to connect to the analyser.
                         // A ConstantSourceNode(1.0) connected to the probabilityControl GainNode.
                         this.probCVSource = this.audioContext.createConstantSource();
@@ -4261,8 +4275,8 @@ workspace_data: ${base64Data}
                         this.probCVSource.connect(this.probabilityControl);
                         this.probabilityControl.connect(this.probAnalyser);
                     }
-                    this.probAnalyser.getFloatTimeDomainData(this.probBuffer);
-                    cvProbability = this.probBuffer[0];
+                    this.probAnalyser.getFloatTimeDomainData(sharedSingleSampleBuffer);
+                    cvProbability = sharedSingleSampleBuffer[0];
                 }
 
                 const manualProb = this.data.probability !== undefined ? this.data.probability : 0.0;
@@ -4333,7 +4347,6 @@ workspace_data: ${base64Data}
 
                 this.analyser = this.audioContext.createAnalyser();
                 this.analyser.fftSize = 32;
-                this.buffer = new Float32Array(1);
 
                 this.mainInput = this.analyser; // This samples the signal
                 this.cvSource = this.audioContext.createConstantSource();
@@ -4342,8 +4355,8 @@ workspace_data: ${base64Data}
             }
 
             onTick(tickTime, tickDuration) {
-                this.analyser.getFloatTimeDomainData(this.buffer);
-                const sampledValue = this.buffer[0];
+                this.analyser.getFloatTimeDomainData(sharedSingleSampleBuffer);
+                const sampledValue = sharedSingleSampleBuffer[0];
                 this.cvSource.offset.setTargetAtTime(sampledValue, tickTime, 0.001);
             }
 
@@ -9582,6 +9595,9 @@ workspace_data: ${base64Data}
             const visualizerTab = document.getElementById('visualizer-tab');
             const workspaceView = document.getElementById('workspace-view');
             const visualizerView = document.getElementById('visualizer-view');
+            const disableVisualizerToggle = document.getElementById('disableVisualizerToggle');
+            let isVisualizerDisabled = false;
+            let visualizerDataArray = null;
             let gl;
             let shaderProgram;
             let positionBuffer;
@@ -9592,6 +9608,35 @@ workspace_data: ${base64Data}
             let frequencyDataTexture;
             let glitchSeed = Math.random();
             let isAnimating = false;
+
+            if (disableVisualizerToggle) {
+                disableVisualizerToggle.addEventListener('change', (e) => {
+                    isVisualizerDisabled = e.target.checked;
+                    if (isVisualizerDisabled) {
+                        isAnimating = false;
+                        if (visualizerView.classList.contains('active')) {
+                            workspaceTab.click();
+                        }
+                        visualizerTab.classList.add('opacity-50', 'cursor-not-allowed');
+                        if (analyser && masterGain) {
+                            try {
+                                masterGain.disconnect(analyser);
+                            } catch (err) {}
+                        }
+                    } else {
+                        visualizerTab.classList.remove('opacity-50', 'cursor-not-allowed');
+                        if (analyser && masterGain) {
+                            try {
+                                masterGain.connect(analyser);
+                            } catch (err) {}
+                        }
+                        if (visualizerView.classList.contains('active') && !isAnimating) {
+                            isAnimating = true;
+                            visualize();
+                        }
+                    }
+                });
+            }
 
             function resizeCanvas() {
                 const displayWidth  = visualizerCanvas.clientWidth;
@@ -9681,6 +9726,11 @@ workspace_data: ${base64Data}
             }
 
             function visualize() {
+                if (isVisualizerDisabled) {
+                    isAnimating = false;
+                    return;
+                }
+
                 const isRecording = mediaRecorder && mediaRecorder.state === 'recording';
                 const isActive = visualizerView.classList.contains('active');
 
@@ -9689,16 +9739,23 @@ workspace_data: ${base64Data}
                     return;
                 }
 
+                if (!analyser || !gl) {
+                    isAnimating = false;
+                    return;
+                }
+
                 const bufferLength = analyser.frequencyBinCount;
-                const dataArray = new Uint8Array(bufferLength);
-                analyser.getByteFrequencyData(dataArray);
+                if (!visualizerDataArray || visualizerDataArray.length !== bufferLength) {
+                    visualizerDataArray = new Uint8Array(bufferLength);
+                }
+                analyser.getByteFrequencyData(visualizerDataArray);
 
                 gl.uniform1f(uTime, performance.now() / 1000);
                 gl.uniform1f(uGlitchSeed, glitchSeed);
                 gl.uniform2f(uResolution, gl.canvas.width, gl.canvas.height);
 
                 gl.bindTexture(gl.TEXTURE_2D, frequencyDataTexture);
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, bufferLength, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, dataArray);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, bufferLength, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, visualizerDataArray);
                 gl.uniform1i(uFrequencyData, 0);
 
                 gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -9714,6 +9771,12 @@ workspace_data: ${base64Data}
             });
 
             visualizerTab.addEventListener('click', () => {
+                if (isVisualizerDisabled) {
+                    if (typeof showMessage === 'function') {
+                        showMessage('Visualizer is disabled in Performance settings.', 'info');
+                    }
+                    return;
+                }
                 workspaceView.classList.remove('active');
                 visualizerView.classList.add('active');
                 visualizerTab.classList.replace('button-secondary', 'button-primary');
