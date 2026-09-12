@@ -75,4 +75,29 @@ test.describe('Node Removal and Stop Audio Cleanup', () => {
     const audioMapSizeAfter = await page.evaluate(() => window.reteAudioNodes.size);
     expect(audioMapSizeAfter).toBe(0);
   });
+
+  test('should safely handle MidiConnectionStrategy disconnect when target node is missing', async ({ page }) => {
+    const result = await page.evaluate(() => {
+      try {
+        const midiStrategy = typeof MidiConnectionStrategy !== 'undefined'
+          ? new MidiConnectionStrategy()
+          : new window.MidiConnectionStrategy();
+        const mockSourceNode = { id: 'source-1' };
+        const mockTargetNode = { id: 'target-999' }; // Non-existent target node in reteAudioNodes
+
+        window.reteAudioNodes.set('source-1', {
+          removeMidiListener: () => {}
+        });
+
+        // Should not throw TypeError when target node is not present in reteAudioNodes
+        midiStrategy.disconnect(mockSourceNode, mockTargetNode, 'midi', 'midi');
+        window.reteAudioNodes.delete('source-1');
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    });
+
+    expect(result.success).toBe(true);
+  });
 });
