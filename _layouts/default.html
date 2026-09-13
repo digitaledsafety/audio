@@ -2431,6 +2431,18 @@ workspace_data: ${base64Data}
             return (Math.log(value) - minLog) / scale;
         }
 
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str).replace(/[&<>'"]/g, tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag] || tag));
+        }
+        window.escapeHtml = escapeHtml;
+
         // Define a custom control for sliders
         class SliderControl extends Classic.Control {
             constructor(id, label, min, max, step, initialValue, onValueChange, isLog = false) {
