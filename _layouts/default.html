@@ -2483,6 +2483,18 @@ workspace_data: ${base64Data}
                 this.label = label;
                 this.value = initialValue;
                 this.onValueChange = onValueChange;
+                this.element = null;
+            }
+
+            setValue(val) {
+                this.value = val;
+                if (this.element) {
+                    this.element.value = val !== undefined ? val : '';
+                    this.element.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                if (typeof this.onValueChange === 'function') {
+                    this.onValueChange(val);
+                }
             }
         }
 
@@ -6106,9 +6118,14 @@ workspace_data: ${base64Data}
                             sequence[i] = '[' + sequence[i] + ' ' + hat + ']';
                         }
                     }
-                    if (Math.random() < 0.15 && sequence[i] === '~') {
+                    if (Math.random() < 0.15) {
                         const extras = ['c', 't', 'k', 's'];
-                        sequence[i] = extras[Math.floor(Math.random() * extras.length)];
+                        const extra = extras[Math.floor(Math.random() * extras.length)];
+                        if (sequence[i] === '~') {
+                            sequence[i] = extra;
+                        } else {
+                            sequence[i] = '[' + sequence[i] + ' ' + extra + ']';
+                        }
                     }
                 }
                 return sequence.join(' ');
@@ -6630,7 +6647,11 @@ workspace_data: ${base64Data}
                 const audioNode = reteAudioNodes.get(this.id);
                 if (audioNode) {
                     const newSequence = audioNode.generateRandomSequence();
-                    this.controls.sequence.value = newSequence;
+                    if (this.controls.sequence && this.controls.sequence.setValue) {
+                        this.controls.sequence.setValue(newSequence);
+                    } else if (this.controls.sequence) {
+                        this.controls.sequence.value = newSequence;
+                    }
                     this.data.sequence = newSequence;
                     audioNode.updateParameter('sequence', newSequence);
                     area.update('node', this.id);
@@ -6689,14 +6710,28 @@ workspace_data: ${base64Data}
                 }));
 
                 this.addControl('randomize', new ButtonControl('randomizeDm', '🎲', () => {
-                    const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode) {
-                        const newSequence = audioNode.generateRandomSequence();
-                        this.controls.sequence.value = newSequence;
-                        this.data.sequence = newSequence;
-                        audioNode.updateParameter('sequence', newSequence);
-                        area.update('node', this.id);
+                    let audioNode = reteAudioNodes.get(this.id);
+                    if (!audioNode && typeof this.build === 'function') {
+                        audioNode = this.build();
+                        reteAudioNodes.set(this.id, audioNode);
                     }
+                    const newSequence = audioNode ? audioNode.generateRandomSequence() : DrumMachine.prototype.generateRandomSequence.call(this);
+                    if (this.controls.sequence && this.controls.sequence.setValue) {
+                        this.controls.sequence.setValue(newSequence);
+                    } else if (this.controls.sequence) {
+                        this.controls.sequence.value = newSequence;
+                    }
+                    const nodeEl = document.querySelector(`[data-node-id="${this.id}"]`);
+                    if (nodeEl) {
+                        const seqInput = nodeEl.querySelector('input[type="text"]');
+                        if (seqInput) {
+                            seqInput.value = newSequence;
+                            seqInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                    }
+                    this.data.sequence = newSequence;
+                    if (audioNode && audioNode.updateParameter) audioNode.updateParameter('sequence', newSequence);
+                    area.update('node', this.id);
                 }));
             }
 
@@ -8289,6 +8324,7 @@ workspace_data: ${base64Data}
                         input.type = 'text';
                         input.value = control.value !== undefined ? control.value : '';
                         input.className = 'w-full p-2 border border-gray-300 rounded mt-1 bg-white text-gray-900';
+                        control.element = input;
 
                         input.oninput = (e) => {
                             const newValue = e.target.value;

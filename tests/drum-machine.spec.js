@@ -3,6 +3,20 @@ const { test, expect } = require('@playwright/test');
 test.describe('Drum Machine Node & Drum Kits', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    await page.evaluate(async () => {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          await registration.unregister();
+        }
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        for (const key of keys) {
+          await caches.delete(key);
+        }
+      }
+    });
     const cta = page.locator('#cta-button');
     if (await cta.isVisible()) {
       await cta.click();
@@ -53,7 +67,7 @@ test.describe('Drum Machine Node & Drum Kits', () => {
     // Click Randomize button 🎲
     const diceBtn = dmNode.locator('button:has-text("🎲")');
     await expect(diceBtn).toBeVisible();
-    await diceBtn.click({ force: true });
+    await diceBtn.dispatchEvent('click');
 
     const randSeq = await seqInput.inputValue();
     expect(randSeq).not.toBe('k s h o c t');
