@@ -42,4 +42,36 @@ test.describe('Worklet Processors & Service Worker Enhancements', () => {
     expect(swContent).toContain("event.request.method !== 'GET'");
     expect(swContent).toContain("['http:', 'https:'].includes(requestUrl.protocol)");
   });
+
+  test('Service Worker cache manifest includes local audio worklets and mini notation parser', async ({ page }) => {
+    const swContent = await page.evaluate(async () => {
+      const response = await fetch('/sw.js');
+      return await response.text();
+    });
+
+    expect(swContent).toContain('mini-notation-parser.js');
+    expect(swContent).toContain('bitcrusher-processor.js');
+    expect(swContent).toContain('granular-processor.js');
+    expect(swContent).toContain('quantizer-processor.js');
+    expect(swContent).toContain('vocoder-processor.js');
+  });
+
+  test('QuantizerProcessor handles non-negative modulo logic for negative pitch offsets and multi-channel buffer copy', async ({ page }) => {
+    const qContent = await page.evaluate(async () => {
+      const response = await fetch('/assets/js/audio-worklets/quantizer-processor.js');
+      return await response.text();
+    });
+
+    expect(qContent).toContain('((rawSemitone % 12) + 12) % 12');
+    expect(qContent).toContain('output[channel].set(outputChannel)');
+  });
+
+  test('MiniNotationParser bounds Euclidean pattern steps to 128', async ({ page }) => {
+    const parserContent = await page.evaluate(async () => {
+      const response = await fetch('/assets/js/mini-notation-parser.js');
+      return await response.text();
+    });
+
+    expect(parserContent).toContain('Math.min(parseInt(euclideanMatch[3], 10), 128)');
+  });
 });
