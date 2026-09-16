@@ -2603,7 +2603,7 @@ workspace_data: ${base64Data}
                 this.gainNodes = []; // Individual gain nodes for each oscillator within the chord
 
                 this.mainOutput = this.audioContext.createGain();
-                this.mainOutput.gain.value = 0.5; // Default volume for chord
+                this.mainOutput.gain.value = this.data.gain !== undefined ? this.data.gain : 0.5;
 
                 // This GainNode scales the incoming CV (1V/Oct) to cents for the detune parameter.
                 // 1 Volt = 1 Octave = 12 Semitones = 1200 Cents.
@@ -2611,10 +2611,11 @@ workspace_data: ${base64Data}
                 this.transposeControl.gain.value = 1200;
 
                 this.setupNotesAndChords();
-                this.updateParameter('chordType', this.data.chordType || 'Major Triad');
-                this.updateParameter('rootNote', this.data.rootNote || 'C4');
-                this.updateParameter('octaveRange', this.data.octaveRange || 0);
-                this.updateParameter('waveform', this.data.waveform || 'sine');
+                this.data.chordType = this.data.chordType || 'Major Triad';
+                this.data.rootNote = this.data.rootNote || 'C4';
+                this.data.octaveRange = this.data.octaveRange !== undefined ? this.data.octaveRange : 0;
+                this.data.waveform = this.data.waveform || 'sine';
+                this.data.glide = this.data.glide !== undefined ? this.data.glide : 0.01;
             }
 
             receiveMidiNotes(notes) {
@@ -2707,19 +2708,110 @@ workspace_data: ${base64Data}
             }
 
             /**
-             * Updates a parameter and potentially restarts the sound if necessary.
-             * @param {string} paramName - The name of the parameter to update (e.g., 'frequencyValue', 'waveform').
+             * Reconfigures oscillators with a micro-crossfade to avoid clicks.
+             */
+            reconfigureVoicesWithCrossfade() {
+                const now = this.audioContext.currentTime;
+                const fadeTime = 0.008; // 8ms micro fade to avoid click
+
+                const oldOscillators = this.oscillators;
+                const oldGainNodes = this.gainNodes;
+
+                // Ramp down old gain nodes smoothly
+                oldGainNodes.forEach(gain => {
+                    try {
+                        gain.gain.cancelScheduledValues(now);
+                        gain.gain.setValueAtTime(gain.gain.value, now);
+                        gain.gain.linearRampToValueAtTime(0.0001, now + fadeTime);
+                    } catch (e) {}
+                });
+
+                // Clean up old oscillators after fade out
+                setTimeout(() => {
+                    oldOscillators.forEach(osc => {
+                        try {
+                            osc.stop();
+                            osc.disconnect();
+                        } catch (e) {}
+                    });
+                    oldGainNodes.forEach(gain => {
+                        try { gain.disconnect(); } catch (e) {}
+                    });
+                }, (fadeTime + 0.005) * 1000);
+
+                // Create new voices and fade them in
+                const notesToPlay = this.getChordNotes();
+                this.oscillators = [];
+                this.gainNodes = [];
+
+                const targetVolume = 1 / notesToPlay.length;
+
+                notesToPlay.forEach(midiNote => {
+                    const freq = midiToFrequency(midiNote);
+                    const osc = this.audioContext.createOscillator();
+                    const gain = this.audioContext.createGain();
+
+                    osc.frequency.value = freq;
+                    osc.type = this.data.waveform || 'sine';
+                    this.transposeControl.connect(osc.detune);
+
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(targetVolume, now + fadeTime);
+
+                    osc.connect(gain);
+                    gain.connect(this.mainOutput);
+
+                    osc.start(now);
+                    this.oscillators.push(osc);
+                    this.gainNodes.push(gain);
+                });
+            }
+
+            /**
+             * Updates a parameter using AudioParams for smooth, pop-free changes.
+             * @param {string} paramName - The name of the parameter to update.
              * @param {*} value - The new value for the parameter.
              */
             updateParameter(paramName, value) {
                 this.data[paramName] = value;
+                const now = this.audioContext ? this.audioContext.currentTime : 0;
+
                 if (paramName === 'gain') {
-                    this.mainOutput.gain.setTargetAtTime(value, this.audioContext.currentTime, 0.01);
+                    if (this.mainOutput) {
+                        this.mainOutput.gain.setTargetAtTime(value, now, 0.01);
+                    }
+                    return;
                 }
+
+                if (paramName === 'glide') {
+                    return;
+                }
+
                 if (this.started) {
-                    // For chord parameters or waveform, we need to restart the oscillators
+                    if (paramName === 'rootNote' || paramName === 'octaveRange') {
+                        const notesToPlay = this.getChordNotes();
+                        // If voice count matches, update frequencies directly via AudioParams
+                        if (this.oscillators.length === notesToPlay.length) {
+                            const glide = this.data.glide !== undefined ? this.data.glide : 0.01;
+                            notesToPlay.forEach((midiNote, idx) => {
+                                const targetFreq = midiToFrequency(midiNote);
+                                const osc = this.oscillators[idx];
+                                if (osc && osc.frequency) {
+                                    osc.frequency.cancelScheduledValues(now);
+                                    if (glide <= 0) {
+                                        osc.frequency.setValueAtTime(targetFreq, now);
+                                    } else {
+                                        osc.frequency.setTargetAtTime(targetFreq, now, glide);
+                                    }
+                                }
+                            });
+                            return;
+                        }
+                    }
+
+                    // For structural changes (chordType or waveform), reconfigure with a micro-crossfade
                     if (['chordType', 'rootNote', 'octaveRange', 'waveform'].includes(paramName)) {
-                        this.start(); // Restart to apply new chord structure/waveform
+                        this.reconfigureVoicesWithCrossfade();
                     }
                 }
             }
@@ -3463,6 +3555,15 @@ workspace_data: ${base64Data}
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof ChordGenerator) {
                         audioNode.updateParameter('waveform', val);
+                    }
+                }));
+
+                this.data.glide = 0.01;
+                this.addControl('glide', new SliderControl('chordGlide', 'Glide (s)', 0, 1, 0.001, this.data.glide, (val) => {
+                    this.data.glide = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode instanceof ChordGenerator) {
+                        audioNode.updateParameter('glide', val);
                     }
                 }));
 
