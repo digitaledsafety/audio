@@ -18,12 +18,24 @@ class GranularProcessor extends AudioWorkletProcessor {
       nextGrainTime: 0,
     };
     this.activeGrains = [];
+
+    // Precalculate sine window lookup table to eliminate Math.sin calls in sample loops
+    this.windowTableSize = 1024;
+    this.windowTable = new Float32Array(this.windowTableSize);
+    for (let k = 0; k < this.windowTableSize; k++) {
+      this.windowTable[k] = Math.sin(Math.PI * (k / (this.windowTableSize - 1)));
+    }
   }
 
   process(inputs, outputs, parameters) {
     const input = inputs[0];
     const output = outputs[0];
-    const inputChannel = input[0];
+
+    if (!output || !output[0] || output[0].length === 0) {
+      return true;
+    }
+
+    const inputChannel = input ? input[0] : null;
 
     if (inputChannel && inputChannel.length > 0) {
       for (let i = 0; i < inputChannel.length; i++) {
@@ -57,10 +69,16 @@ class GranularProcessor extends AudioWorkletProcessor {
       channel.fill(0);
     }
 
+    const outputLength = output[0].length;
+    const numChannels = output.length;
+    const tableMaxIndex = this.windowTableSize - 1;
+
     for (let i = this.activeGrains.length - 1; i >= 0; i--) {
         const grain = this.activeGrains[i];
 
-        for (let j = 0; j < output[0].length; j++) {
+        for (let j = 0; j < outputLength; j++) {
+            if (grain.playbackPosition >= grain.size) break;
+
             const bufferIndex = Math.floor(grain.startPosition + grain.playbackPosition);
 
             // Basic linear interpolation for pitch shifting
@@ -69,17 +87,20 @@ class GranularProcessor extends AudioWorkletProcessor {
             const fraction = grain.startPosition + grain.playbackPosition - bufferIndex;
             const sample = (this.buffer[index1] * (1 - fraction)) + (this.buffer[index2] * fraction);
 
-            // Apply a simple window to avoid clicks
-            const window = Math.sin(Math.PI * (grain.playbackPosition / grain.size));
+            // Lookup window from precomputed sine table
+            const normalizedPos = grain.playbackPosition / grain.size;
+            const tableIdx = Math.min(tableMaxIndex, Math.max(0, (normalizedPos * tableMaxIndex) | 0));
+            const windowVal = this.windowTable[tableIdx];
+            const windowedSample = sample * windowVal;
 
-            for(const channel of output) {
-                channel[j] += sample * window;
+            for (let c = 0; c < numChannels; c++) {
+                output[c][j] += windowedSample;
             }
 
             grain.playbackPosition += grain.pitch;
         }
 
-        if(grain.playbackPosition >= grain.size) {
+        if (grain.playbackPosition >= grain.size) {
             this.activeGrains.splice(i, 1);
         }
     }

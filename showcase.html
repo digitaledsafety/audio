@@ -257,6 +257,17 @@ title: Showcase Gallery
                 let connectionsCount = 0;
                 let nodeLabels = [];
 
+                if (!preset || !preset.workspace_data) {
+                    return {
+                        ...preset,
+                        nodesCount: 0,
+                        connectionsCount: 0,
+                        uniqueNodes: [],
+                        tags: ["Synthesis"],
+                        prettyTitle: (preset && preset.title) ? preset.title.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : "Untitled"
+                    };
+                }
+
                 try {
                     // Base64 decode to parse actual contents
                     const decoded = atob(preset.workspace_data);

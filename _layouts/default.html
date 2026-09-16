@@ -9552,10 +9552,12 @@ workspace_data: ${base64Data}
                     audioContext.resume();
                 }
 
-                await audioContext.audioWorklet.addModule('{{ "assets/js/audio-worklets/bitcrusher-processor.js" | relative_url }}');
-                await audioContext.audioWorklet.addModule('{{ "assets/js/audio-worklets/granular-processor.js" | relative_url }}');
-                await audioContext.audioWorklet.addModule('{{ "assets/js/audio-worklets/vocoder-processor.js" | relative_url }}');
-                await audioContext.audioWorklet.addModule('{{ "assets/js/audio-worklets/quantizer-processor.js" | relative_url }}');
+                await Promise.all([
+                    audioContext.audioWorklet.addModule('{{ "assets/js/audio-worklets/bitcrusher-processor.js" | relative_url }}'),
+                    audioContext.audioWorklet.addModule('{{ "assets/js/audio-worklets/granular-processor.js" | relative_url }}'),
+                    audioContext.audioWorklet.addModule('{{ "assets/js/audio-worklets/vocoder-processor.js" | relative_url }}'),
+                    audioContext.audioWorklet.addModule('{{ "assets/js/audio-worklets/quantizer-processor.js" | relative_url }}')
+                ]);
                 
                 const urlParams = new URLSearchParams(window.location.search);
                 const sessionId = urlParams.get('session');
