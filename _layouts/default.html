@@ -2436,12 +2436,52 @@ workspace_data: ${base64Data}
             constructor(id, label, min, max, step, initialValue, onValueChange, isLog = false) {
                 super(id);
                 this.label = label;
+                this.defaultMin = min;
+                this.defaultMax = max;
                 this.min = min;
                 this.max = max;
                 this.step = step;
                 this.value = initialValue; // Rete v2 controls directly hold their value
                 this.onValueChange = onValueChange;
                 this.isLog = isLog;
+            }
+
+            isZoomed() {
+                return Math.abs(this.min - this.defaultMin) > 1e-6 || Math.abs(this.max - this.defaultMax) > 1e-6;
+            }
+
+            resetRange() {
+                this.min = this.defaultMin;
+                this.max = this.defaultMax;
+            }
+
+            zoomRange(factor, centerValue = this.value) {
+                const center = typeof centerValue === 'number' && !isNaN(centerValue) ? centerValue : (this.min + this.max) / 2;
+                const currentSpan = this.max - this.min;
+                let newSpan = currentSpan * factor;
+
+                const minSpan = Math.max((this.step || 0.01) * 2, (this.defaultMax - this.defaultMin) * 0.001);
+                const maxSpan = this.defaultMax - this.defaultMin;
+
+                newSpan = Math.max(minSpan, Math.min(maxSpan, newSpan));
+
+                let newMin = center - newSpan / 2;
+                let newMax = center + newSpan / 2;
+
+                if (newMin < this.defaultMin) {
+                    newMin = this.defaultMin;
+                    newMax = Math.min(this.defaultMax, newMin + newSpan);
+                }
+                if (newMax > this.defaultMax) {
+                    newMax = this.defaultMax;
+                    newMin = Math.max(this.defaultMin, newMax - newSpan);
+                }
+
+                this.min = newMin;
+                this.max = newMax;
+
+                if (this.value < this.min) this.value = this.min;
+                if (this.value > this.max) this.value = this.max;
             }
         }
 
@@ -8261,6 +8301,15 @@ workspace_data: ${base64Data}
                     controlEl.className = 'control';
 
                     if (control instanceof SliderControl) {
+                        // Restore custom range from node data if saved
+                        if (this.node.data && Array.isArray(this.node.data[`${key}_range`])) {
+                            const [savedMin, savedMax] = this.node.data[`${key}_range`];
+                            if (typeof savedMin === 'number' && typeof savedMax === 'number') {
+                                control.min = savedMin;
+                                control.max = savedMax;
+                            }
+                        }
+
                         const sliderMin = control.isLog ? 0 : control.min;
                         const sliderMax = control.isLog ? 100 : control.max;
                         const sliderStep = control.isLog ? 0.1 : control.step;
@@ -8276,9 +8325,47 @@ workspace_data: ${base64Data}
                         slider.step = sliderStep;
                         slider.value = sliderValue;
 
+                        const valueDisplayContainer = document.createElement('span');
+                        valueDisplayContainer.className = 'value-display-container inline-flex items-center gap-1';
+
                         const valueDisplay = document.createElement('span');
                         valueDisplay.className = 'value-display';
                         valueDisplay.textContent = typeof control.value === 'number' ? control.value.toFixed(2) : control.value;
+                        valueDisplayContainer.appendChild(valueDisplay);
+
+                        // Reset range button when range is zoomed
+                        const isZoomed = control.isZoomed();
+                        if (isZoomed) {
+                            const resetBtn = document.createElement('button');
+                            resetBtn.type = 'button';
+                            resetBtn.className = 'reset-range-btn text-xs text-indigo-400 hover:text-indigo-200 ml-1 cursor-pointer font-bold';
+                            resetBtn.textContent = '↺';
+                            resetBtn.title = `Reset range (${control.defaultMin} - ${control.defaultMax})`;
+                            resetBtn.onclick = (e) => {
+                                e.stopPropagation();
+                                resetControlRange();
+                            };
+                            valueDisplayContainer.appendChild(resetBtn);
+                        }
+
+                        const resetControlRange = () => {
+                            control.resetRange();
+                            if (this.node.data) {
+                                delete this.node.data[`${key}_range`];
+                            }
+                            if (control.value < control.min) control.value = control.min;
+                            if (control.value > control.max) control.value = control.max;
+                            control.onValueChange(control.value);
+                            autoSave();
+                            multiplayer.broadcast({
+                                type: 'control-update',
+                                data: { nodeId: this.node.id, key, value: control.value, min: control.min, max: control.max }
+                            });
+                            area.update('node', this.node.id);
+                        };
+
+                        labelEl.ondblclick = resetControlRange;
+                        slider.ondblclick = resetControlRange;
 
                         slider.oninput = (e) => {
                             const linearValue = parseFloat(e.target.value);
@@ -8290,8 +8377,85 @@ workspace_data: ${base64Data}
                             autoSave();
                             multiplayer.broadcast({
                                 type: 'control-update',
-                                data: { nodeId: this.node.id, key, value: finalValue }
+                                data: { nodeId: this.node.id, key, value: finalValue, min: control.min, max: control.max }
                             });
+                        };
+
+                        // Desktop Shift+Wheel zoom gesture
+                        slider.onwheel = (e) => {
+                            if (e.shiftKey) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const factor = e.deltaY < 0 ? 0.85 : 1.18;
+                                control.zoomRange(factor, control.value);
+
+                                if (this.node.data) {
+                                    if (control.isZoomed()) {
+                                        this.node.data[`${key}_range`] = [control.min, control.max];
+                                    } else {
+                                        delete this.node.data[`${key}_range`];
+                                    }
+                                }
+
+                                control.onValueChange(control.value);
+                                autoSave();
+                                multiplayer.broadcast({
+                                    type: 'control-update',
+                                    data: { nodeId: this.node.id, key, value: control.value, min: control.min, max: control.max }
+                                });
+                                area.update('node', this.node.id);
+                            }
+                        };
+
+                        // Mobile Pinch-to-Zoom touch gesture on slider
+                        let initialPinchDistance = null;
+                        slider.ontouchstart = (e) => {
+                            if (e.touches.length === 2) {
+                                e.stopPropagation();
+                                initialPinchDistance = Math.hypot(
+                                    e.touches[0].clientX - e.touches[1].clientX,
+                                    e.touches[0].clientY - e.touches[1].clientY
+                                );
+                            }
+                        };
+
+                        slider.ontouchmove = (e) => {
+                            if (e.touches.length === 2 && initialPinchDistance !== null) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const currentDistance = Math.hypot(
+                                    e.touches[0].clientX - e.touches[1].clientX,
+                                    e.touches[0].clientY - e.touches[1].clientY
+                                );
+                                if (currentDistance > 0) {
+                                    const factor = initialPinchDistance / currentDistance;
+                                    const dampedFactor = 1 + (factor - 1) * 0.15;
+                                    control.zoomRange(dampedFactor, control.value);
+                                    initialPinchDistance = currentDistance;
+
+                                    if (this.node.data) {
+                                        if (control.isZoomed()) {
+                                            this.node.data[`${key}_range`] = [control.min, control.max];
+                                        } else {
+                                            delete this.node.data[`${key}_range`];
+                                        }
+                                    }
+
+                                    control.onValueChange(control.value);
+                                    autoSave();
+                                    multiplayer.broadcast({
+                                        type: 'control-update',
+                                        data: { nodeId: this.node.id, key, value: control.value, min: control.min, max: control.max }
+                                    });
+                                    area.update('node', this.node.id);
+                                }
+                            }
+                        };
+
+                        slider.ontouchend = (e) => {
+                            if (e.touches.length < 2) {
+                                initialPinchDistance = null;
+                            }
                         };
 
                         if (control.disabled) {
@@ -8301,7 +8465,7 @@ workspace_data: ${base64Data}
 
                         controlEl.appendChild(labelEl);
                         controlEl.appendChild(slider);
-                        controlEl.appendChild(valueDisplay);
+                        controlEl.appendChild(valueDisplayContainer);
                     } else if (control instanceof SelectControl) {
                         const labelEl = document.createElement('label');
                         labelEl.textContent = control.label;
@@ -9171,6 +9335,8 @@ workspace_data: ${base64Data}
                         context.data.element.children[0].appendChild(nodeView.el);
                     }
                 }
+
+                window.CustomNodeComponent = CustomNodeComponent;
                 if (context.type === 'render' && context.data.type === 'socket') {
                     const nodeEl = context.data.element.closest('.node');
                     if (nodeEl) {
