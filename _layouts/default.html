@@ -2436,52 +2436,12 @@ workspace_data: ${base64Data}
             constructor(id, label, min, max, step, initialValue, onValueChange, isLog = false) {
                 super(id);
                 this.label = label;
-                this.defaultMin = min;
-                this.defaultMax = max;
                 this.min = min;
                 this.max = max;
                 this.step = step;
                 this.value = initialValue; // Rete v2 controls directly hold their value
                 this.onValueChange = onValueChange;
                 this.isLog = isLog;
-            }
-
-            isZoomed() {
-                return Math.abs(this.min - this.defaultMin) > 1e-6 || Math.abs(this.max - this.defaultMax) > 1e-6;
-            }
-
-            resetRange() {
-                this.min = this.defaultMin;
-                this.max = this.defaultMax;
-            }
-
-            zoomRange(factor, centerValue = this.value) {
-                const center = typeof centerValue === 'number' && !isNaN(centerValue) ? centerValue : (this.min + this.max) / 2;
-                const currentSpan = this.max - this.min;
-                let newSpan = currentSpan * factor;
-
-                const minSpan = Math.max((this.step || 0.01) * 2, (this.defaultMax - this.defaultMin) * 0.001);
-                const maxSpan = this.defaultMax - this.defaultMin;
-
-                newSpan = Math.max(minSpan, Math.min(maxSpan, newSpan));
-
-                let newMin = center - newSpan / 2;
-                let newMax = center + newSpan / 2;
-
-                if (newMin < this.defaultMin) {
-                    newMin = this.defaultMin;
-                    newMax = Math.min(this.defaultMax, newMin + newSpan);
-                }
-                if (newMax > this.defaultMax) {
-                    newMax = this.defaultMax;
-                    newMin = Math.max(this.defaultMin, newMax - newSpan);
-                }
-
-                this.min = newMin;
-                this.max = newMax;
-
-                if (this.value < this.min) this.value = this.min;
-                if (this.value > this.max) this.value = this.max;
             }
         }
 
@@ -8187,15 +8147,6 @@ workspace_data: ${base64Data}
                     controlEl.className = 'control';
 
                     if (control instanceof SliderControl) {
-                        // Restore custom range from node data if saved
-                        if (this.node.data && Array.isArray(this.node.data[`${key}_range`])) {
-                            const [savedMin, savedMax] = this.node.data[`${key}_range`];
-                            if (typeof savedMin === 'number' && typeof savedMax === 'number') {
-                                control.min = savedMin;
-                                control.max = savedMax;
-                            }
-                        }
-
                         const sliderMin = control.isLog ? 0 : control.min;
                         const sliderMax = control.isLog ? 100 : control.max;
                         const sliderStep = control.isLog ? 0.1 : control.step;
@@ -8217,132 +8168,145 @@ workspace_data: ${base64Data}
                         const valueDisplay = document.createElement('span');
                         valueDisplay.className = 'value-display';
                         valueDisplay.textContent = typeof control.value === 'number' ? control.value.toFixed(2) : control.value;
+
+                        const fineBadge = document.createElement('span');
+                        fineBadge.className = 'fine-badge hidden text-xs font-semibold px-1 rounded bg-indigo-900/60 text-indigo-300 border border-indigo-500/40 ml-1 select-none';
+                        fineBadge.textContent = '🎯 Fine';
+                        fineBadge.title = 'Precision sensitivity active';
+
                         valueDisplayContainer.appendChild(valueDisplay);
+                        valueDisplayContainer.appendChild(fineBadge);
 
-                        // Reset range button when range is zoomed
-                        const isZoomed = control.isZoomed();
-                        if (isZoomed) {
-                            const resetBtn = document.createElement('button');
-                            resetBtn.type = 'button';
-                            resetBtn.className = 'reset-range-btn text-xs text-indigo-400 hover:text-indigo-200 ml-1 cursor-pointer font-bold';
-                            resetBtn.textContent = '↺';
-                            resetBtn.title = `Reset range (${control.defaultMin} - ${control.defaultMax})`;
-                            resetBtn.onclick = (e) => {
-                                e.stopPropagation();
-                                resetControlRange();
-                            };
-                            valueDisplayContainer.appendChild(resetBtn);
-                        }
-
-                        const resetControlRange = () => {
-                            control.resetRange();
-                            if (this.node.data) {
-                                delete this.node.data[`${key}_range`];
+                        const updateValueDisplay = (val, isFine = false) => {
+                            const formatted = typeof val === 'number' ? (isFine ? val.toFixed(4) : val.toFixed(2)) : val;
+                            valueDisplay.textContent = formatted;
+                            if (isFine) {
+                                fineBadge.classList.remove('hidden');
+                            } else {
+                                fineBadge.classList.add('hidden');
                             }
-                            if (control.value < control.min) control.value = control.min;
-                            if (control.value > control.max) control.value = control.max;
-                            control.onValueChange(control.value);
-                            autoSave();
-                            multiplayer.broadcast({
-                                type: 'control-update',
-                                data: { nodeId: this.node.id, key, value: control.value, min: control.min, max: control.max }
-                            });
-                            area.update('node', this.node.id);
                         };
 
-                        labelEl.ondblclick = resetControlRange;
-                        slider.ondblclick = resetControlRange;
-
                         slider.oninput = (e) => {
+                            const isFine = e.shiftKey || e.altKey;
                             const linearValue = parseFloat(e.target.value);
                             const finalValue = control.isLog ? linearToLog(linearValue, control.min, control.max) : linearValue;
 
                             control.value = finalValue;
-                            valueDisplay.textContent = typeof finalValue === 'number' ? finalValue.toFixed(2) : finalValue;
+                            updateValueDisplay(finalValue, isFine);
                             control.onValueChange(finalValue);
                             autoSave();
                             multiplayer.broadcast({
                                 type: 'control-update',
-                                data: { nodeId: this.node.id, key, value: finalValue, min: control.min, max: control.max }
+                                data: { nodeId: this.node.id, key, value: finalValue }
                             });
                         };
 
-                        // Desktop Shift+Wheel zoom gesture
+                        // Precision Wheel Scrolling (Shift/Alt for 10x fine step resolution)
                         slider.onwheel = (e) => {
-                            if (e.shiftKey) {
+                            if (e.shiftKey || e.altKey) {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                const factor = e.deltaY < 0 ? 0.85 : 1.18;
-                                control.zoomRange(factor, control.value);
+                                const rangeSpan = control.max - control.min;
+                                const baseStep = control.step || (rangeSpan / 100);
+                                const fineStep = baseStep * 0.1; // 10x finer resolution
+                                const direction = e.deltaY < 0 ? 1 : -1;
+                                let newValue = control.value + direction * fineStep;
+                                newValue = Math.max(control.min, Math.min(control.max, newValue));
 
-                                if (this.node.data) {
-                                    if (control.isZoomed()) {
-                                        this.node.data[`${key}_range`] = [control.min, control.max];
-                                    } else {
-                                        delete this.node.data[`${key}_range`];
-                                    }
-                                }
-
-                                control.onValueChange(control.value);
+                                control.value = newValue;
+                                slider.value = control.isLog ? logToLinear(newValue, control.min, control.max) : newValue;
+                                updateValueDisplay(newValue, true);
+                                control.onValueChange(newValue);
                                 autoSave();
                                 multiplayer.broadcast({
                                     type: 'control-update',
-                                    data: { nodeId: this.node.id, key, value: control.value, min: control.min, max: control.max }
+                                    data: { nodeId: this.node.id, key, value: newValue }
                                 });
-                                area.update('node', this.node.id);
                             }
                         };
 
-                        // Mobile Pinch-to-Zoom touch gesture on slider
-                        let initialPinchDistance = null;
-                        slider.ontouchstart = (e) => {
-                            if (e.touches.length === 2) {
-                                e.stopPropagation();
-                                initialPinchDistance = Math.hypot(
-                                    e.touches[0].clientX - e.touches[1].clientX,
-                                    e.touches[0].clientY - e.touches[1].clientY
-                                );
+                        // 2D Drag Scrubbing & Fine Touch Precision (Pointer events)
+                        let isDragging = false;
+                        let startX = 0;
+                        let startY = 0;
+                        let startValue = control.value;
+                        let wasFine = false;
+
+                        const handlePointerMove = (e) => {
+                            if (!isDragging) return;
+                            const currentX = e.clientX || (e.touches && e.touches[0].clientX) || startX;
+                            const currentY = e.clientY || (e.touches && e.touches[0].clientY) || startY;
+
+                            const dy = currentY - startY;
+                            const absDy = Math.abs(dy);
+
+                            const isFine = e.shiftKey || e.altKey || absDy > 12;
+
+                            // Re-anchor start origin upon transitioning into fine mode to avoid value jump
+                            if (isFine && !wasFine) {
+                                startX = currentX;
+                                startY = currentY;
+                                startValue = control.value;
+                                wasFine = true;
+                            } else if (!isFine && wasFine) {
+                                startX = currentX;
+                                startY = currentY;
+                                startValue = control.value;
+                                wasFine = false;
+                            }
+
+                            if (isFine) {
+                                const precisionScale = Math.max(0.05, 1 / (1 + absDy / 18)) * (e.shiftKey || e.altKey ? 0.2 : 1.0);
+                                const rangeSpan = control.max - control.min;
+                                const trackWidth = slider.offsetWidth || 150;
+                                const normDelta = ((currentX - startX) / trackWidth) * precisionScale;
+
+                                let newValue = startValue + normDelta * rangeSpan;
+                                newValue = Math.max(control.min, Math.min(control.max, newValue));
+
+                                control.value = newValue;
+                                slider.value = control.isLog ? logToLinear(newValue, control.min, control.max) : newValue;
+                                updateValueDisplay(newValue, true);
+                                control.onValueChange(newValue);
+                                autoSave();
+                                multiplayer.broadcast({
+                                    type: 'control-update',
+                                    data: { nodeId: this.node.id, key, value: newValue }
+                                });
                             }
                         };
 
-                        slider.ontouchmove = (e) => {
-                            if (e.touches.length === 2 && initialPinchDistance !== null) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                const currentDistance = Math.hypot(
-                                    e.touches[0].clientX - e.touches[1].clientX,
-                                    e.touches[0].clientY - e.touches[1].clientY
-                                );
-                                if (currentDistance > 0) {
-                                    const factor = initialPinchDistance / currentDistance;
-                                    const dampedFactor = 1 + (factor - 1) * 0.15;
-                                    control.zoomRange(dampedFactor, control.value);
-                                    initialPinchDistance = currentDistance;
-
-                                    if (this.node.data) {
-                                        if (control.isZoomed()) {
-                                            this.node.data[`${key}_range`] = [control.min, control.max];
-                                        } else {
-                                            delete this.node.data[`${key}_range`];
-                                        }
-                                    }
-
-                                    control.onValueChange(control.value);
-                                    autoSave();
-                                    multiplayer.broadcast({
-                                        type: 'control-update',
-                                        data: { nodeId: this.node.id, key, value: control.value, min: control.min, max: control.max }
-                                    });
-                                    area.update('node', this.node.id);
-                                }
+                        const handlePointerUp = () => {
+                            if (isDragging) {
+                                isDragging = false;
+                                wasFine = false;
+                                updateValueDisplay(control.value, false);
+                                window.removeEventListener('pointermove', handlePointerMove);
+                                window.removeEventListener('pointerup', handlePointerUp);
+                                window.removeEventListener('mousemove', handlePointerMove);
+                                window.removeEventListener('mouseup', handlePointerUp);
+                                window.removeEventListener('touchmove', handlePointerMove);
+                                window.removeEventListener('touchend', handlePointerUp);
                             }
                         };
 
-                        slider.ontouchend = (e) => {
-                            if (e.touches.length < 2) {
-                                initialPinchDistance = null;
-                            }
+                        const handlePointerDown = (e) => {
+                            isDragging = true;
+                            wasFine = false;
+                            startX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+                            startY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+                            startValue = control.value;
+
+                            window.addEventListener('pointermove', handlePointerMove);
+                            window.addEventListener('pointerup', handlePointerUp);
+                            window.addEventListener('mousemove', handlePointerMove);
+                            window.addEventListener('mouseup', handlePointerUp);
+                            window.addEventListener('touchmove', handlePointerMove);
+                            window.addEventListener('touchend', handlePointerUp);
                         };
+
+                        slider.addEventListener('pointerdown', handlePointerDown);
 
                         if (control.disabled) {
                             slider.disabled = true;
