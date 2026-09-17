@@ -2483,6 +2483,15 @@ workspace_data: ${base64Data}
                 this.label = label;
                 this.value = initialValue;
                 this.onValueChange = onValueChange;
+                this.element = null;
+            }
+
+            setValue(val) {
+                this.value = val;
+                if (this.element) {
+                    this.element.value = val;
+                    this.element.dispatchEvent(new Event('input', { bubbles: true }));
+                }
             }
         }
 
@@ -6728,12 +6737,20 @@ workspace_data: ${base64Data}
             }
 
             randomize() {
-                const audioNode = reteAudioNodes.get(this.id);
+                let audioNode = reteAudioNodes.get(this.id);
+                if (!audioNode) {
+                    audioNode = this.build();
+                }
                 if (audioNode) {
                     const newSequence = audioNode.generateRandomSequence();
-                    this.controls.sequence.value = newSequence;
+                    if (this.controls.sequence && typeof this.controls.sequence.setValue === 'function') {
+                        this.controls.sequence.setValue(newSequence);
+                    } else if (this.controls.sequence) {
+                        this.controls.sequence.value = newSequence;
+                    }
                     this.data.sequence = newSequence;
-                    audioNode.updateParameter('sequence', newSequence);
+                    const liveNode = reteAudioNodes.get(this.id);
+                    if (liveNode) liveNode.updateParameter('sequence', newSequence);
                     area.update('node', this.id);
                 }
             }
@@ -6790,12 +6807,20 @@ workspace_data: ${base64Data}
                 }));
 
                 this.addControl('randomize', new ButtonControl('randomizeDm', '🎲', () => {
-                    const audioNode = reteAudioNodes.get(this.id);
+                    let audioNode = reteAudioNodes.get(this.id);
+                    if (!audioNode) {
+                        audioNode = this.build();
+                    }
                     if (audioNode) {
                         const newSequence = audioNode.generateRandomSequence();
-                        this.controls.sequence.value = newSequence;
+                        if (this.controls.sequence && typeof this.controls.sequence.setValue === 'function') {
+                            this.controls.sequence.setValue(newSequence);
+                        } else if (this.controls.sequence) {
+                            this.controls.sequence.value = newSequence;
+                        }
                         this.data.sequence = newSequence;
-                        audioNode.updateParameter('sequence', newSequence);
+                        const liveNode = reteAudioNodes.get(this.id);
+                        if (liveNode) liveNode.updateParameter('sequence', newSequence);
                         area.update('node', this.id);
                     }
                 }));
@@ -8403,6 +8428,7 @@ workspace_data: ${base64Data}
                         input.type = 'text';
                         input.value = control.value !== undefined ? control.value : '';
                         input.className = 'w-full p-2 border border-gray-300 rounded mt-1 bg-white text-gray-900';
+                        control.element = input;
 
                         input.oninput = (e) => {
                             const newValue = e.target.value;
