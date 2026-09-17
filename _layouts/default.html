@@ -2518,7 +2518,9 @@ workspace_data: ${base64Data}
 
                 // Frequency proxy to keep CV connections alive during oscillator recreation
                 this.frequencyProxy = this.audioContext.createConstantSource();
-                this.frequencyProxy.offset.value = this.data.frequency || 440;
+                const baseFreq = this.data.frequency !== undefined ? this.data.frequency : 440;
+                const fineCents = this.data.fineTune || 0;
+                this.frequencyProxy.offset.value = baseFreq * Math.pow(2, fineCents / 1200);
                 this.frequencyProxy.start();
 
                 this.frequency = this.frequencyProxy.offset; // Expose for CV
@@ -2573,8 +2575,11 @@ workspace_data: ${base64Data}
 
             updateParameter(paramName, value) {
                 this.data[paramName] = value;
-                if (paramName === 'frequency') {
-                    this.frequencyProxy.offset.setTargetAtTime(value, this.audioContext.currentTime, 0.01);
+                if (paramName === 'frequency' || paramName === 'fineTune') {
+                    const baseFreq = this.data.frequency !== undefined ? this.data.frequency : 440;
+                    const fineCents = this.data.fineTune || 0;
+                    const effectiveFreq = baseFreq * Math.pow(2, fineCents / 1200);
+                    this.frequencyProxy.offset.setTargetAtTime(effectiveFreq, this.audioContext.currentTime, 0.01);
                 } else if (paramName === 'waveform' && this.oscillator) {
                     this.oscillator.type = value;
                 }
@@ -2614,6 +2619,7 @@ workspace_data: ${base64Data}
                 this.data.chordType = this.data.chordType || 'Major Triad';
                 this.data.rootNote = this.data.rootNote || 'C4';
                 this.data.octaveRange = this.data.octaveRange !== undefined ? this.data.octaveRange : 0;
+                this.data.fineTune = this.data.fineTune !== undefined ? this.data.fineTune : 0;
                 this.data.waveform = this.data.waveform || 'sine';
                 this.data.glide = this.data.glide !== undefined ? this.data.glide : 0.01;
             }
@@ -2676,6 +2682,7 @@ workspace_data: ${base64Data}
                     const gain = this.audioContext.createGain();
 
                     osc.frequency.value = freq;
+                    osc.detune.value = this.data.fineTune || 0;
                     osc.type = this.data.waveform || 'sine';
                     this.transposeControl.connect(osc.detune);
 
@@ -2752,6 +2759,7 @@ workspace_data: ${base64Data}
                     const gain = this.audioContext.createGain();
 
                     osc.frequency.value = freq;
+                    osc.detune.value = this.data.fineTune || 0;
                     osc.type = this.data.waveform || 'sine';
                     this.transposeControl.connect(osc.detune);
 
@@ -2779,6 +2787,17 @@ workspace_data: ${base64Data}
                 if (paramName === 'gain') {
                     if (this.mainOutput) {
                         this.mainOutput.gain.setTargetAtTime(value, now, 0.01);
+                    }
+                    return;
+                }
+
+                if (paramName === 'fineTune') {
+                    if (this.started) {
+                        this.oscillators.forEach(osc => {
+                            if (osc && osc.detune) {
+                                osc.detune.setTargetAtTime(value, now, 0.01);
+                            }
+                        });
                     }
                     return;
                 }
@@ -2948,7 +2967,7 @@ workspace_data: ${base64Data}
                 this.addInput('midi', new Classic.Input(midiSocket, 'MIDI In'));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio'));
 
-                this.data.frequency = 440;
+                this.data.frequency = this.data.frequency !== undefined ? this.data.frequency : 440;
                 this.addControl('frequency', new SliderControl('freqSlider', 'Frequency (Hz)', 20, 20000, 1, this.data.frequency, (val) => {
                     this.data.frequency = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -2956,6 +2975,15 @@ workspace_data: ${base64Data}
                         audioNode.updateParameter('frequency', val);
                     }
                 }, true));
+
+                this.data.fineTune = this.data.fineTune !== undefined ? this.data.fineTune : 0;
+                this.addControl('fineTune', new SliderControl('fineTuneSlider', 'Fine Tune (cents)', -100, 100, 1, this.data.fineTune, (val) => {
+                    this.data.fineTune = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) {
+                        audioNode.updateParameter('fineTune', val);
+                    }
+                }));
 
                 this.data.waveform = 'sine';
                 this.addControl('waveform', new SelectControl('waveformSelect', 'Waveform', ['sine', 'square', 'sawtooth', 'triangle'], this.data.waveform, (val) => {
@@ -3547,6 +3575,15 @@ workspace_data: ${base64Data}
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof ChordGenerator) {
                         audioNode.updateParameter('octaveRange', val);
+                    }
+                }));
+
+                this.data.fineTune = this.data.fineTune !== undefined ? this.data.fineTune : 0;
+                this.addControl('fineTune', new SliderControl('chordFineTune', 'Fine Tune (cents)', -100, 100, 1, this.data.fineTune, (val) => {
+                    this.data.fineTune = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode instanceof ChordGenerator) {
+                        audioNode.updateParameter('fineTune', val);
                     }
                 }));
 
@@ -4609,7 +4646,7 @@ workspace_data: ${base64Data}
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
                 this.data.frequency = 5000;
-                this.addControl('frequency', new SliderControl('filterFreqSlider', 'Frequency (Hz)', 20, 20000, 10, this.data.frequency, (val) => {
+                this.addControl('frequency', new SliderControl('filterFreqSlider', 'Frequency (Hz)', 20, 20000, 1, this.data.frequency, (val) => {
                     this.data.frequency = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode && audioNode.frequency) {
@@ -4718,7 +4755,7 @@ workspace_data: ${base64Data}
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
                 this.data.delayTime = this.data.delayTime !== undefined ? this.data.delayTime : 0.5;
-                this.addControl('delayTime', new SliderControl('delayTimeSlider', 'Delay Time (s)', 0, 5, 0.01, this.data.delayTime, (val) => {
+                this.addControl('delayTime', new SliderControl('delayTimeSlider', 'Delay Time (s)', 0, 5, 0.001, this.data.delayTime, (val) => {
                     this.data.delayTime = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('delayTime', val);
@@ -4815,7 +4852,7 @@ workspace_data: ${base64Data}
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
                 this.data.delayTime = 0.5;
-                this.addControl('delayTime', new SliderControl('ppDelayTime', 'Delay Time (s)', 0, 5, 0.01, this.data.delayTime, (val) => {
+                this.addControl('delayTime', new SliderControl('ppDelayTime', 'Delay Time (s)', 0, 5, 0.001, this.data.delayTime, (val) => {
                     this.data.delayTime = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('delayTime', val);
@@ -7263,7 +7300,8 @@ workspace_data: ${base64Data}
 
                 this.updateParameter('sync', this.data.sync || false);
                 this.updateParameter('division', this.data.division || '1/4');
-                this.updateParameter('frequency', this.data.frequency || 5, false);
+                this.updateParameter('frequency', this.data.frequency !== undefined ? this.data.frequency : 5, false);
+                this.updateParameter('fineTune', this.data.fineTune !== undefined ? this.data.fineTune : 0, false);
                 this.updateParameter('waveform', this.data.waveform || 'sine', false);
                 this.updateParameter('amount', this.data.amount !== undefined ? this.data.amount : 500, false);
                 this.updateParameter('offset', this.data.offset !== undefined ? this.data.offset : 0, false);
@@ -7304,7 +7342,9 @@ workspace_data: ${base64Data}
                     this.oscillator = this.audioContext.createOscillator();
                     this.oscillator.connect(this.amountGain);
                     this.oscillator.type = this.data.waveform;
-                    this.oscillator.frequency.value = this.data.frequency;
+                    const baseFreq = this.data.frequency !== undefined ? this.data.frequency : 5;
+                    const fineFreq = this.data.fineTune || 0;
+                    this.oscillator.frequency.value = Math.max(0.01, baseFreq + fineFreq);
                     
                     this.started = false;
                     console.log(`LFO ${this.reteNodeId} stopped.`);
@@ -7315,8 +7355,11 @@ workspace_data: ${base64Data}
 
             updateParameter(paramName, value) {
                 this.data[paramName] = value;
-                if (paramName === 'frequency' && this.oscillator && !this.data.sync) {
-                    this.oscillator.frequency.setTargetAtTime(value, this.audioContext.currentTime, 0.01);
+                if ((paramName === 'frequency' || paramName === 'fineTune') && this.oscillator && !this.data.sync) {
+                    const baseFreq = this.data.frequency !== undefined ? this.data.frequency : 5;
+                    const fineFreq = this.data.fineTune || 0;
+                    const effectiveFreq = Math.max(0.01, baseFreq + fineFreq);
+                    this.oscillator.frequency.setTargetAtTime(effectiveFreq, this.audioContext.currentTime, 0.01);
                 } else if (paramName === 'waveform' && this.oscillator) {
                     this.oscillator.type = value;
                 } else if (paramName === 'amount' && this.amountGain) {
@@ -7347,13 +7390,21 @@ workspace_data: ${base64Data}
                 }));
                 this.controls.division.hidden = !this.data.sync;
 
-                this.data.frequency = 5;
+                this.data.frequency = this.data.frequency !== undefined ? this.data.frequency : 5;
                 this.addControl('frequency', new SliderControl('lfoFreq', 'Frequency (Hz)', 0.1, 20, 0.1, this.data.frequency, (val) => {
                     this.data.frequency = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof LFOGenerator) audioNode.updateParameter('frequency', val);
                 }));
                 this.controls.frequency.hidden = this.data.sync;
+
+                this.data.fineTune = this.data.fineTune !== undefined ? this.data.fineTune : 0;
+                this.addControl('fineTune', new SliderControl('lfoFineTune', 'Fine Rate (Hz)', -1.0, 1.0, 0.01, this.data.fineTune, (val) => {
+                    this.data.fineTune = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode instanceof LFOGenerator) audioNode.updateParameter('fineTune', val);
+                }));
+                this.controls.fineTune.hidden = this.data.sync;
 
                 this.data.waveform = 'sine';
                 this.addControl('waveform', new SelectControl('lfoWaveform', 'Waveform', ['sine', 'square', 'sawtooth', 'triangle'], this.data.waveform, (val) => {
@@ -7631,14 +7682,14 @@ workspace_data: ${base64Data}
                 }));
 
                 this.data.attack = 0.01;
-                this.addControl('attack', new SliderControl('adsrAttack', 'Attack (s)', 0.01, 2, 0.01, this.data.attack, (val) => {
+                this.addControl('attack', new SliderControl('adsrAttack', 'Attack (s)', 0.001, 2, 0.001, this.data.attack, (val) => {
                     this.data.attack = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof ADSREnvelope) audioNode.updateParameter('attack', val);
                 }));
 
                 this.data.decay = 0.1;
-                this.addControl('decay', new SliderControl('adsrDecay', 'Decay (s)', 0.01, 2, 0.01, this.data.decay, (val) => {
+                this.addControl('decay', new SliderControl('adsrDecay', 'Decay (s)', 0.001, 2, 0.001, this.data.decay, (val) => {
                     this.data.decay = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof ADSREnvelope) audioNode.updateParameter('decay', val);
@@ -7652,7 +7703,7 @@ workspace_data: ${base64Data}
                 }));
 
                 this.data.release = 0.1;
-                this.addControl('release', new SliderControl('adsrRelease', 'Release (s)', 0.01, 5, 0.01, this.data.release, (val) => {
+                this.addControl('release', new SliderControl('adsrRelease', 'Release (s)', 0.001, 5, 0.001, this.data.release, (val) => {
                     this.data.release = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof ADSREnvelope) audioNode.updateParameter('release', val);
@@ -7685,7 +7736,7 @@ workspace_data: ${base64Data}
                 }));
 
                 this.data.sampleRateReduction = 1;
-                this.addControl('sampleRateReduction', new SliderControl('sampleRateReduction', 'Sample Rate Reduction', 1, 20, 1, this.data.sampleRateReduction, (val) => {
+                this.addControl('sampleRateReduction', new SliderControl('sampleRateReduction', 'Sample Rate Reduction', 1, 20, 0.1, this.data.sampleRateReduction, (val) => {
                     this.data.sampleRateReduction = val;
                     const liveAudioNode = reteAudioNodes.get(this.id);
                     if (liveAudioNode && liveAudioNode.parameters) {
@@ -9274,6 +9325,7 @@ workspace_data: ${base64Data}
                     if (connection.targetInput === 'clock' && targetReteNode.label === 'LFO') {
                         targetReteNode.data.sync = true;
                         targetReteNode.controls.frequency.hidden = true;
+                        if (targetReteNode.controls.fineTune) targetReteNode.controls.fineTune.hidden = true;
                         targetReteNode.controls.division.hidden = false;
                         area.update('node', targetReteNode.id);
                         const audioNode = reteAudioNodes.get(targetReteNode.id);
@@ -9302,6 +9354,7 @@ workspace_data: ${base64Data}
                     if (connection.targetInput === 'clock' && targetReteNode.label === 'LFO') {
                         targetReteNode.data.sync = false;
                         targetReteNode.controls.frequency.hidden = false;
+                        if (targetReteNode.controls.fineTune) targetReteNode.controls.fineTune.hidden = false;
                         targetReteNode.controls.division.hidden = true;
                         area.update('node', targetReteNode.id);
                         const audioNode = reteAudioNodes.get(targetReteNode.id);

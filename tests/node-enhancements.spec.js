@@ -41,13 +41,14 @@ test.describe('Node Enhancements and Parameter Updates', () => {
     await expect(node).toBeVisible();
 
     // Frequency slider is index 0
-    // Amount slider is index 1
-    const amountSlider = node.locator('input[type="range"]').nth(1);
+    // Fine Rate slider is index 1
+    // Amount slider is index 2
+    const amountSlider = node.locator('input[type="range"]').nth(2);
     await amountSlider.fill('1200');
     await expect(amountSlider).toHaveValue('1200');
 
-    // Offset slider is index 2
-    const offsetSlider = node.locator('input[type="range"]').nth(2);
+    // Offset slider is index 3
+    const offsetSlider = node.locator('input[type="range"]').nth(3);
     await offsetSlider.fill('200');
     await expect(offsetSlider).toHaveValue('200');
   });
