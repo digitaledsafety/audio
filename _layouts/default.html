@@ -8327,22 +8327,16 @@ workspace_data: ${base64Data}
                         slider.step = sliderStep;
                         slider.value = sliderValue;
 
-                        function formatDisplayValue(val) {
-                            if (typeof val !== 'number' || isNaN(val)) return val;
-                            if (Number.isInteger(val)) return val.toString();
-                            return parseFloat(val.toFixed(6)).toString();
-                        }
-
                         const valueDisplay = document.createElement('span');
                         valueDisplay.className = 'value-display';
-                        valueDisplay.textContent = formatDisplayValue(control.value);
+                        valueDisplay.textContent = typeof control.value === 'number' ? control.value.toFixed(2) : control.value;
 
                         slider.oninput = (e) => {
                             const linearValue = parseFloat(e.target.value);
                             const finalValue = control.isLog ? linearToLog(linearValue, control.min, control.max) : linearValue;
 
                             control.value = finalValue;
-                            valueDisplay.textContent = formatDisplayValue(finalValue);
+                            valueDisplay.textContent = typeof finalValue === 'number' ? finalValue.toFixed(2) : finalValue;
                             control.onValueChange(finalValue);
                             autoSave();
                             multiplayer.broadcast({
