@@ -58,7 +58,13 @@ test.describe('VCA Gate Input Interaction', () => {
         targetInput: 'gate'
       });
 
-      const vcaAudio = window.reteAudioNodes.get(vcaId);
+      let vcaAudio = window.reteAudioNodes.get(vcaId);
+      for (let i = 0; i < 30; i++) {
+        vcaAudio = window.reteAudioNodes.get(vcaId);
+        if (vcaAudio && vcaAudio.gateHigh === false) break;
+        await new Promise(r => setTimeout(r, 100));
+      }
+
       return {
         vcaGateHighAfterConnect: vcaAudio ? vcaAudio.gateHigh : null
       };
@@ -107,7 +113,13 @@ test.describe('VCA Gate Input Interaction', () => {
         }
       }
 
-      const vcaAudio = window.reteAudioNodes.get(vcaId);
+      let vcaAudio = window.reteAudioNodes.get(vcaId);
+      for (let i = 0; i < 30; i++) {
+        vcaAudio = window.reteAudioNodes.get(vcaId);
+        if (vcaAudio && vcaAudio.gateHigh === true) break;
+        await new Promise(r => setTimeout(r, 100));
+      }
+
       return {
         vcaGateHighAfterDisconnect: vcaAudio ? vcaAudio.gateHigh : null
       };
