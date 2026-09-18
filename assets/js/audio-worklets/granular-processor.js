@@ -32,23 +32,31 @@ class GranularProcessor extends AudioWorkletProcessor {
       }
     }
 
-    const grainSize = parameters.grainSize[0] * sampleRate;
-    const grainDensity = parameters.grainDensity[0];
-    const pitchShift = parameters.pitchShift[0];
-    const positionJitter = parameters.positionJitter[0];
+    const grainSizeParam = (parameters.grainSize && !isNaN(parameters.grainSize[0])) ? parameters.grainSize[0] : 0.1;
+    const grainDensityParam = (parameters.grainDensity && !isNaN(parameters.grainDensity[0])) ? parameters.grainDensity[0] : 20;
+    const pitchShiftParam = (parameters.pitchShift && !isNaN(parameters.pitchShift[0])) ? parameters.pitchShift[0] : 0;
+    const positionJitterParam = (parameters.positionJitter && !isNaN(parameters.positionJitter[0])) ? parameters.positionJitter[0] : 0;
+
+    const grainSize = Math.max(0.01 * sampleRate, grainSizeParam * sampleRate);
+    const grainDensity = Math.max(1, grainDensityParam);
+    const pitchShift = pitchShiftParam;
+    const positionJitter = Math.max(0, Math.min(1, positionJitterParam));
 
     // Simple scheduling
-    this.grainScheduler.nextGrainTime -= output[0].length / sampleRate;
+    const blockSize = output[0] ? output[0].length : 128;
+    this.grainScheduler.nextGrainTime -= blockSize / sampleRate;
     if (this.grainScheduler.nextGrainTime <= 0) {
         this.grainScheduler.nextGrainTime = 1.0 / grainDensity;
 
+        let startPos = Math.floor((this.writeIndex - grainSize - (Math.random() * positionJitter * this.buffer.length)) % this.buffer.length);
+        startPos = ((startPos % this.buffer.length) + this.buffer.length) % this.buffer.length;
+
         const grain = {
-            startPosition: (this.writeIndex - grainSize - (Math.random() * positionJitter * this.buffer.length)) % this.buffer.length,
+            startPosition: startPos,
             playbackPosition: 0,
             size: grainSize,
             pitch: 1.0 * Math.pow(2, pitchShift / 1200),
         };
-        if(grain.startPosition < 0) grain.startPosition += this.buffer.length;
 
         this.activeGrains.push(grain);
     }
@@ -57,15 +65,16 @@ class GranularProcessor extends AudioWorkletProcessor {
       channel.fill(0);
     }
 
+    const bufLen = this.buffer.length;
     for (let i = this.activeGrains.length - 1; i >= 0; i--) {
         const grain = this.activeGrains[i];
 
-        for (let j = 0; j < output[0].length; j++) {
+        for (let j = 0; j < blockSize; j++) {
             const bufferIndex = Math.floor(grain.startPosition + grain.playbackPosition);
 
-            // Basic linear interpolation for pitch shifting
-            const index1 = bufferIndex % this.buffer.length;
-            const index2 = (bufferIndex + 1) % this.buffer.length;
+            // Basic linear interpolation for pitch shifting with non-negative modulo logic
+            const index1 = ((bufferIndex % bufLen) + bufLen) % bufLen;
+            const index2 = (((bufferIndex + 1) % bufLen) + bufLen) % bufLen;
             const fraction = grain.startPosition + grain.playbackPosition - bufferIndex;
             const sample = (this.buffer[index1] * (1 - fraction)) + (this.buffer[index2] * fraction);
 
