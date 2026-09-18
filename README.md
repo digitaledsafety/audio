@@ -71,4 +71,4 @@ Audio supports real-time multiplayer, allowing you to collaborate with others on
 *   [Sequencer](./docs/SequencerNode.md)
 *   [VCA](./docs/VCANode.md)
 *   [Vocoder](./docs/VocoderNode.md)
-*   [Wave Player](./docs/WavePlayerNode.md)
+*   [Media Player](./docs/MediaPlayerNode.md)
