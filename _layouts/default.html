@@ -358,7 +358,7 @@ layout: none
                             <div class="grid grid-cols-2 gap-2">
                                 <button id="addToneGeneratorNodeBtn" class="button button-secondary w-full text-xs">🔊 VCO</button>
                                 <button id="addNoiseGeneratorNodeBtn" class="button button-secondary w-full text-xs">🌫️ Noise Source</button>
-                                <button id="addWavePlayerNodeBtn" class="button button-secondary w-full text-xs">🎵 Wave Player</button>
+                                <button id="addMediaPlayerNodeBtn" class="button button-secondary w-full text-xs">🎵 Media Player</button>
                                 <button id="addMicrophoneInputNodeBtn" class="button button-secondary w-full text-xs">🎤 Mic Input</button>
                                 <button id="addChordGeneratorNodeBtn" class="button button-secondary w-full text-xs">🎼 Chord Gen</button>
                             </div>
@@ -547,6 +547,10 @@ layout: none
                 'Noise Source': 'NoiseGeneratorNode',
                 'Clock': 'MasterClockNode',
 
+                'Media Player': 'MediaPlayerNode',
+                'Wave Player': 'MediaPlayerNode',
+                'WavePlayerNode': 'MediaPlayerNode',
+
                 // Legacy display names
                 'Tone Generator': 'ToneGeneratorNode',
                 'Filter': 'FilterNode',
@@ -681,7 +685,7 @@ layout: none
         // UI Elements
         const addToneGeneratorNodeBtn = document.getElementById('addToneGeneratorNodeBtn');
         const addNoiseGeneratorNodeBtn = document.getElementById('addNoiseGeneratorNodeBtn');
-        const addWavePlayerNodeBtn = document.getElementById('addWavePlayerNodeBtn');
+        const addMediaPlayerNodeBtn = document.getElementById('addMediaPlayerNodeBtn');
         const addChordGeneratorNodeBtn = document.getElementById('addChordGeneratorNodeBtn');
         const addVCANodeBtn = document.getElementById('addVCANodeBtn');
         const addMasterGainOutputNodeBtn = document.getElementById('addMasterGainOutputNodeBtn');
@@ -3140,12 +3144,13 @@ workspace_data: ${base64Data}
             }
         }
 
-        class WavePlayer {
+        class MediaPlayer {
             constructor(audioContext, reteNodeId, data) {
                 this.audioContext = audioContext;
                 this.reteNodeId = reteNodeId;
                 this.data = data;
                 this.audioBuffer = null;
+                this.reversedAudioBuffer = null;
                 this.mainOutput = this.audioContext.createGain();
                 this.activeSource = null;
                 this.loadAudio();
@@ -3157,6 +3162,7 @@ workspace_data: ${base64Data}
                     const response = await fetch(this.data.audioUrl);
                     const arrayBuffer = await response.arrayBuffer();
                     this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+                    this.createReversedBuffer();
                     showMessage('Audio loaded successfully!', 'success');
                 } catch (e) {
                     console.error('Error loading audio:', e);
@@ -3164,27 +3170,65 @@ workspace_data: ${base64Data}
                 }
             }
 
-            play() {
-                if (!this.audioBuffer || !this.audioContext) return;
-                if (this.activeSource && (this.data.loop || this.activeSource.loop)) {
+            createReversedBuffer() {
+                if (!this.audioBuffer) {
+                    this.reversedAudioBuffer = null;
+                    return;
+                }
+                const numChannels = this.audioBuffer.numberOfChannels;
+                const length = this.audioBuffer.length;
+                const sampleRate = this.audioBuffer.sampleRate;
+                const revBuffer = this.audioContext.createBuffer(numChannels, length, sampleRate);
+                for (let channel = 0; channel < numChannels; channel++) {
+                    const srcData = this.audioBuffer.getChannelData(channel);
+                    const destData = revBuffer.getChannelData(channel);
+                    for (let i = 0; i < length; i++) {
+                        destData[i] = srcData[length - 1 - i];
+                    }
+                }
+                this.reversedAudioBuffer = revBuffer;
+            }
+
+            stop() {
+                if (this.activeSource) {
                     try {
                         this.activeSource.stop();
                     } catch (e) {
-                        // Ignore if already stopped/finished
+                        // Ignore if already stopped
                     }
+                    this.activeSource = null;
                 }
-                const source = this.audioContext.createBufferSource();
-                source.buffer = this.audioBuffer;
+            }
 
-                const playbackRate = this.data.playbackRate !== undefined ? this.data.playbackRate : 1.0;
+            play() {
+                if (!this.audioBuffer || !this.audioContext) return;
+                this.stop();
+
+                const isReverse = this.data.reverse !== undefined ? this.data.reverse : false;
+                const bufferToUse = isReverse ? (this.reversedAudioBuffer || this.audioBuffer) : this.audioBuffer;
+
+                const source = this.audioContext.createBufferSource();
+                source.buffer = bufferToUse;
+
+                const speed = this.data.playbackRate !== undefined ? this.data.playbackRate : 1.0;
+                const pitchSemitones = this.data.pitch !== undefined ? this.data.pitch : 0;
+                const pitchFactor = Math.pow(2, pitchSemitones / 12);
+                const totalPlaybackRate = Math.max(0.01, speed * pitchFactor);
+
                 const loop = this.data.loop !== undefined ? this.data.loop : false;
 
-                source.playbackRate.setValueAtTime(playbackRate, this.audioContext.currentTime);
+                source.playbackRate.setValueAtTime(totalPlaybackRate, this.audioContext.currentTime);
                 source.loop = loop;
 
                 source.connect(this.mainOutput);
                 source.start(0);
                 this.activeSource = source;
+            }
+
+            handleGate(isGateHigh) {
+                if (isGateHigh) {
+                    this.play();
+                }
             }
 
             updateParameter(paramName, value) {
@@ -3193,9 +3237,17 @@ workspace_data: ${base64Data}
                     this.loadAudio();
                 } else if (paramName === 'gain') {
                     this.mainOutput.gain.setTargetAtTime(value, this.audioContext.currentTime, 0.01);
-                } else if (paramName === 'playbackRate') {
+                } else if (paramName === 'playbackRate' || paramName === 'pitch') {
                     if (this.activeSource) {
-                        this.activeSource.playbackRate.setTargetAtTime(value, this.audioContext.currentTime, 0.01);
+                        const speed = this.data.playbackRate !== undefined ? this.data.playbackRate : 1.0;
+                        const pitchSemitones = this.data.pitch !== undefined ? this.data.pitch : 0;
+                        const pitchFactor = Math.pow(2, pitchSemitones / 12);
+                        const totalPlaybackRate = Math.max(0.01, speed * pitchFactor);
+                        this.activeSource.playbackRate.setTargetAtTime(totalPlaybackRate, this.audioContext.currentTime, 0.01);
+                    }
+                } else if (paramName === 'reverse') {
+                    if (this.activeSource) {
+                        this.play();
                     }
                 } else if (paramName === 'loop') {
                     if (this.activeSource) {
@@ -3205,9 +3257,10 @@ workspace_data: ${base64Data}
             }
         }
 
-        class WavePlayerNode extends WebAudioNode {
+        class MediaPlayerNode extends WebAudioNode {
             constructor() {
-                super('Wave Player');
+                super('Media Player');
+                this.addInput('gate', new Classic.Input(voltageSocket, 'Gate In'));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio'));
 
                 if (this.data.audioUrl === undefined) {
@@ -3216,7 +3269,7 @@ workspace_data: ${base64Data}
                 this.addControl('audioUrl', new TextControl('audioUrl', 'Audio URL', this.data.audioUrl, (val) => {
                     this.data.audioUrl = val;
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode instanceof WavePlayer) {
+                    if (audioNode instanceof MediaPlayer) {
                         audioNode.updateParameter('audioUrl', val);
                     }
                 }));
@@ -3226,15 +3279,22 @@ workspace_data: ${base64Data}
                         await startAudio();
                     }
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode instanceof WavePlayer) {
+                    if (audioNode instanceof MediaPlayer) {
                         audioNode.play();
+                    }
+                }));
+
+                this.addControl('stop', new ButtonControl('stopButton', 'Stop', () => {
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode instanceof MediaPlayer) {
+                        audioNode.stop();
                     }
                 }));
 
                 if (this.data.gain === undefined) {
                     this.data.gain = 1.0;
                 }
-                this.addControl('gain', new SliderControl('waveGain', 'Gain', 0, 2, 0.01, this.data.gain, (val) => {
+                this.addControl('gain', new SliderControl('mediaGain', 'Gain', 0, 2, 0.01, this.data.gain, (val) => {
                     this.data.gain = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode && audioNode.updateParameter) audioNode.updateParameter('gain', val);
@@ -3243,16 +3303,34 @@ workspace_data: ${base64Data}
                 if (this.data.playbackRate === undefined) {
                     this.data.playbackRate = 1.0;
                 }
-                this.addControl('playbackRate', new SliderControl('wavePlaybackRate', 'Playback Rate', 0.1, 4, 0.05, this.data.playbackRate, (val) => {
+                this.addControl('playbackRate', new SliderControl('mediaPlaybackRate', 'Speed', 0.1, 4, 0.05, this.data.playbackRate, (val) => {
                     this.data.playbackRate = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode && audioNode.updateParameter) audioNode.updateParameter('playbackRate', val);
                 }));
 
+                if (this.data.pitch === undefined) {
+                    this.data.pitch = 0;
+                }
+                this.addControl('pitch', new SliderControl('mediaPitch', 'Pitch (st)', -12, 12, 1, this.data.pitch, (val) => {
+                    this.data.pitch = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode && audioNode.updateParameter) audioNode.updateParameter('pitch', val);
+                }));
+
+                if (this.data.reverse === undefined) {
+                    this.data.reverse = false;
+                }
+                this.addControl('reverse', new ToggleControl('mediaReverse', 'Reverse', this.data.reverse, (val) => {
+                    this.data.reverse = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode && audioNode.updateParameter) audioNode.updateParameter('reverse', val);
+                }));
+
                 if (this.data.loop === undefined) {
                     this.data.loop = false;
                 }
-                this.addControl('loop', new ToggleControl('waveLoop', 'Loop', this.data.loop, (val) => {
+                this.addControl('loop', new ToggleControl('mediaLoop', 'Loop', this.data.loop, (val) => {
                     this.data.loop = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode && audioNode.updateParameter) audioNode.updateParameter('loop', val);
@@ -3260,7 +3338,7 @@ workspace_data: ${base64Data}
             }
 
             build() {
-                const audioNode = new WavePlayer(audioContext, this.id, this.data);
+                const audioNode = new MediaPlayer(audioContext, this.id, this.data);
                 if (this.data.gain !== undefined) {
                     audioNode.mainOutput.gain.value = this.data.gain;
                 }
@@ -8545,8 +8623,8 @@ workspace_data: ${base64Data}
             clearEditorBtn.disabled = false; // Enable clear button after adding node
         });
 
-        addWavePlayerNodeBtn.addEventListener('click', async () => {
-            const node = new WavePlayerNode();
+        addMediaPlayerNodeBtn.addEventListener('click', async () => {
+            const node = new MediaPlayerNode();
             const existingNodesCount = editor.getNodes().length;
             node.position = { x: 50 + (existingNodesCount % 5) * 220, y: 50 + Math.floor(existingNodesCount / 5) * 200 };
             await editor.addNode(node);
@@ -8829,8 +8907,10 @@ workspace_data: ${base64Data}
         NodeRegistry.register('ToneGeneratorNode', ToneGeneratorNode);
         NodeRegistry.register('Noise Source', NoiseGeneratorNode);
         NodeRegistry.register('NoiseGeneratorNode', NoiseGeneratorNode);
-        NodeRegistry.register('Wave Player', WavePlayerNode);
-        NodeRegistry.register('WavePlayerNode', WavePlayerNode);
+        NodeRegistry.register('Media Player', MediaPlayerNode);
+        NodeRegistry.register('MediaPlayerNode', MediaPlayerNode);
+        NodeRegistry.register('Wave Player', MediaPlayerNode);
+        NodeRegistry.register('WavePlayerNode', MediaPlayerNode);
         NodeRegistry.register('Chord Generator', ChordGeneratorNode);
         NodeRegistry.register('ChordGeneratorNode', ChordGeneratorNode);
         NodeRegistry.register('VCA', VCANode);
@@ -9044,7 +9124,7 @@ workspace_data: ${base64Data}
                 items: ContextMenuPresets.classic.setup([
                     ['VCO', () => new ToneGeneratorNode()],
                     ['Noise Source', () => new NoiseGeneratorNode()],
-                    ['Wave Player', () => new WavePlayerNode()],
+                    ['Media Player', () => new MediaPlayerNode()],
                     ['Chord Generator', () => new ChordGeneratorNode()],
                     ['VCA', () => new VCANode()],
                     ['Output', () => new MasterGainOutputNode()],
