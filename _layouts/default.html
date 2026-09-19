@@ -484,10 +484,39 @@ layout: none
                                 <input type="checkbox" id="disableVisualizerToggle" class="form-checkbox h-4 w-4 text-blue-600 rounded">
                             </label>
                         </div>
+                        <!-- Feedback -->
+                        <div class="flex flex-col gap-2 p-3 bg-gray-50 rounded-lg border">
+                            <h4 class="font-semibold text-center">Feedback</h4>
+                            <button id="openFeedbackBtn" class="button button-secondary w-full">💬 Send Feedback</button>
+                        </div>
                          <button id="clearEditorBtn" class="button button-danger" disabled>🗑️ Clear All</button>
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Hidden iframe for Google Form submission -->
+    <iframe name="hidden_feedback_iframe" id="hidden_feedback_iframe" style="display:none;"></iframe>
+
+    <!-- Feedback Modal -->
+    <div id="feedbackModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 flex flex-col gap-4 border border-gray-100 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b pb-3">
+                <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">💬 Send Feedback</h3>
+                <button id="closeFeedbackModalBtn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none">&times;</button>
+            </div>
+            <form id="feedbackForm" action="https://docs.google.com/forms/d/e/1FAIpQLSebWprWkCLQVOOf38zX39sdfUqSKDZrG0WfKB7lMLAkz0shqw/formResponse" method="POST" target="hidden_feedback_iframe" class="flex flex-col gap-4">
+                <div class="flex flex-col gap-1">
+                    <label for="feedbackMessage" class="text-sm font-semibold text-gray-700">Message <span class="text-red-500">*</span></label>
+                    <textarea id="feedbackMessage" name="entry.1150177072" rows="4" placeholder="Share your thoughts, suggestions, or issues..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-y text-sm"></textarea>
+                    <p id="feedbackError" class="text-xs text-red-500 hidden font-medium">Please enter a message before submitting.</p>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" id="cancelFeedbackBtn" class="button button-secondary px-4 py-2">Cancel</button>
+                    <button type="submit" id="submitFeedbackBtn" class="button button-primary px-4 py-2">Submit Feedback</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -9608,6 +9637,69 @@ workspace_data: ${base64Data}
                 document.getElementById('settingsDropdown').classList.add('hidden');
                 showMessage('New random workspace generated!', 'success');
             });
+
+            // --- Feedback Modal Logic ---
+            let submittedFeedback = false;
+            const openFeedbackBtn = document.getElementById('openFeedbackBtn');
+            const feedbackModal = document.getElementById('feedbackModal');
+            const closeFeedbackModalBtn = document.getElementById('closeFeedbackModalBtn');
+            const cancelFeedbackBtn = document.getElementById('cancelFeedbackBtn');
+            const feedbackForm = document.getElementById('feedbackForm');
+            const feedbackMessage = document.getElementById('feedbackMessage');
+            const feedbackError = document.getElementById('feedbackError');
+            const hiddenFeedbackIframe = document.getElementById('hidden_feedback_iframe');
+
+            const openFeedbackModal = () => {
+                document.getElementById('settingsDropdown').classList.add('hidden');
+                feedbackMessage.value = '';
+                feedbackError.classList.add('hidden');
+                feedbackModal.classList.remove('hidden');
+            };
+
+            const closeFeedbackModal = () => {
+                feedbackModal.classList.add('hidden');
+            };
+
+            if (openFeedbackBtn) {
+                openFeedbackBtn.addEventListener('click', openFeedbackModal);
+            }
+            if (closeFeedbackModalBtn) {
+                closeFeedbackModalBtn.addEventListener('click', closeFeedbackModal);
+            }
+            if (cancelFeedbackBtn) {
+                cancelFeedbackBtn.addEventListener('click', closeFeedbackModal);
+            }
+            if (feedbackModal) {
+                feedbackModal.addEventListener('click', (e) => {
+                    if (e.target === feedbackModal) {
+                        closeFeedbackModal();
+                    }
+                });
+            }
+
+            if (feedbackForm) {
+                feedbackForm.addEventListener('submit', (e) => {
+                    const msg = feedbackMessage.value ? feedbackMessage.value.trim() : '';
+                    if (!msg) {
+                        e.preventDefault();
+                        feedbackError.classList.remove('hidden');
+                        return;
+                    }
+                    feedbackError.classList.add('hidden');
+                    submittedFeedback = true;
+                });
+            }
+
+            if (hiddenFeedbackIframe) {
+                hiddenFeedbackIframe.addEventListener('load', () => {
+                    if (submittedFeedback) {
+                        submittedFeedback = false;
+                        feedbackForm.reset();
+                        closeFeedbackModal();
+                        showMessage('Feedback submitted! Thank you.', 'success');
+                    }
+                });
+            }
 
             document.getElementById('createSessionBtn').addEventListener('click', () => {
                 multiplayer.startHosting();
