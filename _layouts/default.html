@@ -1736,6 +1736,39 @@ workspace_data: ${base64Data}
             recordBtn.textContent = '⏺️ Record';
             recordBtn.disabled = false;
         }
+        window.stopAudio = stopAudio;
+
+        async function cleanupResources() {
+            try {
+                await stopAudio();
+            } catch (e) {
+                console.warn("Error during stopAudio on page cleanup:", e);
+            }
+
+            if (typeof isAnimating !== 'undefined') {
+                isAnimating = false;
+            }
+
+            if (typeof audioContext !== 'undefined' && audioContext && audioContext.state !== 'closed') {
+                try {
+                    await audioContext.close();
+                } catch (e) {
+                    console.warn("Error closing audioContext:", e);
+                }
+            }
+
+            if (typeof gl !== 'undefined' && gl) {
+                try {
+                    const loseContextExt = gl.getExtension('WEBGL_lose_context');
+                    if (loseContextExt) {
+                        loseContextExt.loseContext();
+                    }
+                } catch (e) {}
+            }
+        }
+        window.cleanupResources = cleanupResources;
+        window.addEventListener('pagehide', cleanupResources);
+        window.addEventListener('beforeunload', cleanupResources);
 
 
         const RandomWorkspaceGenerator = {
