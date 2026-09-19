@@ -252,7 +252,6 @@ title: Showcase Gallery
         // Decodes and parses workspace data to compute tags, counts and details
         function processPresetsData() {
             processedPresets = RAW_PRESETS.map(preset => {
-                let data = null;
                 let nodesCount = 0;
                 let connectionsCount = 0;
                 let nodeLabels = [];
@@ -260,7 +259,7 @@ title: Showcase Gallery
                 try {
                     // Base64 decode to parse actual contents
                     const decoded = atob(preset.workspace_data);
-                    data = JSON.parse(decoded);
+                    const data = JSON.parse(decoded);
                     if (data && data.nodes) {
                         nodesCount = data.nodes.length;
                         nodeLabels = data.nodes.map(n => n.label || n.name || "Unknown");
@@ -314,7 +313,8 @@ title: Showcase Gallery
                 const uniqueNodes = [...new Set(nodeLabels)];
 
                 return {
-                    ...preset,
+                    title: preset.title,
+                    url: preset.url,
                     nodesCount,
                     connectionsCount,
                     uniqueNodes,
@@ -323,6 +323,9 @@ title: Showcase Gallery
                     prettyTitle: preset.title.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
                 };
             });
+
+            // Reclaim initial payload memory immediately
+            RAW_PRESETS.length = 0;
         }
 
         // Returns dynamic counts per category based on current search query
@@ -518,6 +521,19 @@ title: Showcase Gallery
                 spinner.style.pointerEvents = "none";
             };
 
+            // Clean up previous iframe instance if present
+            try {
+                if (iframe.contentWindow) {
+                    if (typeof iframe.contentWindow.cleanupResources === 'function') {
+                        iframe.contentWindow.cleanupResources();
+                    } else if (typeof iframe.contentWindow.stopAudio === 'function') {
+                        iframe.contentWindow.stopAudio();
+                    }
+                }
+            } catch (e) {
+                console.warn("Error cleaning up previous iframe resources:", e);
+            }
+
             // Set source with preview parameter to load visualizer immediately
             const previewUrl = url.includes("?") ? `${url}&preview=true` : `${url}?preview=true`;
             iframe.src = previewUrl;
@@ -536,6 +552,18 @@ title: Showcase Gallery
             modal.classList.add("opacity-0");
             setTimeout(() => {
                 modal.classList.add("hidden");
+                // Explicitly stop audio and cleanup resources before clearing iframe source
+                try {
+                    if (iframe.contentWindow) {
+                        if (typeof iframe.contentWindow.cleanupResources === 'function') {
+                            iframe.contentWindow.cleanupResources();
+                        } else if (typeof iframe.contentWindow.stopAudio === 'function') {
+                            iframe.contentWindow.stopAudio();
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Error cleaning up iframe audio context on close:", e);
+                }
                 // Clear source to stop running synth audio nodes completely
                 iframe.src = "about:blank";
             }, 300);
