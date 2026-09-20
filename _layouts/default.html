@@ -5689,6 +5689,18 @@ workspace_data: ${base64Data}
                     this.start();
                 }
             }
+
+            connect(dest) {
+                this.mainOutput.connect(dest);
+            }
+
+            disconnect(dest) {
+                if (dest) {
+                    this.mainOutput.disconnect(dest);
+                } else {
+                    this.mainOutput.disconnect();
+                }
+            }
         }
 
 
