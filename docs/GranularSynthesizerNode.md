@@ -1,22 +1,37 @@
 # Granular Synthesizer Node
 
-The Granular Synthesizer Node processes an incoming audio signal by breaking it down into tiny fragments (grains) and then reassembling them. This can create a wide range of effects, from subtle textures and time-stretching to complex, evolving soundscapes.
+**Category:** `Sources`
+**Class:** `GranularSynthesizerNode`
+
+Real-time granular synthesis engine splitting incoming or recorded audio into microscopic grains with time/pitch jitter.
 
 ## Inputs
 
-*   **Audio In**: The live audio signal to be granulated.
-*   **Grain Size CV**: Modulates the duration of each individual grain.
-*   **Grain Density CV**: Modulates the rate at which new grains are generated.
-*   **Pitch Shift CV**: Modulates the pitch transposition of each grain.
-*   **Jitter CV**: Modulates the amount of randomization in the playback position of each grain.
+| Socket Name | Socket Type | Description |
+| :--- | :--- | :--- |
+| **Audio In** | `voltage` | Live audio stream input. |
+| **Grain Size CV** | `voltage` | Grain size CV modulation. |
+| **Grain Density CV** | `voltage` | Grain density CV modulation. |
+| **Pitch Shift CV** | `voltage` | Pitch transpose CV modulation. |
+| **Jitter CV** | `voltage` | Position jitter CV modulation. |
 
 ## Outputs
 
-*   **Audio Out**: The processed granular audio signal.
+| Socket Name | Socket Type | Description |
+| :--- | :--- | :--- |
+| **Audio Out** | `voltage` | Granular synthesized audio output. |
 
-## Controls
+## Controls & Parameters
 
-*   **Grain Size (s)**: The duration of each audio grain in seconds.
-*   **Grain Density (Hz)**: The frequency at which new grains are created. Higher values result in more overlapping grains and a denser sound.
-*   **Pitch Shift (cents)**: The amount to shift the pitch of each grain up or down. 100 cents equals one semitone.
-*   **Position Jitter**: The amount of randomness applied to the start position of each grain within the audio buffer. Higher values create a more chaotic and smeared sound.
+| Control | Type | Range / Options | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **Grain Size (s)** | `slider` | `0.01` to `0.5` (step: `0.001`) | `0.1` | Grain playback window duration. |
+| **Grain Density (Hz)** | `slider` | `1` to `100` (step: `1`) | `20` | Grains per second density. |
+| **Pitch Shift (st)** | `slider` | `-12` to `12` (step: `1`) | `0` | Pitch transposition in semitones. |
+| **Jitter (s)** | `slider` | `0` to `0.2` (step: `0.001`) | `0.02` | Buffer offset randomization. |
+
+## Code Details & Nuances
+
+* Powered by GranularProcessor AudioWorklet.
+* Overlapping grains use Gaussian window envelopes.
+

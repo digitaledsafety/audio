@@ -24,4 +24,3 @@ Manual Gate and Trigger generator producing high (1.0) or low (0.0) control volt
 ## Code Details & Nuances
 
 * Disconnecting gate outputs restores target nodes to default High (true) gate state via VoltageConnectionStrategy.
-

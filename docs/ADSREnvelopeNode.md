@@ -30,4 +30,3 @@ ADSR Envelope Generator generating Attack, Decay, Sustain, and Release contour s
 ## Code Details & Nuances
 
 * Exponential curve ramping on attack and release prevents audio pop artifacts.
-

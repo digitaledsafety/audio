@@ -30,4 +30,3 @@ Voltage Controlled Oscillator generating fundamental audio waveforms (sine, squa
 
 * Incoming MIDI notes override manual frequency slider setting.
 * Fine tuning uses 2^(cents/1200) multiplier for exact pitch offsets.
-

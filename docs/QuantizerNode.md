@@ -27,4 +27,3 @@ Pitch quantizer constraining continuous unquantized CV signals to exact semitone
 ## Code Details & Nuances
 
 * Snaps continuous voltage values to nearest semitone in the selected musical scale.
-

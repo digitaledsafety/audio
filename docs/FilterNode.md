@@ -30,4 +30,3 @@ Voltage Controlled Filter featuring Lowpass, Highpass, Bandpass, and Notch modes
 
 * Cutoff CV uses logarithmic frequency scaling.
 * Resonance values near 20 approach self-oscillation.
-

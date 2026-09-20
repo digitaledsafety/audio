@@ -1,20 +1,30 @@
 # Stereo Panner Node
 
-The Stereo Panner Node is used to position an audio signal in the stereo field (left/right).
+**Category:** `Effects`
+**Class:** `StereoPannerNode`
+
+Panoramic audio balance node positioning audio across left/right stereo spectrum manually or via CV modulation.
 
 ## Inputs
 
-*   **Audio In**: The audio signal to be panned.
-*   **Pan CV**: A Control Voltage input to modulate the stereo position.
+| Socket Name | Socket Type | Description |
+| :--- | :--- | :--- |
+| **Audio In** | `voltage` | Input audio. |
+| **Pan CV** | `voltage` | Stereo pan CV modulation. |
 
 ## Outputs
 
-*   **Audio Out**: The panned stereo audio signal.
+| Socket Name | Socket Type | Description |
+| :--- | :--- | :--- |
+| **Audio Out** | `voltage` | Stereo panned output. |
 
-## Controls
+## Controls & Parameters
 
-*   **Pan**: Sets the base stereo position.
-    *   -1.0: Full Left
-    *   0.0: Center
-    *   1.0: Full Right
-    This value is added to any modulation from the Pan CV input.
+| Control | Type | Range / Options | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **Pan** | `slider` | `-1` to `1` (step: `0.01`) | `0` | Pan position (-1 left, 0 center, +1 right). |
+
+## Code Details & Nuances
+
+* Uses StereoPannerNode API when supported, falling back to equal-power GainNode split.
+

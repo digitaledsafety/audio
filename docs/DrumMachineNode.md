@@ -27,4 +27,3 @@ Pattern-based drum rhythm synthesizer supporting 808, 909, Chiptune, and Acousti
 ## Code Details & Nuances
 
 * Mini-notation trigger syntax: k (kick), s (snare), h (closed hat), o (open hat), c (clap), t (tom).
-

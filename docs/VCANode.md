@@ -1,20 +1,31 @@
 # VCA Node
 
-The VCA (Voltage-Controlled Amplifier) Node is used to control the amplitude of an audio signal. It features high-precision modulation, phase inversion, and absolute silencing via a dedicated mute stage.
+**Category:** `Modulation & Sequencing`
+**Class:** `VCANode`
+
+Voltage Controlled Amplifier controlling audio or control voltage amplitude via manual gain and CV modulation.
 
 ## Inputs
 
-*   **Audio In**: The audio signal to be amplified.
-*   **Gain CV**: A Control Voltage input to modulate the gain.
-*   **Gate In**: A Gate input that controls the output. When no gate is connected or the gate is High, the node operates normally. When a Low gate signal is received, the node is muted.
+| Socket Name | Socket Type | Description |
+| :--- | :--- | :--- |
+| **In** | `voltage` | Audio or CV input signal. |
+| **CV In** | `voltage` | Control voltage modulating VCA gain. |
 
 ## Outputs
 
-*   **Audio Out**: The amplified audio signal.
+| Socket Name | Socket Type | Description |
+| :--- | :--- | :--- |
+| **Out** | `voltage` | Amplified or attenuated output signal. |
 
-## Controls
+## Controls & Parameters
 
-*   **Gain**: Sets the base gain level (0 to 10).
-*   **Invert Phase**: When enabled, inverts the phase of the output signal.
-*   **Mute**: Manually mutes the output, overriding all other settings.
-*   **Slew (s)**: Adjusts the smoothing time (0.001s to 1s) for transitions in Gain, Mute, and Gate states. This prevents audible clicks and allows for smooth ramping.
+| Control | Type | Range / Options | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **Gain** | `slider` | `0` to `1` (step: `0.01`) | `1` | Manual base gain level. |
+| **CV Amount** | `slider` | `0` to `1` (step: `0.01`) | `1` | Depth of CV input modulation. |
+
+## Code Details & Nuances
+
+* Operates as a linear multiplier for both audio signals and DC control voltages.
+
