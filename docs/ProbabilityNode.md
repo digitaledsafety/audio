@@ -1,16 +1,30 @@
 # Probability Node
 
-The **Probability Node** is a stochastic control module that randomly filters incoming clock pulses and gate voltage signals based on a configurable probability threshold. It enables generative rhythm variations, humanized timing, and non-deterministic event triggering in modular patches.
+**Category:** `Modulation & Sequencing`
+**Class:** `ProbabilityNode`
+
+Stochastic gate filter that allows gate pulses to pass through based on a configurable probability percentage.
 
 ## Inputs
 
-- **Clock/Gate**: The input clock event or gate voltage signal to be probabilistically filtered.
-- **Prob CV**: Optional control voltage (CV) input to modulate the probability threshold dynamically (additive to the manual probability slider).
+| Socket Name | Socket Type | Description |
+| :--- | :--- | :--- |
+| **Gate In** | `voltage` | Input gate or trigger pulse. |
+| **Prob CV** | `voltage` | CV modulating probability threshold. |
 
 ## Outputs
 
-- **Out**: The filtered clock pulse or gate signal. Signals pass through to this output only when a random check succeeds against the current probability threshold.
+| Socket Name | Socket Type | Description |
+| :--- | :--- | :--- |
+| **Gate Out** | `voltage` | Probabilistically passed gate signal. |
 
-## Controls
+## Controls & Parameters
 
-- **Probability**: Sets the probability threshold (from 0.0 to 1.0, default 0.5) that an incoming pulse or gate signal will pass through to the output. At 0.0 (0%), all signals are muted/filtered; at 1.0 (100%), all signals pass through without filtering.
+| Control | Type | Range / Options | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **Probability** | `slider` | `0` to `1` (step: `0.01`) | `0.5` | Probability pass rate (0.0 = blocked, 1.0 = always passed). |
+
+## Code Details & Nuances
+
+* Shares single-sample buffer for optimized memory polling during signal processing.
+

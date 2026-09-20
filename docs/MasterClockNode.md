@@ -25,4 +25,3 @@ Master clock pulse generator driving tempo synchronization across sequencers, dr
 
 * Sends precision clock pulses on every tick.
 * Resets tick counter on transport restart and editor clear.
-

@@ -1,11 +1,28 @@
-# Microphone Input Node
+# 🎤 Mic Input Node
 
-The Microphone Input Node provides a way to bring live audio from a microphone into the application.
+**Category:** `Sources`
+**Class:** `MicrophoneInputNode`
+
+Microphone audio stream input capturing live acoustic or vocal sound from the user media device.
+
+## Inputs
+
+*This node has no inputs.*
 
 ## Outputs
 
-*   **Audio**: The raw audio signal from the microphone.
+| Socket Name | Socket Type | Description |
+| :--- | :--- | :--- |
+| **Audio Out** | `voltage` | Live audio stream output. |
 
-## Controls
+## Controls & Parameters
 
-*   **Activate Mic / Deactivate**: A button to request microphone access from the browser and start passing audio, or to stop the audio stream.
+| Control | Type | Range / Options | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **Gain** | `slider` | `0` to `2` (step: `0.01`) | `1` | Microphone input gain adjustment. |
+
+## Code Details & Nuances
+
+* Requires user microphone permission in browser.
+* Uses navigator.mediaDevices.getUserMedia and web audio MediaStreamAudioSourceNode.
+

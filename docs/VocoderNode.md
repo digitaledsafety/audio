@@ -1,25 +1,36 @@
 # Vocoder Node
 
-The Vocoder Node imposes the spectral characteristics of a modulator signal onto a carrier signal, famously used to create "robot voice" effects.
+**Category:** `Effects`
+**Class:** `VocoderNode`
+
+Multi-band vocoder applying vocal modulator spectral envelope filters onto carrier synthesis tones.
 
 ## Inputs
 
-*   **Carrier In**: The signal that provides the pitch and tone (e.g., a synthesizer waveform). If nothing is connected, an internal oscillator is used.
-*   **Modulator In**: The signal that provides the spectral shape (e.g., a human voice from a microphone).
-*   **Freq CV**: Modulates the frequency of the internal carrier oscillator.
-*   **Bands CV**: Modulates the number of filter bands used for analysis/synthesis.
-*   **Formant CV**: Modulates the formant shift, which raises or lowers the resonant frequencies of the filter bank.
-*   **Unvoiced CV**: Modulates the level of unvoiced sound (like static or hiss) mixed into the output.
+| Socket Name | Socket Type | Description |
+| :--- | :--- | :--- |
+| **Carrier In** | `voltage` | Carrier synthesizer input. |
+| **Modulator In** | `voltage` | Modulator vocal input. |
+| **Bands CV** | `voltage` | Filter band count CV modulation. |
+| **Formant CV** | `voltage` | Formant shift CV modulation. |
+| **Unvoiced CV** | `voltage` | Unvoiced sibilance CV modulation. |
 
 ## Outputs
 
-*   **Audio Out**: The vocoded audio signal.
+| Socket Name | Socket Type | Description |
+| :--- | :--- | :--- |
+| **Audio Out** | `voltage` | Vocoded audio output. |
 
-## Controls
+## Controls & Parameters
 
-*   **Carrier Freq**: Sets the frequency of the internal carrier oscillator when no external carrier is connected.
-*   **Carrier Wave**: Sets the waveform of the internal carrier oscillator.
-*   **Modulator Gain**: Adjusts the input level of the modulator signal. If the vocoder effect is too quiet, try increasing this value.
-*   **Bands**: The number of frequency bands used by the vocoder. More bands result in a more detailed and intelligible sound.
-*   **Formant Shift (cents)**: Shifts the filter bank's frequencies up or down, altering the timbral character of the output.
-*   **Unvoiced Level**: Controls the amount of high-frequency noise mixed with the signal, which helps to preserve consonants and sibilance (like "s" sounds).
+| Control | Type | Range / Options | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **Carrier Freq** | `slider` | `50` to `1000` (step: `1`) | `110` | Internal carrier base frequency. |
+| **Carrier Wave** | `select` | `sine`, `square`, `sawtooth`, `triangle` | `sawtooth` | Internal carrier wave shape. |
+| **Filter Bands** | `slider` | `4` to `32` (step: `1`) | `16` | Number of spectral filter bands. |
+| **Formant Shift** | `slider` | `0.5` to `2` (step: `0.01`) | `1` | Formant shift multiplier. |
+
+## Code Details & Nuances
+
+* Uses VocoderProcessor AudioWorklet for real-time parallel bandpass spectral tracking.
+

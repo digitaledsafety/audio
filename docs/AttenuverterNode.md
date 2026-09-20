@@ -1,19 +1,29 @@
 # Attenuverter Node
 
-The Attenuverter Node is a utility for scaling and inverting Control Voltage (CV) signals. It can make a modulation signal stronger or weaker (attenuate) and flip its polarity (invert).
+**Category:** `Utilities`
+**Class:** `AttenuverterNode`
+
+Precision scale and polarity inversion node for scaling or flipping control voltages between -1.0x and +1.0x.
 
 ## Inputs
 
-*   **In**: The CV signal to be processed.
+| Socket Name | Socket Type | Description |
+| :--- | :--- | :--- |
+| **In** | `voltage` | Input signal. |
 
 ## Outputs
 
-*   **Out**: The processed CV signal.
+| Socket Name | Socket Type | Description |
+| :--- | :--- | :--- |
+| **Out** | `voltage` | Scaled or inverted output. |
 
-## Controls
+## Controls & Parameters
 
-*   **Level**: A bipolar control that sets the amount of attenuation or inversion.
-    *   A value of `1` passes the signal through unchanged.
-    *   Values between `0` and `1` reduce the signal's amplitude.
-    *   A value of `0` completely silences the signal.
-    *   Negative values invert the signal's polarity. For example, a value of `-1` passes the signal through at its original amplitude but inverted.
+| Control | Type | Range / Options | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **Level** | `slider` | `-1` to `1` (step: `0.01`) | `1` | Gain multiplier (-1 to +1). |
+
+## Code Details & Nuances
+
+* At 0.0 mutes signal; at +1.0 passes unchanged; at -1.0 flips phase polarity.
+

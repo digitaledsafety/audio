@@ -26,4 +26,3 @@ Multi-spectrum noise generator producing White, Pink, or Brownian noise signals 
 
 * Pink noise filters white noise with -3dB/octave slope.
 * Brownian noise uses -6dB/octave lowpass filtering.
-

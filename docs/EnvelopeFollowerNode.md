@@ -1,23 +1,31 @@
 # Envelope Follower Node
 
-The **Envelope Follower** node analyzes the amplitude (volume) of an incoming audio signal and generates a corresponding control voltage (CV) signal that tracks its volume envelope. This CV signal can then be used to modulate parameters of other nodes (such as a filter's cutoff frequency or a VCA's gain), enabling effects like auto-wah, sidechain-like compression, and dynamic modulation.
+**Category:** `Modulation & Sequencing`
+**Class:** `EnvelopeFollowerNode`
+
+Dynamic amplitude tracker generating control voltage proportional to the peak envelope of incoming audio.
 
 ## Inputs
 
-| Name       | Description                              |
-| ---------- | ---------------------------------------- |
-| **Audio In** | The incoming audio signal whose volume envelope is analyzed. |
+| Socket Name | Socket Type | Description |
+| :--- | :--- | :--- |
+| **Audio In** | `voltage` | Audio input stream. |
 
 ## Outputs
 
-| Name       | Description                              |
-| ---------- | ---------------------------------------- |
-| **CV Out**  | The generated control voltage signal representing the tracked volume envelope. |
+| Socket Name | Socket Type | Description |
+| :--- | :--- | :--- |
+| **CV Out** | `voltage` | Envelope CV signal. |
 
-## Controls
+## Controls & Parameters
 
-| Name            | Description                                |
-| --------------- | ------------------------------------------ |
-| **Sensitivity** | Controls the input gain/scaling factor. Higher sensitivity values produce a larger range and higher peak value for the output CV signal. |
-| **Attack (s)**  | Controls the rise/attack response time of the envelope tracker in seconds (0.001s to 1.0s). Shorter attack times track rapid increases in volume more quickly. |
-| **Release (s)** | Controls the fall/release response time of the envelope tracker in seconds (0.001s to 1.0s). Longer release times smooth out rapid drops in volume, keeping the CV high for longer. |
+| Control | Type | Range / Options | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **Sensitivity** | `slider` | `0` to `10` (step: `0.1`) | `1` | Input sensitivity multiplier. |
+| **Attack (s)** | `slider` | `0.001` to `1` (step: `0.001`) | `0.01` | Envelope rise speed. |
+| **Release (s)** | `slider` | `0.001` to `1` (step: `0.001`) | `0.1` | Envelope decay speed. |
+
+## Code Details & Nuances
+
+* Converts dynamic audio volume peaks into continuous control voltage signals.
+

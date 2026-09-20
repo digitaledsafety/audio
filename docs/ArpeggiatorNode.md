@@ -1,35 +1,38 @@
 # Arpeggiator Node
 
-The Arpeggiator Node can be used to create arpeggios.
+**Category:** `Modulation & Sequencing`
+**Class:** `ArpeggiatorNode`
+
+Arpeggiator generating melodic note sequences from chord inputs or root selections with dual Audio and MIDI outputs.
 
 ## Inputs
 
-| Name             | Description                              |
-| ---------------- | ---------------------------------------- |
-| **Clock In**     | A CV input that accepts a clock signal to drive the arpeggiator's timing externally. |
-| **MIDI In**      | A MIDI input to receive note data, which will override the root note setting. |
-| **Transpose CV** | Modulates the root note of the arpeggio. Follows the 1V/Octave standard (+1V = +12 semitones). |
+| Socket Name | Socket Type | Description |
+| :--- | :--- | :--- |
+| **Clock In** | `voltage` | External clock pulse input. |
+| **MIDI In** | `midi` | Incoming MIDI notes. |
+| **Transpose CV** | `voltage` | Pitch transposition CV input. |
 
 ## Outputs
 
-| Name       | Description                              |
-| ---------- | ---------------------------------------- |
-| **Audio**  | The audio output of the arpeggiator's internal synthesizer. |
-| **MIDI Out** | Outputs the MIDI notes being played by the arpeggiator. |
+| Socket Name | Socket Type | Description |
+| :--- | :--- | :--- |
+| **Audio** | `voltage` | Internal synth audio output. |
+| **MIDI Out** | `midi` | Arpeggiated MIDI note stream. |
 
-## Controls
+## Controls & Parameters
 
-| Name            | Description                                                                    |
-| --------------- | ------------------------------------------------------------------------------ |
-| **BPM**           | The tempo of the arpeggiator in beats per minute.                              |
-| **Note Duration** | The duration of each note in the arpeggio.                                     |
-| **Chord Type**    | The type of chord to arpeggiate.                                               |
-| **Root Note**     | The root note of the arpeggio.                                                 |
-| **Pattern**       | The pattern of the arpeggio.                                                   |
-| **Octaves**       | The number of octaves to span.                                                 |
-| **Waveform**      | The waveform of the oscillator. Can be one of `sine`, `square`, `sawtooth`, or `triangle`. |
-| **Envelope**      | A button to show/hide the ADSR envelope controls for the internal synthesizer. |
-| **Attack (s)**    | The attack time of the envelope in seconds.                                    |
-| **Decay (s)**     | The decay time of the envelope in seconds.                                     |
-| **Sustain**       | The sustain level of the envelope (0-1).                                       |
-| **Release (s)**   | The release time of the envelope in seconds.                                   |
+| Control | Type | Range / Options | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **BPM** | `slider` | `60` to `240` (step: `1`) | `120` | Tempo when no external clock is connected. |
+| **Note Duration** | `select` | `1`, `1/2`, `1/4`, `1/8`, `1/16`, `1/32`, `1/64`, `1/128` | `1/16` | Note subdivision duration. |
+| **Chord Type** | `select` | `Major Triad`, `Minor Triad`, `Dominant 7th`, `Major 7th`, `Minor 7th`, `Sus2`, `Sus4`, `Diminished`, `Augmented` | `Major Triad` | Harmonic chord structure. |
+| **Root Note** | `select` | `C`, `C#`, `D`, `D#`, `E`, `F`, `F#`, `G`, `G#`, `A`, `A#`, `B` | `C4` | Base note pitch. |
+| **Pattern** | `select` | `Up`, `Down`, `Up-Down`, `Down-Up`, `Random` | `Up` | Arpeggio playback direction. |
+| **Octaves** | `slider` | `1` to `4` (step: `1`) | `1` | Octave range span. |
+
+## Code Details & Nuances
+
+* External Clock In overrides internal BPM slider.
+* Outputs both live audio from built-in synth and MIDI triggers for external nodes.
+

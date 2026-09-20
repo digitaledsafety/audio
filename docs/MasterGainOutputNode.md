@@ -24,4 +24,3 @@ Master output node connecting synthesizer patch audio directly to Web Audio outp
 ## Code Details & Nuances
 
 * Connects directly to Web Audio destination speaker output and global master gain.
-
