@@ -49,18 +49,22 @@ function checkDocs() {
         if (!fs.existsSync(docFilePath)) {
             errors.push(`Documentation file '${meta.filename}' for class ${className} does not exist in docs/.`);
         } else {
-            const existingContent = fs.readFileSync(docFilePath, 'utf8');
-            const expectedContent = generateMarkdown(meta);
-            if (existingContent.trim() !== expectedContent.trim()) {
+            const existingContent = fs.readFileSync(docFilePath, 'utf8').replace(/\r\n/g, '\n').trim();
+            const expectedContent = generateMarkdown(meta).replace(/\r\n/g, '\n').trim();
+            if (existingContent !== expectedContent) {
                 errors.push(`Documentation file '${meta.filename}' for ${className} is out of sync with code metadata. Run 'npm run generate-docs' to update.`);
             }
         }
     });
 
     if (errors.length > 0) {
-        console.error("Documentation Integrity Check Failed:\n");
-        errors.forEach(err => console.error(` - ${err}`));
-        process.exit(1);
+        const msg = `Documentation Integrity Check Failed:\n${errors.map(err => ` - ${err}`).join('\n')}`;
+        if (require.main === module) {
+            console.error(msg);
+            process.exit(1);
+        } else {
+            throw new Error(msg);
+        }
     } else {
         console.log(`Documentation Integrity Check Passed! All ${classNames.length} node classes are fully documented and in sync with code.`);
     }
