@@ -33,7 +33,7 @@ test.describe('Worklet Processors & Service Worker Enhancements', () => {
     expect(Number(bitsVal)).toBe(4);
   });
 
-  test('Service Worker fetch event handler includes non-GET and scheme guards', async ({ page }) => {
+  test('Service Worker fetch event handler includes non-GET and scheme guards and complete cache manifest', async ({ page }) => {
     const swContent = await page.evaluate(async () => {
       const response = await fetch('/sw.js');
       return await response.text();
@@ -41,5 +41,11 @@ test.describe('Worklet Processors & Service Worker Enhancements', () => {
 
     expect(swContent).toContain("event.request.method !== 'GET'");
     expect(swContent).toContain("['http:', 'https:'].includes(requestUrl.protocol)");
+    expect(swContent).toContain("showcase.html");
+    expect(swContent).toContain("mini-notation-parser.js");
+    expect(swContent).toContain("bitcrusher-processor.js");
+    expect(swContent).toContain("granular-processor.js");
+    expect(swContent).toContain("quantizer-processor.js");
+    expect(swContent).toContain("vocoder-processor.js");
   });
 });
