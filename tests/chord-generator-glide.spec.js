@@ -33,18 +33,14 @@ test.describe('Chord Generator Glide & Pop-Free Transitions', () => {
     await page.locator('#playStopBtn').click();
 
     // Evaluate on page to test ChordGenerator audio node instance directly
-    const result = await page.evaluate(async () => {
+    const result = await page.evaluate(() => {
       // Find Chord Generator node in reteAudioNodes
       let chordAudioNode = null;
-      for (let i = 0; i < 40; i++) {
-        for (const [id, audioNode] of window.reteAudioNodes.entries()) {
-          if (audioNode && audioNode.constructor.name === 'ChordGenerator') {
-            chordAudioNode = audioNode;
-            break;
-          }
+      for (const [id, audioNode] of window.reteAudioNodes.entries()) {
+        if (audioNode && audioNode.constructor.name === 'ChordGenerator') {
+          chordAudioNode = audioNode;
+          break;
         }
-        if (chordAudioNode) break;
-        await new Promise(r => setTimeout(r, 50));
       }
 
       if (!chordAudioNode) return { success: false, reason: 'ChordGenerator audio node not found' };
@@ -86,17 +82,13 @@ test.describe('Chord Generator Glide & Pop-Free Transitions', () => {
     await page.locator('#addChordGeneratorNodeBtn').click();
     await page.locator('#playStopBtn').click();
 
-    const evalResult = await page.evaluate(async () => {
+    const evalResult = await page.evaluate(() => {
       let chordAudioNode = null;
-      for (let i = 0; i < 40; i++) {
-        for (const [id, audioNode] of window.reteAudioNodes.entries()) {
-          if (audioNode && audioNode.constructor.name === 'ChordGenerator') {
-            chordAudioNode = audioNode;
-            break;
-          }
+      for (const [id, audioNode] of window.reteAudioNodes.entries()) {
+        if (audioNode && audioNode.constructor.name === 'ChordGenerator') {
+          chordAudioNode = audioNode;
+          break;
         }
-        if (chordAudioNode) break;
-        await new Promise(r => setTimeout(r, 50));
       }
 
       if (!chordAudioNode) return { success: false };
@@ -106,8 +98,6 @@ test.describe('Chord Generator Glide & Pop-Free Transitions', () => {
 
       // Change chord type to Major 7th (4 notes instead of 3)
       chordAudioNode.updateParameter('chordType', 'Major 7th');
-
-      await new Promise(resolve => setTimeout(resolve, 50));
 
       return {
         success: true,

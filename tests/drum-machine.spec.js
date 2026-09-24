@@ -55,12 +55,11 @@ test.describe('Drum Machine Node & Drum Kits', () => {
     await expect(diceBtn).toBeVisible();
     await diceBtn.click({ force: true });
 
-    await expect(async () => {
-      const currentInput = dmNode.locator('input[type="text"]').first();
-      const val = await currentInput.inputValue();
-      expect(val).not.toBe('k s h o c t');
-      expect(val.length).toBeGreaterThan(0);
-    }).toPass();
+    // Re-query locator to get the live updated input element after Rete v2 re-renders node controls
+    const currentInput = dmNode.locator('input[type="text"]').first();
+    await expect(currentInput).not.toHaveValue('k s h o c t');
+    const randSeq = await currentInput.inputValue();
+    expect(randSeq.length).toBeGreaterThan(0);
 
     // Verify programmatic audio node execution for all kits and drum sounds
     const soundCheck = await page.evaluate(() => {
