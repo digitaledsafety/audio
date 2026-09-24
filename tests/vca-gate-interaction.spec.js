@@ -28,13 +28,8 @@ test.describe('VCA Gate Input Interaction', () => {
       await editor.addNode(gateNode);
       await editor.addNode(vcaNode);
 
-      let gateAudio, vcaAudio;
-      for (let i = 0; i < 20; i++) {
-        gateAudio = window.reteAudioNodes.get(gateNode.id);
-        vcaAudio = window.reteAudioNodes.get(vcaNode.id);
-        if (gateAudio && vcaAudio) break;
-        await new Promise(r => setTimeout(r, 50));
-      }
+      const gateAudio = window.reteAudioNodes.get(gateNode.id);
+      const vcaAudio = window.reteAudioNodes.get(vcaNode.id);
 
       return {
         gateId: gateNode.id,
@@ -50,13 +45,10 @@ test.describe('VCA Gate Input Interaction', () => {
     // Connect Manual Gate 'out' to VCA 'gate' input
     const connectedState = await page.evaluate(async ({ gateId, vcaId }) => {
       const editor = window.editor;
+      const gateNode = editor.getNode(gateId);
+      const vcaNode = editor.getNode(vcaId);
 
-      await editor.addConnection({
-        source: gateId,
-        sourceOutput: 'out',
-        target: vcaId,
-        targetInput: 'gate'
-      });
+      await editor.addConnection(new window.Rete.ClassicPreset.Connection(gateNode, 'out', vcaNode, 'gate'));
 
       const vcaAudio = window.reteAudioNodes.get(vcaId);
       return {
@@ -68,7 +60,7 @@ test.describe('VCA Gate Input Interaction', () => {
     expect(connectedState.vcaGateHighAfterConnect).toBe(false);
 
     // Toggle Manual Gate to High
-    const highState = await page.evaluate(async ({ gateId, vcaId }) => {
+    const highState = await page.evaluate(({ gateId, vcaId }) => {
       const gateAudio = window.reteAudioNodes.get(gateId);
       if (gateAudio && gateAudio.updateParameter) {
         gateAudio.updateParameter('value', true);
@@ -83,17 +75,15 @@ test.describe('VCA Gate Input Interaction', () => {
     expect(highState.vcaGateHighWhenGateHigh).toBe(true);
 
     // Toggle Manual Gate back to Low
-    await page.evaluate(({ gateId }) => {
+    const lowState = await page.evaluate(({ gateId, vcaId }) => {
       const gateAudio = window.reteAudioNodes.get(gateId);
       if (gateAudio && gateAudio.updateParameter) {
         gateAudio.updateParameter('value', false);
       }
-    }, { gateId: nodeState.gateId });
 
-    const lowState = await page.evaluate(({ vcaId }) => {
       const vcaAudio = window.reteAudioNodes.get(vcaId);
       return vcaAudio ? vcaAudio.gateHigh : null;
-    }, { vcaId: nodeState.vcaId });
+    }, { gateId: nodeState.gateId, vcaId: nodeState.vcaId });
 
     expect(lowState).toBe(false);
 
