@@ -36,11 +36,15 @@ test.describe('Chord Generator Glide & Pop-Free Transitions', () => {
     const result = await page.evaluate(async () => {
       // Find Chord Generator node in reteAudioNodes
       let chordAudioNode = null;
-      for (const [id, audioNode] of window.reteAudioNodes.entries()) {
-        if (audioNode && audioNode.constructor.name === 'ChordGenerator') {
-          chordAudioNode = audioNode;
-          break;
+      for (let i = 0; i < 40; i++) {
+        for (const [id, audioNode] of window.reteAudioNodes.entries()) {
+          if (audioNode && audioNode.constructor.name === 'ChordGenerator') {
+            chordAudioNode = audioNode;
+            break;
+          }
         }
+        if (chordAudioNode) break;
+        await new Promise(r => setTimeout(r, 50));
       }
 
       if (!chordAudioNode) return { success: false, reason: 'ChordGenerator audio node not found' };
@@ -84,11 +88,15 @@ test.describe('Chord Generator Glide & Pop-Free Transitions', () => {
 
     const evalResult = await page.evaluate(async () => {
       let chordAudioNode = null;
-      for (const [id, audioNode] of window.reteAudioNodes.entries()) {
-        if (audioNode && audioNode.constructor.name === 'ChordGenerator') {
-          chordAudioNode = audioNode;
-          break;
+      for (let i = 0; i < 40; i++) {
+        for (const [id, audioNode] of window.reteAudioNodes.entries()) {
+          if (audioNode && audioNode.constructor.name === 'ChordGenerator') {
+            chordAudioNode = audioNode;
+            break;
+          }
         }
+        if (chordAudioNode) break;
+        await new Promise(r => setTimeout(r, 50));
       }
 
       if (!chordAudioNode) return { success: false };

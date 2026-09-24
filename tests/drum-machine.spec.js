@@ -55,9 +55,12 @@ test.describe('Drum Machine Node & Drum Kits', () => {
     await expect(diceBtn).toBeVisible();
     await diceBtn.click({ force: true });
 
-    const randSeq = await seqInput.inputValue();
-    expect(randSeq).not.toBe('k s h o c t');
-    expect(randSeq.length).toBeGreaterThan(0);
+    await expect(async () => {
+      const currentInput = dmNode.locator('input[type="text"]').first();
+      const val = await currentInput.inputValue();
+      expect(val).not.toBe('k s h o c t');
+      expect(val.length).toBeGreaterThan(0);
+    }).toPass();
 
     // Verify programmatic audio node execution for all kits and drum sounds
     const soundCheck = await page.evaluate(() => {
