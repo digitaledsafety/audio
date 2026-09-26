@@ -37,9 +37,10 @@ class MiniNotationParser {
             if (euclideanMatch) {
                 const note = euclideanMatch[1];
                 const pulses = parseInt(euclideanMatch[2], 10);
-                const steps = parseInt(euclideanMatch[3], 10);
+                let steps = parseInt(euclideanMatch[3], 10);
 
                 if (steps > 0) {
+                    steps = Math.min(steps, 128);
                     const pattern = this.generateEuclidean(pulses, steps);
                     const speedModifier = `/${steps}`;
                     const generatedTokens = pattern.map(p => (p === 1 ? note : '~') + speedModifier);
