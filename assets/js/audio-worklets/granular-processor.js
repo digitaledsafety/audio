@@ -23,7 +23,9 @@ class GranularProcessor extends AudioWorkletProcessor {
   process(inputs, outputs, parameters) {
     const input = inputs[0];
     const output = outputs[0];
-    const inputChannel = input[0];
+    if (!output || output.length === 0 || !output[0]) return true;
+
+    const inputChannel = input ? input[0] : null;
 
     if (inputChannel && inputChannel.length > 0) {
       for (let i = 0; i < inputChannel.length; i++) {
@@ -32,23 +34,30 @@ class GranularProcessor extends AudioWorkletProcessor {
       }
     }
 
-    const grainSize = parameters.grainSize[0] * sampleRate;
-    const grainDensity = parameters.grainDensity[0];
-    const pitchShift = parameters.pitchShift[0];
-    const positionJitter = parameters.positionJitter[0];
+    const grainSizeVal = (parameters.grainSize && parameters.grainSize.length > 0) ? parameters.grainSize[0] : 0.1;
+    const grainDensityVal = (parameters.grainDensity && parameters.grainDensity.length > 0) ? parameters.grainDensity[0] : 20;
+    const pitchShiftVal = (parameters.pitchShift && parameters.pitchShift.length > 0) ? parameters.pitchShift[0] : 0;
+    const positionJitterVal = (parameters.positionJitter && parameters.positionJitter.length > 0) ? parameters.positionJitter[0] : 0;
+
+    const grainSize = (isNaN(grainSizeVal) ? 0.1 : grainSizeVal) * sampleRate;
+    const grainDensity = (isNaN(grainDensityVal) || grainDensityVal <= 0) ? 20 : grainDensityVal;
+    const pitchShift = isNaN(pitchShiftVal) ? 0 : pitchShiftVal;
+    const positionJitter = isNaN(positionJitterVal) ? 0 : positionJitterVal;
 
     // Simple scheduling
     this.grainScheduler.nextGrainTime -= output[0].length / sampleRate;
     if (this.grainScheduler.nextGrainTime <= 0) {
         this.grainScheduler.nextGrainTime = 1.0 / grainDensity;
 
+        let startPos = (this.writeIndex - grainSize - (Math.random() * positionJitter * this.buffer.length)) % this.buffer.length;
+        startPos = ((startPos % this.buffer.length) + this.buffer.length) % this.buffer.length;
+
         const grain = {
-            startPosition: (this.writeIndex - grainSize - (Math.random() * positionJitter * this.buffer.length)) % this.buffer.length,
+            startPosition: startPos,
             playbackPosition: 0,
             size: grainSize,
             pitch: 1.0 * Math.pow(2, pitchShift / 1200),
         };
-        if(grain.startPosition < 0) grain.startPosition += this.buffer.length;
 
         this.activeGrains.push(grain);
     }
