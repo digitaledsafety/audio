@@ -8033,14 +8033,14 @@ workspace_data: ${base64Data}
                 this.addInput('in', new Classic.Input(voltageSocket, 'CV In', true));
                 this.addOutput('out', new Classic.Output(voltageSocket, 'CV Out'));
 
-                this.data.rootNote = 'C4';
+                this.data.rootNote = this.data.rootNote !== undefined ? this.data.rootNote : 'C4';
                 this.addControl('rootNote', new SelectControl('quantRootNote', 'Root Note', Object.keys(ROOT_NOTES), this.data.rootNote, (val) => {
                     this.data.rootNote = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('rootNote', val);
                 }));
 
-                this.data.scaleType = 'Major (Ionian)';
+                this.data.scaleType = this.data.scaleType !== undefined ? this.data.scaleType : 'Major (Ionian)';
                 this.addControl('scaleType', new SelectControl('quantScaleType', 'Scale', Object.keys(SCALE_TYPES), this.data.scaleType, (val) => {
                     this.data.scaleType = val;
                     const audioNode = reteAudioNodes.get(this.id);

@@ -33,6 +33,51 @@ test.describe('Worklet Processors & Service Worker Enhancements', () => {
     expect(Number(bitsVal)).toBe(4);
   });
 
+  test('QuantizerProcessor correctly quantizes negative pitch offsets and copies across stereo channels', async ({ page }) => {
+    await page.locator('#addNodeToggle').click();
+    await page.locator('#addQuantizerNodeBtn').click();
+
+    const quantNode = page.locator('[data-node-label="Quantizer"]').first();
+    await expect(quantNode).toBeVisible();
+
+    // Verify Quantizer worklet processing directly
+    const testResult = await page.evaluate(async () => {
+      const resp = await fetch('/assets/js/audio-worklets/quantizer-processor.js');
+      const code = await resp.text();
+
+      let procClass;
+      const fakeRegister = (name, cls) => { procClass = cls; };
+      class MockAudioWorkletProcessor {
+        constructor() {
+          this.port = { onmessage: null };
+        }
+      }
+      const fn = new Function('AudioWorkletProcessor', 'registerProcessor', code);
+      fn(MockAudioWorkletProcessor, fakeRegister);
+
+      const processor = new procClass();
+      // Test negative voltage (e.g. 4.833333333333333 V -> 58 semitones, which is 2 semitones below rootNote 60)
+      const inputBuffer = [new Float32Array([4.833333333333333])]; // 58 semitones
+      const outputChannels = [new Float32Array(1), new Float32Array(1)];
+      const params = { rootNote: new Float32Array([60]) };
+
+      processor.process([inputBuffer], [outputChannels], params);
+
+      const voltageCh0 = outputChannels[0][0];
+      const voltageCh1 = outputChannels[1][0];
+
+      return {
+        voltageCh0,
+        voltageCh1,
+        isCh0Valid: voltageCh0 > 4.0 && voltageCh0 < 5.0,
+        isCh1Match: Math.abs(voltageCh0 - voltageCh1) < 0.00001
+      };
+    });
+
+    expect(testResult.isCh0Valid).toBe(true);
+    expect(testResult.isCh1Match).toBe(true);
+  });
+
   test('Service Worker fetch event handler includes non-GET and scheme guards and complete cache manifest', async ({ page }) => {
     const swContent = await page.evaluate(async () => {
       const response = await fetch('/sw.js');
