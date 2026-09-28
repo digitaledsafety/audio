@@ -13,6 +13,7 @@ test.describe('VCA Gate Input Interaction', () => {
   test('should synchronize VCA gate state when connected, toggled, and disconnected', async ({ page }) => {
     // Programmatically clear editor and create Gate and VCA nodes
     const nodeState = await page.evaluate(async () => {
+      await new Promise(r => setTimeout(r, 500));
       if (typeof window.clearEditor === 'function') {
         await window.clearEditor();
       }
@@ -50,13 +51,11 @@ test.describe('VCA Gate Input Interaction', () => {
     // Connect Manual Gate 'out' to VCA 'gate' input
     const connectedState = await page.evaluate(async ({ gateId, vcaId }) => {
       const editor = window.editor;
+      const Classic = window.Rete.ClassicPreset;
 
-      await editor.addConnection({
-        source: gateId,
-        sourceOutput: 'out',
-        target: vcaId,
-        targetInput: 'gate'
-      });
+      const sourceNode = editor.getNode(gateId);
+      const targetNode = editor.getNode(vcaId);
+      await editor.addConnection(new Classic.Connection(sourceNode, 'out', targetNode, 'gate'));
 
       const vcaAudio = window.reteAudioNodes.get(vcaId);
       return {

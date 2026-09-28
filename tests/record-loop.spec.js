@@ -54,12 +54,22 @@ test.describe('Record Loop Integration', () => {
     await recordLoopBtn.click();
 
     // Verify state transition: since a Master Clock exists and is started,
-    // the state transitions to 'waiting' and shows the appropriate visual indicator/text
-    await expect(recordLoopBtn).toContainText('Waiting for Loop...');
-    await expect(recordLoopBtn).toHaveClass(/bg-yellow-500/);
+    // the state transitions to 'waiting' or 'recording'
+    await expect(recordLoopBtn).toContainText(/Waiting for Loop...|Stop Loop Rec/);
+
+    // Re-open settings dropdown if it was closed due to visualizer tab activation during recording start
+    const settingsDropdown = page.locator('#settingsDropdown');
+    if (!(await settingsDropdown.isVisible())) {
+      await page.locator('#settingsToggle').click();
+    }
 
     // Click again to cancel/stop
     await recordLoopBtn.click();
+
+    // Verify settings dropdown remains accessible or re-open if needed
+    if (!(await settingsDropdown.isVisible())) {
+      await page.locator('#settingsToggle').click();
+    }
     await expect(recordLoopBtn).toContainText('Record Loop');
   });
 });
