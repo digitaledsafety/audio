@@ -32,7 +32,7 @@ class BitcrusherProcessor extends AudioWorkletProcessor {
         const input = inputs[0]; // Get the first input
         const output = outputs[0]; // Get the first output
 
-        if (!input || input.length === 0) return true;
+        if (!input || input.length === 0 || !output || output.length === 0) return true;
 
         // Get parameter values
         const bitsParam = parameters.bits;
