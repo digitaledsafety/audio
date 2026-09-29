@@ -23,7 +23,12 @@ class GranularProcessor extends AudioWorkletProcessor {
   process(inputs, outputs, parameters) {
     const input = inputs[0];
     const output = outputs[0];
-    const inputChannel = input[0];
+
+    if (!output || output.length === 0 || !output[0] || output[0].length === 0) {
+      return true;
+    }
+
+    const inputChannel = input ? input[0] : null;
 
     if (inputChannel && inputChannel.length > 0) {
       for (let i = 0; i < inputChannel.length; i++) {
@@ -61,12 +66,13 @@ class GranularProcessor extends AudioWorkletProcessor {
         const grain = this.activeGrains[i];
 
         for (let j = 0; j < output[0].length; j++) {
-            const bufferIndex = Math.floor(grain.startPosition + grain.playbackPosition);
+            const rawIndex = Math.floor(grain.startPosition + grain.playbackPosition);
 
             // Basic linear interpolation for pitch shifting
-            const index1 = bufferIndex % this.buffer.length;
-            const index2 = (bufferIndex + 1) % this.buffer.length;
-            const fraction = grain.startPosition + grain.playbackPosition - bufferIndex;
+            const bufLen = this.buffer.length;
+            const index1 = ((rawIndex % bufLen) + bufLen) % bufLen;
+            const index2 = (((rawIndex + 1) % bufLen) + bufLen) % bufLen;
+            const fraction = grain.startPosition + grain.playbackPosition - rawIndex;
             const sample = (this.buffer[index1] * (1 - fraction)) + (this.buffer[index2] * fraction);
 
             // Apply a simple window to avoid clicks
