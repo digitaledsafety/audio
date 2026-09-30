@@ -1011,12 +1011,13 @@ layout: none
         function editorToJSON() {
             const nodes = [];
             for (const node of editor.getNodes()) {
+                const view = area.nodeViews.get(node.id);
                 nodes.push({
                     id: node.id,
                     type: node.constructor.name,
                     label: node.label,
                     data: node.data,
-                    position: area.nodeViews.get(node.id).position
+                    position: view && view.position ? view.position : { x: 0, y: 0 }
                 });
             }
 
@@ -1024,6 +1025,11 @@ layout: none
             for (const conn of editor.getConnections()) {
                 const sourceNode = editor.getNode(conn.source);
                 const targetNode = editor.getNode(conn.target);
+
+                if (!sourceNode || !targetNode) {
+                    console.warn('Skipping serialization of connection with missing endpoint node(s):', conn);
+                    continue;
+                }
 
                 let sourceOutputKey = conn.sourceOutput;
                 if (typeof sourceOutputKey !== 'string') {
@@ -9172,10 +9178,13 @@ workspace_data: ${base64Data}
                     usersList.appendChild(userLi);
                 });
     
-                // Show disconnect button when connected to a session
+                // Synchronize multiplayer buttons based on connection state
                 if (multiplayer.isConnected()) {
                     document.getElementById('createSessionBtn').classList.add('hidden');
                     document.getElementById('disconnectBtn').classList.remove('hidden');
+                } else {
+                    document.getElementById('createSessionBtn').classList.remove('hidden');
+                    document.getElementById('disconnectBtn').classList.add('hidden');
                 }
             });               
 
@@ -9285,7 +9294,7 @@ workspace_data: ${base64Data}
                         }
                     }
 
-                    const nodeView = area.nodeViews.get(node.id);
+                    const nodeView = node ? area.nodeViews.get(node.id) : null;
                     if (nodeView) {
                         const rect = nodeView.element.getBoundingClientRect();
                         const nodeX = rect.left + rect.width / 2;
