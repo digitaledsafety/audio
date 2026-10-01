@@ -33,6 +33,30 @@ test.describe('Worklet Processors & Service Worker Enhancements', () => {
     expect(Number(bitsVal)).toBe(4);
   });
 
+  test('should add and configure Granular Synthesizer node with position jitter without audio buffer NaN overflow', async ({ page }) => {
+    await page.locator('#addNodeToggle').click();
+    await page.locator('#addGranularSynthesizerNodeBtn').click();
+
+    const granularNode = page.locator('[data-node-label="Granular Synthesizer"]').first();
+    await expect(granularNode).toBeVisible();
+
+    // Set position jitter to max (1.0) and verify parameter update
+    const sliders = granularNode.locator('input[type="range"]');
+    const jitterSlider = sliders.last(); // Position Jitter slider
+    await jitterSlider.fill('1');
+    await jitterSlider.dispatchEvent('input');
+    await jitterSlider.dispatchEvent('change');
+
+    const jitterVal = await page.evaluate(() => {
+      const editor = window.editor;
+      const nodes = editor.getNodes();
+      const node = nodes.find(n => n.label === 'Granular Synthesizer');
+      return node ? node.data.positionJitter : null;
+    });
+
+    expect(Number(jitterVal)).toBe(1);
+  });
+
   test('Service Worker fetch event handler includes non-GET and scheme guards and complete cache manifest', async ({ page }) => {
     const swContent = await page.evaluate(async () => {
       const response = await fetch('/sw.js');
