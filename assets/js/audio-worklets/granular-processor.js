@@ -42,13 +42,14 @@ class GranularProcessor extends AudioWorkletProcessor {
     if (this.grainScheduler.nextGrainTime <= 0) {
         this.grainScheduler.nextGrainTime = 1.0 / grainDensity;
 
+        const bufLen = this.buffer.length;
+        const rawStart = this.writeIndex - grainSize - (Math.random() * positionJitter * bufLen);
         const grain = {
-            startPosition: (this.writeIndex - grainSize - (Math.random() * positionJitter * this.buffer.length)) % this.buffer.length,
+            startPosition: ((rawStart % bufLen) + bufLen) % bufLen,
             playbackPosition: 0,
             size: grainSize,
             pitch: 1.0 * Math.pow(2, pitchShift / 1200),
         };
-        if(grain.startPosition < 0) grain.startPosition += this.buffer.length;
 
         this.activeGrains.push(grain);
     }
@@ -57,17 +58,22 @@ class GranularProcessor extends AudioWorkletProcessor {
       channel.fill(0);
     }
 
+    const bufLen = this.buffer.length;
+
     for (let i = this.activeGrains.length - 1; i >= 0; i--) {
         const grain = this.activeGrains[i];
 
         for (let j = 0; j < output[0].length; j++) {
-            const bufferIndex = Math.floor(grain.startPosition + grain.playbackPosition);
+            const currentPos = grain.startPosition + grain.playbackPosition;
+            const bufferIndex = Math.floor(currentPos);
 
-            // Basic linear interpolation for pitch shifting
-            const index1 = bufferIndex % this.buffer.length;
-            const index2 = (bufferIndex + 1) % this.buffer.length;
-            const fraction = grain.startPosition + grain.playbackPosition - bufferIndex;
-            const sample = (this.buffer[index1] * (1 - fraction)) + (this.buffer[index2] * fraction);
+            // Basic linear interpolation for pitch shifting using Euclidean modulo wrapping
+            const index1 = ((bufferIndex % bufLen) + bufLen) % bufLen;
+            const index2 = (((bufferIndex + 1) % bufLen) + bufLen) % bufLen;
+            const fraction = currentPos - bufferIndex;
+            const s1 = this.buffer[index1] || 0;
+            const s2 = this.buffer[index2] || 0;
+            const sample = (s1 * (1 - fraction)) + (s2 * fraction);
 
             // Apply a simple window to avoid clicks
             const window = Math.sin(Math.PI * (grain.playbackPosition / grain.size));
