@@ -104,7 +104,7 @@ class VocoderProcessor extends AudioWorkletProcessor {
             const freq = minFreq * Math.pow(maxFreq / minFreq, ratio);
             this.baseFrequencies.push(freq);
 
-            const shiftedFreq = freq * formantRatio;
+            const shiftedFreq = Math.min(freq * formantRatio, this.sampleRate * 0.48);
 
             const modFilter = new BiquadFilter();
             modFilter.setBandpass(shiftedFreq, 20, this.sampleRate); // Increased Q
