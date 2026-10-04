@@ -2217,9 +2217,16 @@ workspace_data: ${base64Data}
                     const tickHandler = targetAudioNode[tickHandlerName] || targetAudioNode.onTick;
 
                     if (typeof tickHandler === 'function' && typeof sourceAudioNode.addTickListener === 'function') {
-                        const listener = tickHandler.bind(targetAudioNode);
-                        if (!targetAudioNode._tickListeners) targetAudioNode._tickListeners = new Map();
                         const listenerKey = `${sourceReteNode.id}-${sourceOutputKey}-${targetInputKey}`;
+                        if (targetAudioNode._tickListeners && targetAudioNode._tickListeners.has(listenerKey)) {
+                            const oldListener = targetAudioNode._tickListeners.get(listenerKey);
+                            if (typeof sourceAudioNode.removeTickListener === 'function') {
+                                sourceAudioNode.removeTickListener(oldListener, sourceOutputKey);
+                            }
+                        } else if (!targetAudioNode._tickListeners) {
+                            targetAudioNode._tickListeners = new Map();
+                        }
+                        const listener = tickHandler.bind(targetAudioNode);
                         targetAudioNode._tickListeners.set(listenerKey, listener);
                         sourceAudioNode.addTickListener(listener, sourceOutputKey);
                         connected = true;
@@ -2230,9 +2237,16 @@ workspace_data: ${base64Data}
                     const gateHandler = targetAudioNode[gateHandlerName] || targetAudioNode.handleGate;
 
                     if (typeof gateHandler === 'function' && typeof sourceAudioNode.addGateListener === 'function') {
-                        const listener = gateHandler.bind(targetAudioNode);
-                        if (!targetAudioNode._gateListeners) targetAudioNode._gateListeners = new Map();
                         const listenerKey = `${sourceReteNode.id}-${sourceOutputKey}-${targetInputKey}`;
+                        if (targetAudioNode._gateListeners && targetAudioNode._gateListeners.has(listenerKey)) {
+                            const oldListener = targetAudioNode._gateListeners.get(listenerKey);
+                            if (typeof sourceAudioNode.removeGateListener === 'function') {
+                                sourceAudioNode.removeGateListener(oldListener, sourceOutputKey);
+                            }
+                        } else if (!targetAudioNode._gateListeners) {
+                            targetAudioNode._gateListeners = new Map();
+                        }
+                        const listener = gateHandler.bind(targetAudioNode);
                         targetAudioNode._gateListeners.set(listenerKey, listener);
                         sourceAudioNode.addGateListener(listener, sourceOutputKey);
                         connected = true;
@@ -9395,7 +9409,7 @@ workspace_data: ${base64Data}
                     multiplayer.broadcast({ type: 'workspace', data: editorToJSON() });
                     autoSave();
                 }
-                if ((context.type === 'nodecreated' || context.type === 'nodecreate') && context.data instanceof WebAudioNode) {
+                if (context.type === 'nodecreated' && context.data instanceof WebAudioNode) {
                     if(!audioContext) {
                         console.warn('AudioContext not active, Nodes will be created when "Start Audio" is clicked.');
                         showMessage(`AudioContext not active, Nodes will be created when "Start Audio" is clicked.`, 'error');
@@ -9420,7 +9434,7 @@ workspace_data: ${base64Data}
                     } else {
                         showMessage(`${reteNode.label} node added to editor. Audio node will be active on "Start Audio".`, 'info');
                     }
-                } else if (context.type === 'noderemove') {
+                } else if (context.type === 'noderemoved') {
                     const node = context.data;
                     if (node && node.drawTimeout) {
                         clearTimeout(node.drawTimeout);
@@ -9461,7 +9475,7 @@ workspace_data: ${base64Data}
                             updateAudioGraphConnections();
                         }
                     }
-                } else if (context.type === 'connectioncreated' || context.type === 'connectioncreate') {
+                } else if (context.type === 'connectioncreated') {
                     const connection = context.data;
                     const targetReteNode = editor.getNode(connection.target);
                     if (connection.targetInput === 'clock' && targetReteNode.label === 'LFO') {
@@ -9484,7 +9498,7 @@ workspace_data: ${base64Data}
                         }
                     }
                     showMessage('Connection created.', 'info');
-                } else if (context.type === 'connectionremoved' || context.type === 'connectionremove') {
+                } else if (context.type === 'connectionremoved') {
                     const connection = context.data;
                     const sourceReteNode = editor.getNode(connection.source);
                     const targetReteNode = editor.getNode(connection.target);
