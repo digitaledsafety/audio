@@ -3051,7 +3051,7 @@ workspace_data: ${base64Data}
                     }
                 }));
 
-                this.data.waveform = 'sine';
+                this.data.waveform = this.data.waveform !== undefined ? this.data.waveform : 'sine';
                 this.addControl('waveform', new SelectControl('waveformSelect', 'Waveform', ['sine', 'square', 'sawtooth', 'triangle'], this.data.waveform, (val) => {
                     this.data.waveform = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -3179,7 +3179,7 @@ workspace_data: ${base64Data}
                 super('Noise Source');
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio'));
 
-                this.data.gainValue = 1;
+                this.data.gainValue = this.data.gainValue !== undefined ? this.data.gainValue : 1;
                 this.addControl('gain', new SliderControl('gainSlider', 'Gain', 0, 5, 0.01, this.data.gainValue, (val) => {
                     this.data.gainValue = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -3471,28 +3471,28 @@ workspace_data: ${base64Data}
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
                 this.addOutput('lfe', new Classic.Output(voltageSocket, 'LFE Out'));
 
-                this.data.punch = 0;
+                this.data.punch = this.data.punch !== undefined ? this.data.punch : 0;
                 this.addControl('punch', new SliderControl('punch', 'Punch (dB)', -20, 20, 0.1, this.data.punch, (val) => {
                     this.data.punch = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('punch', val);
                 }));
 
-                this.data.clarity = 0;
+                this.data.clarity = this.data.clarity !== undefined ? this.data.clarity : 0;
                 this.addControl('clarity', new SliderControl('clarity', 'Clarity (dB)', -20, 20, 0.1, this.data.clarity, (val) => {
                     this.data.clarity = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('clarity', val);
                 }));
 
-                this.data.lfeFrequency = 80;
+                this.data.lfeFrequency = this.data.lfeFrequency !== undefined ? this.data.lfeFrequency : 80;
                 this.addControl('lfeFrequency', new SliderControl('lfeFreq', 'LFE Cutoff (Hz)', 20, 500, 1, this.data.lfeFrequency, (val) => {
                     this.data.lfeFrequency = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('lfeFrequency', val);
                 }));
 
-                this.data.lfeGain = 1.0;
+                this.data.lfeGain = this.data.lfeGain !== undefined ? this.data.lfeGain : 1.0;
                 this.addControl('lfeGain', new SliderControl('lfeGain', 'LFE Gain', 0, 2, 0.01, this.data.lfeGain, (val) => {
                     this.data.lfeGain = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -3545,14 +3545,14 @@ workspace_data: ${base64Data}
                 this.addInput('y_cv', new Classic.Input(voltageSocket, 'Y CV', true));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
-                this.data.x = 0;
+                this.data.x = this.data.x !== undefined ? this.data.x : 0;
                 this.addControl('x', new SliderControl('vectorX', 'X (Left/Right)', -5, 5, 0.1, this.data.x, (val) => {
                     this.data.x = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('x', val);
                 }));
 
-                this.data.y = 0;
+                this.data.y = this.data.y !== undefined ? this.data.y : 0;
                 this.addControl('y', new SliderControl('vectorY', 'Y (Front/Back)', -5, 5, 0.1, this.data.y, (val) => {
                     this.data.y = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -3660,14 +3660,14 @@ workspace_data: ${base64Data}
                 this.addInput('width_cv', new Classic.Input(voltageSocket, 'Width CV', true));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
-                this.data.width = 1.0;
+                this.data.width = this.data.width !== undefined ? this.data.width : 1.0;
                 this.addControl('width', new SliderControl('widthSlider', 'Width', 0, 4, 0.01, this.data.width, (val) => {
                     this.data.width = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('width', val);
                 }));
 
-                this.data.mix = 1.0;
+                this.data.mix = this.data.mix !== undefined ? this.data.mix : 1.0;
                 this.addControl('mix', new SliderControl('mixSlider', 'Mix', 0, 1, 0.01, this.data.mix, (val) => {
                     this.data.mix = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -3689,10 +3689,10 @@ workspace_data: ${base64Data}
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio'));
 
                 // Initialize default data values for the new controls
-                this.data.chordType = 'Major Triad';
-                this.data.rootNote = 'C4';
-                this.data.octaveRange = 0;
-                this.data.waveform = 'sine';
+                this.data.chordType = this.data.chordType !== undefined ? this.data.chordType : 'Major Triad';
+                this.data.rootNote = this.data.rootNote !== undefined ? this.data.rootNote : 'C4';
+                this.data.octaveRange = this.data.octaveRange !== undefined ? this.data.octaveRange : 0;
+                this.data.waveform = this.data.waveform !== undefined ? this.data.waveform : 'sine';
 
                 this.addControl('chordType', new SelectControl('chordTypeSelect', 'Chord Type', Object.keys(CHORD_TYPES), this.data.chordType, (val) => {
                     this.data.chordType = val;
@@ -3735,7 +3735,7 @@ workspace_data: ${base64Data}
                     }
                 }));
 
-                this.data.glide = 0.01;
+                this.data.glide = this.data.glide !== undefined ? this.data.glide : 0.01;
                 this.addControl('glide', new SliderControl('chordGlide', 'Glide (s)', 0, 1, 0.001, this.data.glide, (val) => {
                     this.data.glide = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -3744,7 +3744,7 @@ workspace_data: ${base64Data}
                     }
                 }));
 
-                this.data.gain = 0.5;
+                this.data.gain = this.data.gain !== undefined ? this.data.gain : 0.5;
                 this.addControl('gain', new SliderControl('chordGain', 'Gain', 0, 1, 0.01, this.data.gain, (val) => {
                     this.data.gain = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -4188,7 +4188,7 @@ workspace_data: ${base64Data}
                 this.addOutput('outA', new Classic.Output(voltageSocket, 'Out A'));
                 this.addOutput('outB', new Classic.Output(voltageSocket, 'Out B'));
 
-                this.data.probability = 0.5;
+                this.data.probability = this.data.probability !== undefined ? this.data.probability : 0.5;
                 this.addControl('probability', new SliderControl('probSlider', 'Probability (B)', 0, 1, 0.01, this.data.probability, (val) => {
                     this.data.probability = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -4304,7 +4304,7 @@ workspace_data: ${base64Data}
                 this.addInput('prob', new Classic.Input(voltageSocket, 'Prob CV'));
                 this.addOutput('out', new Classic.Output(voltageSocket, 'Out'));
 
-                this.data.probability = 0.5;
+                this.data.probability = this.data.probability !== undefined ? this.data.probability : 0.5;
                 this.addControl('probability', new SliderControl('probSlider', 'Probability', 0, 1, 0.01, this.data.probability, (val) => {
                     this.data.probability = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -4385,7 +4385,7 @@ workspace_data: ${base64Data}
                 this.addInput('gateB', new Classic.Input(voltageSocket, 'Gate B'));
                 this.addOutput('out', new Classic.Output(voltageSocket, 'Out'));
 
-                this.data.logic = 'AND';
+                this.data.logic = this.data.logic !== undefined ? this.data.logic : 'AND';
                 this.addControl('logic', new SelectControl('logicSelect', 'Logic', ['AND', 'OR', 'XOR', 'NAND', 'NOR', 'XNOR', 'NOT (A)'], this.data.logic, (val) => {
                     this.data.logic = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -4597,14 +4597,14 @@ workspace_data: ${base64Data}
                 this.addOutput('cv', new Classic.Output(voltageSocket, 'CV Out'));
                 this.addOutput('trigger', new Classic.Output(voltageSocket, 'Trigger Out'));
 
-                this.data.probability = 0.0;
+                this.data.probability = this.data.probability !== undefined ? this.data.probability : 0.0;
                 this.addControl('probability', new SliderControl('probSlider', 'Evolution Prob', 0, 1, 0.01, this.data.probability, (val) => {
                     this.data.probability = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('probability', val);
                 }));
 
-                this.data.steps = 16;
+                this.data.steps = this.data.steps !== undefined ? this.data.steps : 16;
                 this.addControl('steps', new SliderControl('stepsSlider', 'Steps', 2, 16, 1, this.data.steps, (val) => {
                     this.data.steps = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -4689,7 +4689,7 @@ workspace_data: ${base64Data}
                 this.addInput('clock', new Classic.Input(voltageSocket, 'Clock'));
                 this.addOutput('out', new Classic.Output(voltageSocket, 'CV Out'));
 
-                this.data.smoothness = 0.0;
+                this.data.smoothness = this.data.smoothness !== undefined ? this.data.smoothness : 0.0;
                 this.addControl('smoothness', new SliderControl('smoothSlider', 'Smoothness', 0, 1, 0.01, this.data.smoothness, (val) => {
                     this.data.smoothness = val;
                 }));
@@ -4750,7 +4750,7 @@ workspace_data: ${base64Data}
                 this.addInput('audio', new Classic.Input(voltageSocket, 'Audio In', true));
                 this.addInput('gain_cv', new Classic.Input(voltageSocket, 'Gain CV', true));
 
-                this.data.gain = 0.5;
+                this.data.gain = this.data.gain !== undefined ? this.data.gain : 0.5;
                 this.addControl('gain', new SliderControl('gainSlider', 'Gain', 0, 1, 0.01, this.data.gain, (val) => {
                     this.data.gain = val;
                     if (masterGain && !this.data.mute) {
@@ -4785,7 +4785,7 @@ workspace_data: ${base64Data}
                 this.addInput('q_cv', new Classic.Input(voltageSocket, 'Q CV', true));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
-                this.data.frequency = 5000;
+                this.data.frequency = this.data.frequency !== undefined ? this.data.frequency : 5000;
                 this.addControl('frequency', new SliderControl('filterFreqSlider', 'Frequency (Hz)', 20, 20000, 1, this.data.frequency, (val) => {
                     this.data.frequency = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -4794,7 +4794,7 @@ workspace_data: ${base64Data}
                     }
                 }, true));
 
-                this.data.q = 1;
+                this.data.q = this.data.q !== undefined ? this.data.q : 1;
                 this.addControl('q', new SliderControl('qSlider', 'Q', 0.1, 20, 0.1, this.data.q, (val) => {
                     this.data.q = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -4803,7 +4803,7 @@ workspace_data: ${base64Data}
                     }
                 }));
 
-                this.data.filterType = 'lowpass';
+                this.data.filterType = this.data.filterType !== undefined ? this.data.filterType : 'lowpass';
                 this.addControl('filterType', new SelectControl('filterTypeSelect', 'Type', ['lowpass', 'highpass', 'bandpass', 'notch'], this.data.filterType, (val) => {
                     this.data.filterType = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -4991,21 +4991,21 @@ workspace_data: ${base64Data}
                 this.addInput('audio', new Classic.Input(voltageSocket, 'Audio In', true));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
-                this.data.delayTime = 0.5;
+                this.data.delayTime = this.data.delayTime !== undefined ? this.data.delayTime : 0.5;
                 this.addControl('delayTime', new SliderControl('ppDelayTime', 'Delay Time (s)', 0, 5, 0.001, this.data.delayTime, (val) => {
                     this.data.delayTime = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('delayTime', val);
                 }));
 
-                this.data.feedback = 0.4;
+                this.data.feedback = this.data.feedback !== undefined ? this.data.feedback : 0.4;
                 this.addControl('feedback', new SliderControl('ppFeedback', 'Feedback', 0, 0.95, 0.01, this.data.feedback, (val) => {
                     this.data.feedback = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('feedback', val);
                 }));
 
-                this.data.mix = 0.5;
+                this.data.mix = this.data.mix !== undefined ? this.data.mix : 0.5;
                 this.addControl('mix', new SliderControl('ppMix', 'Mix', 0, 1, 0.01, this.data.mix, (val) => {
                     this.data.mix = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -5085,28 +5085,28 @@ workspace_data: ${base64Data}
                 this.addInput('rate_cv', new Classic.Input(voltageSocket, 'Rate CV', true));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
-                this.data.rate = 1.5;
+                this.data.rate = this.data.rate !== undefined ? this.data.rate : 1.5;
                 this.addControl('rate', new SliderControl('chorusRate', 'Rate (Hz)', 0.1, 10, 0.01, this.data.rate, (val) => {
                     this.data.rate = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('rate', val);
                 }));
 
-                this.data.depth = 0.002;
+                this.data.depth = this.data.depth !== undefined ? this.data.depth : 0.002;
                 this.addControl('depth', new SliderControl('chorusDepth', 'Depth (s)', 0, 0.01, 0.0001, this.data.depth, (val) => {
                     this.data.depth = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('depth', val);
                 }));
 
-                this.data.delay = 0.030;
+                this.data.delay = this.data.delay !== undefined ? this.data.delay : 0.030;
                 this.addControl('delay', new SliderControl('chorusDelay', 'Delay (s)', 0.01, 0.1, 0.001, this.data.delay, (val) => {
                     this.data.delay = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('delay', val);
                 }));
 
-                this.data.mix = 0.5;
+                this.data.mix = this.data.mix !== undefined ? this.data.mix : 0.5;
                 this.addControl('mix', new SliderControl('chorusMix', 'Mix', 0, 1, 0.01, this.data.mix, (val) => {
                     this.data.mix = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -5202,21 +5202,21 @@ workspace_data: ${base64Data}
                 this.addInput('rate_cv', new Classic.Input(voltageSocket, 'Rate CV', true));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
-                this.data.rate = 0.5;
+                this.data.rate = this.data.rate !== undefined ? this.data.rate : 0.5;
                 this.addControl('rate', new SliderControl('phaserRate', 'Rate (Hz)', 0.01, 10, 0.01, this.data.rate, (val) => {
                     this.data.rate = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('rate', val);
                 }));
 
-                this.data.depth = 1000;
+                this.data.depth = this.data.depth !== undefined ? this.data.depth : 1000;
                 this.addControl('depth', new SliderControl('phaserDepth', 'Depth', 0, 2000, 1, this.data.depth, (val) => {
                     this.data.depth = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('depth', val);
                 }));
 
-                this.data.baseFreq = 700;
+                this.data.baseFreq = this.data.baseFreq !== undefined ? this.data.baseFreq : 700;
                 this.addControl('baseFreq', new SliderControl('phaserBaseFreq', 'Base Freq (Hz)', 20, 2000, 1, this.data.baseFreq, (val) => {
                     this.data.baseFreq = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -5230,7 +5230,7 @@ workspace_data: ${base64Data}
                     if (audioNode) audioNode.updateParameter('feedback', val);
                 }));
 
-                this.data.mix = 0.5;
+                this.data.mix = this.data.mix !== undefined ? this.data.mix : 0.5;
                 this.addControl('mix', new SliderControl('phaserMix', 'Mix', 0, 1, 0.01, this.data.mix, (val) => {
                     this.data.mix = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -5317,21 +5317,21 @@ workspace_data: ${base64Data}
                 this.addInput('rate_cv', new Classic.Input(voltageSocket, 'Rate CV', true));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
-                this.data.rate = 0.2;
+                this.data.rate = this.data.rate !== undefined ? this.data.rate : 0.2;
                 this.addControl('rate', new SliderControl('flangerRate', 'Rate (Hz)', 0.01, 10, 0.01, this.data.rate, (val) => {
                     this.data.rate = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('rate', val);
                 }));
 
-                this.data.depth = 0.002;
+                this.data.depth = this.data.depth !== undefined ? this.data.depth : 0.002;
                 this.addControl('depth', new SliderControl('flangerDepth', 'Depth (s)', 0, 0.01, 0.0001, this.data.depth, (val) => {
                     this.data.depth = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('depth', val);
                 }));
 
-                this.data.delay = 0.005;
+                this.data.delay = this.data.delay !== undefined ? this.data.delay : 0.005;
                 this.addControl('delay', new SliderControl('flangerDelay', 'Delay (s)', 0.001, 0.02, 0.001, this.data.delay, (val) => {
                     this.data.delay = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -5345,7 +5345,7 @@ workspace_data: ${base64Data}
                     if (audioNode) audioNode.updateParameter('feedback', val);
                 }));
 
-                this.data.mix = 0.5;
+                this.data.mix = this.data.mix !== undefined ? this.data.mix : 0.5;
                 this.addControl('mix', new SliderControl('flangerMix', 'Mix', 0, 1, 0.01, this.data.mix, (val) => {
                     this.data.mix = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -5701,28 +5701,28 @@ workspace_data: ${base64Data}
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio'));
                 this.addOutput('midi', new Classic.Output(midiSocket, 'MIDI Out'));
 
-                this.data.bpm = 120;
+                this.data.bpm = this.data.bpm !== undefined ? this.data.bpm : 120;
                 this.addControl('bpm', new SliderControl('arpBpm', 'BPM', 60, 240, 1, this.data.bpm, (val) => {
                     this.data.bpm = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode && audioNode.updateParameter) audioNode.updateParameter('bpm', val);
                 }));
 
-                this.data.noteDuration = '1/16';
+                this.data.noteDuration = this.data.noteDuration !== undefined ? this.data.noteDuration : '1/16';
                 this.addControl('noteDuration', new SelectControl('arpNoteDuration', 'Note Duration', ['1', '1/2', '1/4', '1/8', '1/16', '1/32', '1/64', '1/128'], this.data.noteDuration, (val) => {
                     this.data.noteDuration = val;
                     const audioNode = reteAudioNodes.get(this.id); 
                     if (audioNode && audioNode.updateParameter) audioNode.updateParameter('noteDuration', val);
                 }));
 
-                this.data.chordType = 'Major Triad';
+                this.data.chordType = this.data.chordType !== undefined ? this.data.chordType : 'Major Triad';
                 this.addControl('chordType', new SelectControl('arpChordType', 'Chord Type', Object.keys(CHORD_TYPES), this.data.chordType, (val) => {
                     this.data.chordType = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode && audioNode.updateParameter) audioNode.updateParameter('chordType', val);
                 }));
 
-                this.data.rootNote = 'C4'; // MIDI note C4
+                this.data.rootNote = this.data.rootNote !== undefined ? this.data.rootNote : 'C4'; // MIDI note C4
                 // Generate root note options dynamically for select control
                 const rootNoteOptions = Object.keys(ROOT_NOTES);
                 this.addControl('rootNote', new SelectControl('arpRootNote', 'Root Note', rootNoteOptions, this.data.rootNote, (val) => {
@@ -5731,7 +5731,7 @@ workspace_data: ${base64Data}
                     if (audioNode && audioNode.updateParameter) audioNode.updateParameter('rootNote', val);
                 }));
 
-                this.data.arpeggioPattern = 'Up';
+                this.data.arpeggioPattern = this.data.arpeggioPattern !== undefined ? this.data.arpeggioPattern : 'Up';
                 this.addControl('arpeggioPattern', new SelectControl('arpPattern', 'Pattern', ['Up', 'Down', 'Up-Down', 'Down-Up', 'Converge', 'Diverge', 'Alberti Bass', 'Chord', 'Melodic', 'Custom'], this.data.arpeggioPattern, (val) => {
                     this.data.arpeggioPattern = val;
                     this.controls.pattern.hidden = (val !== 'Custom');
@@ -5740,7 +5740,7 @@ workspace_data: ${base64Data}
                     if (audioNode && audioNode.updateParameter) audioNode.updateParameter('arpeggioPattern', val);
                 }));
 
-                this.data.pattern = '0 1 2 3';
+                this.data.pattern = this.data.pattern !== undefined ? this.data.pattern : '0 1 2 3';
                 this.addControl('pattern', new TextControl('arpPatternText', 'Pattern Indices', this.data.pattern, (val) => {
                     this.data.pattern = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -5752,14 +5752,14 @@ workspace_data: ${base64Data}
                     this.randomize();
                 }));
 
-                this.data.octaveRange = 1;
+                this.data.octaveRange = this.data.octaveRange !== undefined ? this.data.octaveRange : 1;
                 this.addControl('octaveRange', new SliderControl('arpOctaveRange', 'Octaves', 1, 5, 1, this.data.octaveRange, (val) => {
                     this.data.octaveRange = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode && audioNode.updateParameter) audioNode.updateParameter('octaveRange', val);
                 }));
 
-                this.data.waveform = 'sine';
+                this.data.waveform = this.data.waveform !== undefined ? this.data.waveform : 'sine';
                 this.addControl('waveform', new SelectControl('waveformSelect', 'Waveform', ['sine', 'square', 'sawtooth', 'triangle'], this.data.waveform, (val) => {
                     this.data.waveform = val;
                     // Arpeggiator's internal oscillators will pick this up
@@ -5768,11 +5768,11 @@ workspace_data: ${base64Data}
                 }));
 
                 // ADSR Controls
-                this.data.showEnvelope = false;
-                this.data.attack = 0.01;
-                this.data.decay = 0.1;
-                this.data.sustain = 0.5;
-                this.data.release = 0.1;
+                this.data.showEnvelope = this.data.showEnvelope !== undefined ? this.data.showEnvelope : false;
+                this.data.attack = this.data.attack !== undefined ? this.data.attack : 0.01;
+                this.data.decay = this.data.decay !== undefined ? this.data.decay : 0.1;
+                this.data.sustain = this.data.sustain !== undefined ? this.data.sustain : 0.5;
+                this.data.release = this.data.release !== undefined ? this.data.release : 0.1;
 
                 this.addControl('envelopeToggle', new ButtonControl('envelopeToggle', 'Envelope', () => {
                     this.data.showEnvelope = !this.data.showEnvelope;
@@ -6766,21 +6766,21 @@ workspace_data: ${base64Data}
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio'));
                 this.addOutput('midi', new Classic.Output(midiSocket, 'MIDI Out'));
 
-                this.data.bpm = 120;
+                this.data.bpm = this.data.bpm !== undefined ? this.data.bpm : 120;
                 this.addControl('bpm', new SliderControl('seqBpm', 'BPM', 60, 240, 1, this.data.bpm, (val) => {
                     this.data.bpm = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode && audioNode.updateParameter) audioNode.updateParameter('bpm', val);
                 }));
 
-                this.data.noteDuration = '1/16';
+                this.data.noteDuration = this.data.noteDuration !== undefined ? this.data.noteDuration : '1/16';
                 this.addControl('noteDuration', new SelectControl('seqNoteDuration', 'Note Duration', ['1', '1/2', '1/4', '1/8', '1/16', '1/32', '1/64', '1/128'], this.data.noteDuration, (val) => {
                     this.data.noteDuration = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode && audioNode.updateParameter) audioNode.updateParameter('noteDuration', val);
                 }));
 
-                this.data.sequence = 'C4 E4 G4 B4';
+                this.data.sequence = this.data.sequence !== undefined ? this.data.sequence : 'C4 E4 G4 B4';
                 this.addControl('sequence', new TextControl('seqSequence', 'Sequence', this.data.sequence, (val) => {
                     this.data.sequence = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -6788,7 +6788,7 @@ workspace_data: ${base64Data}
                 }));
 
                 // Randomization settings
-                this.data.showRandomSettings = false;
+                this.data.showRandomSettings = this.data.showRandomSettings !== undefined ? this.data.showRandomSettings : false;
                 this.addControl('randomSettingsToggle', new ButtonControl('randSettingsBtn', 'Randomize Settings', () => {
                     this.data.showRandomSettings = !this.data.showRandomSettings;
                     const show = this.data.showRandomSettings;
@@ -6860,7 +6860,7 @@ workspace_data: ${base64Data}
                 }));
                 this.controls.randomize.hidden = true;
 
-                this.data.waveform = 'sine';
+                this.data.waveform = this.data.waveform !== undefined ? this.data.waveform : 'sine';
                 this.addControl('waveform', new SelectControl('waveformSelect', 'Waveform', ['sine', 'square', 'sawtooth', 'triangle'], this.data.waveform, (val) => {
                     this.data.waveform = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -6868,11 +6868,11 @@ workspace_data: ${base64Data}
                 }));
 
                 // ADSR Controls
-                this.data.showEnvelope = false;
-                this.data.attack = 0.01;
-                this.data.decay = 0.1;
-                this.data.sustain = 0.5;
-                this.data.release = 0.1;
+                this.data.showEnvelope = this.data.showEnvelope !== undefined ? this.data.showEnvelope : false;
+                this.data.attack = this.data.attack !== undefined ? this.data.attack : 0.01;
+                this.data.decay = this.data.decay !== undefined ? this.data.decay : 0.1;
+                this.data.sustain = this.data.sustain !== undefined ? this.data.sustain : 0.5;
+                this.data.release = this.data.release !== undefined ? this.data.release : 0.1;
 
                 this.addControl('envelopeToggle', new ButtonControl('envelopeToggle', 'Envelope', () => {
                     this.data.showEnvelope = !this.data.showEnvelope;
@@ -6945,21 +6945,21 @@ workspace_data: ${base64Data}
                     if (audioNode && audioNode.updateParameter) audioNode.updateParameter('kit', val);
                 }));
 
-                this.data.bpm = 120;
+                this.data.bpm = this.data.bpm !== undefined ? this.data.bpm : 120;
                 this.addControl('bpm', new SliderControl('dmBpm', 'BPM', 60, 240, 1, this.data.bpm, (val) => {
                     this.data.bpm = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode && audioNode.updateParameter) audioNode.updateParameter('bpm', val);
                 }));
 
-                this.data.noteDuration = '1/16';
+                this.data.noteDuration = this.data.noteDuration !== undefined ? this.data.noteDuration : '1/16';
                 this.addControl('noteDuration', new SelectControl('dmNoteDuration', 'Note Duration', ['1', '1/2', '1/4', '1/8', '1/16', '1/32', '1/64', '1/128'], this.data.noteDuration, (val) => {
                     this.data.noteDuration = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode && audioNode.updateParameter) audioNode.updateParameter('noteDuration', val);
                 }));
 
-                this.data.sequence = 'k s h s';
+                this.data.sequence = this.data.sequence !== undefined ? this.data.sequence : 'k s h s';
                 this.addControl('sequence', new TextControl('dmSequence', 'Sequence', this.data.sequence, (val) => {
                     this.data.sequence = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -7093,7 +7093,7 @@ workspace_data: ${base64Data}
 
                 this.addControl('indicator', new IndicatorControl('indicator', 'Clock Pulse'));
 
-                this.data.bpm = 120;
+                this.data.bpm = this.data.bpm !== undefined ? this.data.bpm : 120;
                 this.addControl('bpm', new SliderControl('mcBpm', 'BPM', 30, 240, 1, this.data.bpm, (val) => {
                     this.data.bpm = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -7103,7 +7103,7 @@ workspace_data: ${base64Data}
                     }
                 }));
 
-                this.data.running = false;
+                this.data.running = this.data.running !== undefined ? this.data.running : false;
                 this.addControl('running', new ButtonControl('runningBtn', 'Start', async () => {
                     if (!audioContext || audioContext.state !== 'running') {
                         await startAudio();
@@ -7158,7 +7158,7 @@ workspace_data: ${base64Data}
             }
 
             stop() {
-                this.data.running = false;
+                this.data.running = this.data.running !== undefined ? this.data.running : false;
                 this.controls.running.label = 'Start';
                 area.update('node', this.id);
 
@@ -7180,7 +7180,7 @@ workspace_data: ${base64Data}
                 this.addInput('pan_cv', new Classic.Input(voltageSocket, 'Pan CV', true));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
-                this.data.pan = 0;
+                this.data.pan = this.data.pan !== undefined ? this.data.pan : 0;
                 this.addControl('pan', new SliderControl('panSlider', 'Pan', -1, 1, 0.01, this.data.pan, (val) => {
                     this.data.pan = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -7203,7 +7203,7 @@ workspace_data: ${base64Data}
                 this.addInput('audio', new Classic.Input(voltageSocket, 'Audio In', true));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
-                this.data.drive = 50; // Initial drive value
+                this.data.drive = this.data.drive !== undefined ? this.data.drive : 50; // Initial drive value
                 this.addControl('drive', new SliderControl('distortionDrive', 'Drive', 0, 100, 1, this.data.drive, (val) => {
                     this.data.drive = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -7212,7 +7212,7 @@ workspace_data: ${base64Data}
                     }
                 }));
 
-                this.data.tone = 5000; // Initial tone value in Hz
+                this.data.tone = this.data.tone !== undefined ? this.data.tone : 5000; // Initial tone value in Hz
                 this.addControl('tone', new SliderControl('distortionTone', 'Tone', 200, 10000, 1, this.data.tone, (val) => {
                     this.data.tone = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -7221,7 +7221,7 @@ workspace_data: ${base64Data}
                     }
                 }));
 
-                this.data.amount = 0; // 0-100%
+                this.data.amount = this.data.amount !== undefined ? this.data.amount : 0; // 0-100%
                 this.addControl('amount', new SliderControl('distortionAmount', 'Amount (%)', 0, 100, 1, this.data.amount, (val) => {
                     this.data.amount = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -7230,7 +7230,7 @@ workspace_data: ${base64Data}
                     }
                 }));
 
-                this.data.mix = 1.0;
+                this.data.mix = this.data.mix !== undefined ? this.data.mix : 1.0;
                 this.addControl('mix', new SliderControl('distortionMix', 'Mix', 0, 1, 0.01, this.data.mix, (val) => {
                     this.data.mix = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -7297,28 +7297,28 @@ workspace_data: ${base64Data}
                 this.addInput('audio', new Classic.Input(voltageSocket, 'Audio In', true));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
-                this.data.threshold = -24; // dB
+                this.data.threshold = this.data.threshold !== undefined ? this.data.threshold : -24; // dB
                 this.addControl('threshold', new SliderControl('compThreshold', 'Threshold (dB)', -60, 0, 1, this.data.threshold, (val) => {
                     this.data.threshold = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode && audioNode.threshold) audioNode.threshold.value = val;
                 }));
 
-                this.data.ratio = 12; // 1 to 20
+                this.data.ratio = this.data.ratio !== undefined ? this.data.ratio : 12; // 1 to 20
                 this.addControl('ratio', new SliderControl('compRatio', 'Ratio', 1, 20, 0.1, this.data.ratio, (val) => {
                     this.data.ratio = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode && audioNode.ratio) audioNode.ratio.value = val;
                 }));
 
-                this.data.attack = 0.003; // seconds
+                this.data.attack = this.data.attack !== undefined ? this.data.attack : 0.003; // seconds
                 this.addControl('attack', new SliderControl('compAttack', 'Attack (s)', 0, 1, 0.001, this.data.attack, (val) => {
                     this.data.attack = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode && audioNode.attack) audioNode.attack.value = val;
                 }));
 
-                this.data.release = 0.25; // seconds
+                this.data.release = this.data.release !== undefined ? this.data.release : 0.25; // seconds
                 this.addControl('release', new SliderControl('compRelease', 'Release (s)', 0, 1, 0.001, this.data.release, (val) => {
                     this.data.release = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -7342,7 +7342,7 @@ workspace_data: ${base64Data}
                 this.addInput('audio', new Classic.Input(voltageSocket, 'Audio In', true));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
                 
-                this.data.duration = 2;
+                this.data.duration = this.data.duration !== undefined ? this.data.duration : 2;
                 this.addControl('duration', new SliderControl('reverbDuration', 'Duration (s)', 0.1, 10, 0.1, this.data.duration, (val) => {
                     this.data.duration = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -7351,7 +7351,7 @@ workspace_data: ${base64Data}
                     }
                 }));
                 
-                this.data.decay = 2;
+                this.data.decay = this.data.decay !== undefined ? this.data.decay : 2;
                 this.addControl('decay', new SliderControl('reverbDecay', 'Decay', 0.1, 10, 0.1, this.data.decay, (val) => {
                     this.data.decay = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -7360,7 +7360,7 @@ workspace_data: ${base64Data}
                     }
                 }));
                 
-                this.data.mix = 0.5;
+                this.data.mix = this.data.mix !== undefined ? this.data.mix : 0.5;
                 this.addControl('mix', new SliderControl('reverbMix', 'Mix', 0, 1, 0.01, this.data.mix, (val) => {
                     this.data.mix = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -7522,7 +7522,7 @@ workspace_data: ${base64Data}
                 this.addOutput('cv', new Classic.Output(voltageSocket, 'CV Out')); // Can be used for modulation
 
                 this.data.sync = this.data.sync || false;
-                this.data.division = '1/4';
+                this.data.division = this.data.division !== undefined ? this.data.division : '1/4';
                 this.addControl('division', new SelectControl('lfoDivision', 'Division', ['1', '1/2', '1/4', '1/8', '1/16', '1/32'], this.data.division, (val) => {
                     this.data.division = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -7546,21 +7546,21 @@ workspace_data: ${base64Data}
                 }));
                 this.controls.fineTune.hidden = this.data.sync;
 
-                this.data.waveform = 'sine';
+                this.data.waveform = this.data.waveform !== undefined ? this.data.waveform : 'sine';
                 this.addControl('waveform', new SelectControl('lfoWaveform', 'Waveform', ['sine', 'square', 'sawtooth', 'triangle'], this.data.waveform, (val) => {
                     this.data.waveform = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof LFOGenerator) audioNode.updateParameter('waveform', val);
                 }));
 
-                this.data.amount = 500; // Amplitude of the LFO output
+                this.data.amount = this.data.amount !== undefined ? this.data.amount : 500; // Amplitude of the LFO output
                 this.addControl('amount', new SliderControl('lfoAmount', 'Amount', 0, 2000, 1, this.data.amount, (val) => {
                     this.data.amount = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof LFOGenerator) audioNode.updateParameter('amount', val);
                 }));
 
-                this.data.offset = 0;
+                this.data.offset = this.data.offset !== undefined ? this.data.offset : 0;
                 this.addControl('offset', new SliderControl('lfoOffset', 'Offset', -1000, 1000, 1, this.data.offset, (val) => {
                     this.data.offset = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -7814,35 +7814,35 @@ workspace_data: ${base64Data}
                 this.addInput('gate', new Classic.Input(voltageSocket, 'Gate In', true));
                 this.addOutput('cv', new Classic.Output(voltageSocket, 'CV Out')); // This outputs a control signal
 
-                this.data.mode = 'EG';
+                this.data.mode = this.data.mode !== undefined ? this.data.mode : 'EG';
                 this.addControl('mode', new SelectControl('adsrMode', 'Mode', ['EG', 'GATE', 'LFO'], this.data.mode, (val) => {
                     this.data.mode = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof ADSREnvelope) audioNode.updateParameter('mode', val);
                 }));
 
-                this.data.attack = 0.01;
+                this.data.attack = this.data.attack !== undefined ? this.data.attack : 0.01;
                 this.addControl('attack', new SliderControl('adsrAttack', 'Attack (s)', 0.001, 2, 0.001, this.data.attack, (val) => {
                     this.data.attack = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof ADSREnvelope) audioNode.updateParameter('attack', val);
                 }));
 
-                this.data.decay = 0.1;
+                this.data.decay = this.data.decay !== undefined ? this.data.decay : 0.1;
                 this.addControl('decay', new SliderControl('adsrDecay', 'Decay (s)', 0.001, 2, 0.001, this.data.decay, (val) => {
                     this.data.decay = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof ADSREnvelope) audioNode.updateParameter('decay', val);
                 }));
 
-                this.data.sustain = 0.5;
+                this.data.sustain = this.data.sustain !== undefined ? this.data.sustain : 0.5;
                 this.addControl('sustain', new SliderControl('adsrSustain', 'Sustain', 0, 1, 0.01, this.data.sustain, (val) => {
                     this.data.sustain = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof ADSREnvelope) audioNode.updateParameter('sustain', val);
                 }));
 
-                this.data.release = 0.1;
+                this.data.release = this.data.release !== undefined ? this.data.release : 0.1;
                 this.addControl('release', new SliderControl('adsrRelease', 'Release (s)', 0.001, 5, 0.001, this.data.release, (val) => {
                     this.data.release = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -7865,7 +7865,7 @@ workspace_data: ${base64Data}
                 // this.audioNode will be assigned there.
                 this.audioNode = null; // Placeholder for the live Web Audio API node
 
-                this.data.bits = 8;
+                this.data.bits = this.data.bits !== undefined ? this.data.bits : 8;
                 this.addControl('bits', new SliderControl('bits', 'Bit Depth', 1, 16, 1, this.data.bits, (val) => {
                     this.data.bits = val;
                     const liveAudioNode = reteAudioNodes.get(this.id); // Assuming reteAudioNodes maps Rete node IDs to live audio nodes
@@ -7875,7 +7875,7 @@ workspace_data: ${base64Data}
                     }
                 }));
 
-                this.data.sampleRateReduction = 1;
+                this.data.sampleRateReduction = this.data.sampleRateReduction !== undefined ? this.data.sampleRateReduction : 1;
                 this.addControl('sampleRateReduction', new SliderControl('sampleRateReduction', 'Sample Rate Reduction', 1, 20, 0.1, this.data.sampleRateReduction, (val) => {
                     this.data.sampleRateReduction = val;
                     const liveAudioNode = reteAudioNodes.get(this.id);
@@ -7909,42 +7909,42 @@ workspace_data: ${base64Data}
                 this.addInput('unvoiced_cv', new Classic.Input(voltageSocket, 'Unvoiced CV', true));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
-                this.data.frequency = 110;
+                this.data.frequency = this.data.frequency !== undefined ? this.data.frequency : 110;
                 this.addControl('frequency', new SliderControl('freqSlider', 'Carrier Freq', 50, 1000, 1, this.data.frequency, (val) => {
                     this.data.frequency = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('frequency', val);
                 }));
 
-                this.data.waveform = 'sawtooth';
+                this.data.waveform = this.data.waveform !== undefined ? this.data.waveform : 'sawtooth';
                 this.addControl('waveform', new SelectControl('waveformSelect', 'Carrier Wave', ['sine', 'square', 'sawtooth', 'triangle'], this.data.waveform, (val) => {
                     this.data.waveform = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('waveform', val);
                 }));
 
-                this.data.numBands = 16;
+                this.data.numBands = this.data.numBands !== undefined ? this.data.numBands : 16;
                 this.addControl('numBands', new SliderControl('bandsSlider', 'Bands', 8, 40, 1, this.data.numBands, (val) => {
                     this.data.numBands = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('numBands', val);
                 }));
 
-                this.data.formantShift = 0;
+                this.data.formantShift = this.data.formantShift !== undefined ? this.data.formantShift : 0;
                 this.addControl('formantShift', new SliderControl('formantSlider', 'Formant Shift (cents)', -1200, 1200, 1, this.data.formantShift, (val) => {
                     this.data.formantShift = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('formantShift', val);
                 }));
 
-                this.data.unvoicedLevel = 0.5;
+                this.data.unvoicedLevel = this.data.unvoicedLevel !== undefined ? this.data.unvoicedLevel : 0.5;
                 this.addControl('unvoicedLevel', new SliderControl('unvoicedSlider', 'Unvoiced Level', 0, 1, 0.01, this.data.unvoicedLevel, (val) => {
                     this.data.unvoicedLevel = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('unvoicedLevel', val);
                 }));
 
-                this.data.modulatorGain = 1;
+                this.data.modulatorGain = this.data.modulatorGain !== undefined ? this.data.modulatorGain : 1;
                 this.addControl('modulatorGain', new SliderControl('modulatorGainSlider', 'Modulator Gain', 0, 10, 0.1, this.data.modulatorGain, (val) => {
                     this.data.modulatorGain = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -7977,7 +7977,7 @@ workspace_data: ${base64Data}
                 this.addInput('in', new Classic.Input(voltageSocket, 'In', true));
                 this.addOutput('out', new Classic.Output(voltageSocket, 'Out'));
 
-                this.data.level = 1;
+                this.data.level = this.data.level !== undefined ? this.data.level : 1;
                 this.addControl('level', new SliderControl('levelSlider', 'Level', -1, 1, 0.01, this.data.level, (val) => {
                     this.data.level = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -8033,14 +8033,14 @@ workspace_data: ${base64Data}
                 this.addInput('in', new Classic.Input(voltageSocket, 'CV In', true));
                 this.addOutput('out', new Classic.Output(voltageSocket, 'CV Out'));
 
-                this.data.rootNote = 'C4';
+                this.data.rootNote = this.data.rootNote !== undefined ? this.data.rootNote : 'C4';
                 this.addControl('rootNote', new SelectControl('quantRootNote', 'Root Note', Object.keys(ROOT_NOTES), this.data.rootNote, (val) => {
                     this.data.rootNote = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('rootNote', val);
                 }));
 
-                this.data.scaleType = 'Major (Ionian)';
+                this.data.scaleType = this.data.scaleType !== undefined ? this.data.scaleType : 'Major (Ionian)';
                 this.addControl('scaleType', new SelectControl('quantScaleType', 'Scale', Object.keys(SCALE_TYPES), this.data.scaleType, (val) => {
                     this.data.scaleType = val;
                     const audioNode = reteAudioNodes.get(this.id);
@@ -8063,28 +8063,28 @@ workspace_data: ${base64Data}
                 this.addInput('positionJitterCV', new Classic.Input(voltageSocket, 'Jitter CV', true));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
-                this.data.grainSize = 0.1;
+                this.data.grainSize = this.data.grainSize !== undefined ? this.data.grainSize : 0.1;
                 this.addControl('grainSize', new SliderControl('grainSize', 'Grain Size (s)', 0.01, 0.5, 0.001, this.data.grainSize, (val) => {
                     this.data.grainSize = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('grainSize', val);
                 }));
 
-                this.data.grainDensity = 20;
+                this.data.grainDensity = this.data.grainDensity !== undefined ? this.data.grainDensity : 20;
                 this.addControl('grainDensity', new SliderControl('grainDensity', 'Grain Density (Hz)', 1, 100, 1, this.data.grainDensity, (val) => {
                     this.data.grainDensity = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('grainDensity', val);
                 }));
 
-                this.data.pitchShift = 0;
+                this.data.pitchShift = this.data.pitchShift !== undefined ? this.data.pitchShift : 0;
                 this.addControl('pitchShift', new SliderControl('pitchShift', 'Pitch Shift (cents)', -2400, 2400, 1, this.data.pitchShift, (val) => {
                     this.data.pitchShift = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('pitchShift', val);
                 }));
 
-                this.data.positionJitter = 0;
+                this.data.positionJitter = this.data.positionJitter !== undefined ? this.data.positionJitter : 0;
                 this.addControl('positionJitter', new SliderControl('positionJitter', 'Position Jitter', 0, 1, 0.01, this.data.positionJitter, (val) => {
                     this.data.positionJitter = val;
                     const audioNode = reteAudioNodes.get(this.id);
