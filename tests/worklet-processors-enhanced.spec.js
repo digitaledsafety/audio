@@ -57,6 +57,29 @@ test.describe('Worklet Processors & Service Worker Enhancements', () => {
     expect(Number(jitterVal)).toBe(1);
   });
 
+  test('should add Quantizer node and verify multi-channel audio worklet scale updating', async ({ page }) => {
+    await page.locator('#addNodeToggle').click();
+    await page.locator('#addQuantizerNodeBtn').click();
+
+    const quantNode = page.locator('[data-node-label="Quantizer"]').first();
+    await expect(quantNode).toBeVisible();
+
+    // Change scale selection
+    const selects = quantNode.locator('select');
+    const scaleSelect = selects.last(); // Scale select control
+    await expect(scaleSelect).toBeVisible();
+    await scaleSelect.selectOption('Natural Minor (Aeolian)');
+
+    const scaleTypeVal = await page.evaluate(() => {
+      const editor = window.editor;
+      const nodes = editor.getNodes();
+      const node = nodes.find(n => n.label === 'Quantizer');
+      return node ? node.data.scaleType : null;
+    });
+
+    expect(scaleTypeVal).toBe('Natural Minor (Aeolian)');
+  });
+
   test('Service Worker fetch event handler includes non-GET and scheme guards and complete cache manifest', async ({ page }) => {
     const swContent = await page.evaluate(async () => {
       const response = await fetch('/sw.js');
