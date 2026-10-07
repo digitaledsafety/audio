@@ -9395,7 +9395,7 @@ workspace_data: ${base64Data}
                     multiplayer.broadcast({ type: 'workspace', data: editorToJSON() });
                     autoSave();
                 }
-                if ((context.type === 'nodecreated' || context.type === 'nodecreate') && context.data instanceof WebAudioNode) {
+                if (['nodecreated', 'nodecreate'].includes(context.type) && context.data instanceof WebAudioNode) {
                     if(!audioContext) {
                         console.warn('AudioContext not active, Nodes will be created when "Start Audio" is clicked.');
                         showMessage(`AudioContext not active, Nodes will be created when "Start Audio" is clicked.`, 'error');
@@ -9403,24 +9403,26 @@ workspace_data: ${base64Data}
                     }
 
                     const reteNode = context.data;
-                    let audioNode;
-                    if (typeof reteNode.build === 'function') {
-                        audioNode = reteNode.build();
-                    } else {
-                        console.warn(`Node type "${reteNode.label}" does not have a build method.`);
-                    }
-
-                    if (audioNode) {
-                        reteAudioNodes.set(reteNode.id, audioNode);
-                        showMessage(`${reteNode.label} node added to editor.`, 'info');
-                        if (audioContext && audioContext.state === 'running') {
-                            reteNode.start();
-                            updateAudioGraphConnections();
+                    if (!reteAudioNodes.has(reteNode.id)) {
+                        let audioNode;
+                        if (typeof reteNode.build === 'function') {
+                            audioNode = reteNode.build();
+                        } else {
+                            console.warn(`Node type "${reteNode.label}" does not have a build method.`);
                         }
-                    } else {
-                        showMessage(`${reteNode.label} node added to editor. Audio node will be active on "Start Audio".`, 'info');
+
+                        if (audioNode) {
+                            reteAudioNodes.set(reteNode.id, audioNode);
+                            showMessage(`${reteNode.label} node added to editor.`, 'info');
+                            if (audioContext && audioContext.state === 'running') {
+                                reteNode.start();
+                                updateAudioGraphConnections();
+                            }
+                        } else {
+                            showMessage(`${reteNode.label} node added to editor. Audio node will be active on "Start Audio".`, 'info');
+                        }
                     }
-                } else if (context.type === 'noderemove') {
+                } else if (['noderemoved', 'noderemove'].includes(context.type)) {
                     const node = context.data;
                     if (node && node.drawTimeout) {
                         clearTimeout(node.drawTimeout);
@@ -9461,7 +9463,7 @@ workspace_data: ${base64Data}
                             updateAudioGraphConnections();
                         }
                     }
-                } else if (context.type === 'connectioncreated' || context.type === 'connectioncreate') {
+                } else if (['connectioncreated', 'connectioncreate'].includes(context.type)) {
                     const connection = context.data;
                     const targetReteNode = editor.getNode(connection.target);
                     if (connection.targetInput === 'clock' && targetReteNode.label === 'LFO') {
@@ -9484,7 +9486,7 @@ workspace_data: ${base64Data}
                         }
                     }
                     showMessage('Connection created.', 'info');
-                } else if (context.type === 'connectionremoved' || context.type === 'connectionremove') {
+                } else if (['connectionremoved', 'connectionremove'].includes(context.type)) {
                     const connection = context.data;
                     const sourceReteNode = editor.getNode(connection.source);
                     const targetReteNode = editor.getNode(connection.target);

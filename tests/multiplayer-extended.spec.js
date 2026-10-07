@@ -50,9 +50,9 @@ test.describe('Extended Multiplayer Synchronization', () => {
     const box1 = await toneNode1.boundingBox();
     console.log('Moving node on Player 1 from', box1.x, box1.y);
 
-    await page1.mouse.move(box1.x + box1.width / 2, box1.y + 20);
+    await page1.mouse.move(box1.x + box1.width / 2, box1.y + 10);
     await page1.mouse.down();
-    await page1.mouse.move(box1.x + box1.width / 2 + 200, box1.y + 200, { steps: 20 });
+    await page1.mouse.move(box1.x + box1.width / 2 + 200, box1.y + 150, { steps: 20 });
     await page1.mouse.up();
     console.log('Move finished on Player 1');
 
