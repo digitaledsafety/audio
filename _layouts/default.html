@@ -1507,21 +1507,47 @@ workspace_data: ${base64Data}
          * @returns {AudioBuffer} The generated impulse response as an AudioBuffer.
          */
         const sharedSingleSampleBuffer = new Float32Array(1);
+        const sharedImpulseResponseCache = new Map();
+        const sharedNoiseBufferCache = new Map();
 
         function generateImpulseResponse(audioContext, duration, decay) {
-            const sampleRate = audioContext.sampleRate;
-            const length = Math.floor(sampleRate * duration);
+            const sampleRate = audioContext ? audioContext.sampleRate : 44100;
+            const dur = Math.round(duration * 100) / 100;
+            const dec = Math.round(decay * 100) / 100;
+            const key = `${sampleRate}_${dur}_${dec}`;
+            if (sharedImpulseResponseCache.has(key)) {
+                return sharedImpulseResponseCache.get(key);
+            }
+            const length = Math.floor(sampleRate * dur);
             const impulse = audioContext.createBuffer(2, length, sampleRate);
             const left = impulse.getChannelData(0);
             const right = impulse.getChannelData(1);
             const invLength = 1 / length;
 
             for (let i = 0; i < length; i++) {
-                const env = Math.pow(1 - i * invLength, decay);
+                const env = Math.pow(1 - i * invLength, dec);
                 left[i] = (Math.random() * 2 - 1) * env;
                 right[i] = (Math.random() * 2 - 1) * env;
             }
+            sharedImpulseResponseCache.set(key, impulse);
             return impulse;
+        }
+
+        function getCachedNoiseBuffer(audioContext, durationSeconds) {
+            const sampleRate = audioContext ? audioContext.sampleRate : 44100;
+            const dur = Math.round(durationSeconds * 1000) / 1000;
+            const key = `${sampleRate}_${dur}`;
+            if (sharedNoiseBufferCache.has(key)) {
+                return sharedNoiseBufferCache.get(key);
+            }
+            const bufferSize = Math.floor(sampleRate * dur);
+            const buffer = audioContext.createBuffer(1, Math.max(1, bufferSize), sampleRate);
+            const output = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+            sharedNoiseBufferCache.set(key, buffer);
+            return buffer;
         }
         
         // --- Web Audio API Management ---
@@ -2064,13 +2090,18 @@ workspace_data: ${base64Data}
             }
         };
 
+        const globalVoltageConnectionStrategy = new VoltageConnectionStrategy();
+        const globalMidiConnectionStrategy = new MidiConnectionStrategy();
+        window.voltageConnectionStrategy = globalVoltageConnectionStrategy;
+        window.midiConnectionStrategy = globalMidiConnectionStrategy;
+
         async function updateAudioGraphConnections(skipConnectionId = null) {
             if (!audioContext || !editor) return;
 
             const connectionStrategies = {
-                'voltage': new VoltageConnectionStrategy(),
-                'midi': new MidiConnectionStrategy(),
-                'default': new VoltageConnectionStrategy()
+                'voltage': globalVoltageConnectionStrategy,
+                'midi': globalMidiConnectionStrategy,
+                'default': globalVoltageConnectionStrategy
             };
 
             function getDisconnectionStrategy(targetReteNode, targetInputKey, sourceSocket) {
@@ -2274,7 +2305,17 @@ workspace_data: ${base64Data}
                 }
             }
 
+            clear() {
+                this.analysers.forEach(({ analyser, sourceNode }) => {
+                    try {
+                        sourceNode.disconnect(analyser);
+                    } catch (e) {}
+                });
+                this.analysers.clear();
+            }
+
             disconnect(sourceReteNode, targetReteNode, targetInputKey, sourceOutputKey) {
+                if (!sourceReteNode || !targetReteNode) return;
                 const sourceAudioNode = reteAudioNodes.get(sourceReteNode.id);
                 const targetAudioNode = reteAudioNodes.get(targetReteNode.id);
                 if (!sourceAudioNode || !targetAudioNode) return;
@@ -5927,13 +5968,7 @@ workspace_data: ${base64Data}
             }
 
             createNoiseBuffer(durationSeconds) {
-                const bufferSize = Math.floor(this.audioContext.sampleRate * durationSeconds);
-                const buffer = this.audioContext.createBuffer(1, Math.max(1, bufferSize), this.audioContext.sampleRate);
-                const output = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) {
-                    output[i] = Math.random() * 2 - 1;
-                }
-                return buffer;
+                return getCachedNoiseBuffer(this.audioContext, durationSeconds);
             }
 
             // --- Sound Synthesis ---
@@ -5950,6 +5985,10 @@ workspace_data: ${base64Data}
                     gain.gain.setValueAtTime(0.8, now);
                     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
 
+                    osc.onended = () => {
+                        osc.disconnect();
+                        gain.disconnect();
+                    };
                     osc.start(now);
                     osc.stop(now + 0.12);
                 } else if (kit === '909') {
@@ -5974,6 +6013,14 @@ workspace_data: ${base64Data}
                     clickGain.gain.setValueAtTime(0.7, now);
                     clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.015);
 
+                    osc.onended = () => {
+                        osc.disconnect();
+                        gain.disconnect();
+                    };
+                    clickOsc.onended = () => {
+                        clickOsc.disconnect();
+                        clickGain.disconnect();
+                    };
                     osc.start(now);
                     osc.stop(now + 0.35);
                     clickOsc.start(now);
@@ -5994,6 +6041,11 @@ workspace_data: ${base64Data}
                     gain.gain.setValueAtTime(0.9, now);
                     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
 
+                    osc.onended = () => {
+                        osc.disconnect();
+                        filter.disconnect();
+                        gain.disconnect();
+                    };
                     osc.start(now);
                     osc.stop(now + 0.4);
                 } else {
@@ -6008,6 +6060,10 @@ workspace_data: ${base64Data}
                     gain.gain.setValueAtTime(1.0, now);
                     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
 
+                    osc.onended = () => {
+                        osc.disconnect();
+                        gain.disconnect();
+                    };
                     osc.start(now);
                     osc.stop(now + 0.5);
                 }
@@ -6034,6 +6090,14 @@ workspace_data: ${base64Data}
                     oscGain.gain.setValueAtTime(0.4, now);
                     oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
 
+                    noise.onended = () => {
+                        noise.disconnect();
+                        gain.disconnect();
+                    };
+                    osc.onended = () => {
+                        osc.disconnect();
+                        oscGain.disconnect();
+                    };
                     noise.start(now);
                     noise.stop(now + 0.09);
                     osc.start(now);
@@ -6065,6 +6129,15 @@ workspace_data: ${base64Data}
                     oscGain.gain.setValueAtTime(0.6, now);
                     oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.07);
 
+                    noise.onended = () => {
+                        noise.disconnect();
+                        filter.disconnect();
+                        noiseGain.disconnect();
+                    };
+                    osc.onended = () => {
+                        osc.disconnect();
+                        oscGain.disconnect();
+                    };
                     noise.start(now);
                     noise.stop(now + 0.18);
                     osc.start(now);
@@ -6096,6 +6169,15 @@ workspace_data: ${base64Data}
                     oscGain.gain.setValueAtTime(0.6, now);
                     oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
 
+                    noise.onended = () => {
+                        noise.disconnect();
+                        filter.disconnect();
+                        noiseGain.disconnect();
+                    };
+                    osc.onended = () => {
+                        osc.disconnect();
+                        oscGain.disconnect();
+                    };
                     noise.start(now);
                     noise.stop(now + 0.14);
                     osc.start(now);
@@ -6116,8 +6198,6 @@ workspace_data: ${base64Data}
 
                     noiseEnvelope.gain.setValueAtTime(1, now);
                     noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                    noise.start(now);
-                    noise.stop(now + 0.1);
 
                     // Snare body
                     const osc = this.audioContext.createOscillator();
@@ -6128,6 +6208,18 @@ workspace_data: ${base64Data}
                     oscEnvelope.connect(this.mainOutput);
                     oscEnvelope.gain.setValueAtTime(0.5, now);
                     oscEnvelope.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+
+                    noise.onended = () => {
+                        noise.disconnect();
+                        noiseFilter.disconnect();
+                        noiseEnvelope.disconnect();
+                    };
+                    osc.onended = () => {
+                        osc.disconnect();
+                        oscEnvelope.disconnect();
+                    };
+                    noise.start(now);
+                    noise.stop(now + 0.1);
                     osc.start(now);
                     osc.stop(now + 0.08);
                 }
@@ -6162,6 +6254,12 @@ workspace_data: ${base64Data}
                 const decayTime = kit === 'Chiptune' ? 0.025 : (kit === '909' ? 0.04 : 0.05);
                 noiseEnvelope.gain.setValueAtTime(1, now);
                 noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, now + decayTime);
+
+                noise.onended = () => {
+                    noise.disconnect();
+                    filter.disconnect();
+                    noiseEnvelope.disconnect();
+                };
                 noise.start(now);
                 noise.stop(now + decayTime);
             }
@@ -6183,6 +6281,12 @@ workspace_data: ${base64Data}
                 const decayTime = kit === 'Chiptune' ? 0.18 : (kit === 'Acoustic' ? 0.38 : (kit === '909' ? 0.4 : 0.35));
                 noiseEnvelope.gain.setValueAtTime(1, now);
                 noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, now + decayTime);
+
+                noise.onended = () => {
+                    noise.disconnect();
+                    filter.disconnect();
+                    noiseEnvelope.disconnect();
+                };
                 noise.start(now);
                 noise.stop(now + decayTime);
             }
@@ -6211,6 +6315,11 @@ workspace_data: ${base64Data}
                 const mainDecay = kit === 'Chiptune' ? 0.08 : 0.18;
                 gain.gain.exponentialRampToValueAtTime(0.001, now + mainDecay);
 
+                noise.onended = () => {
+                    noise.disconnect();
+                    filter.disconnect();
+                    gain.disconnect();
+                };
                 noise.start(now);
                 noise.stop(now + mainDecay);
             }
@@ -6229,6 +6338,10 @@ workspace_data: ${base64Data}
                     gain.gain.setValueAtTime(0.8, now);
                     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
 
+                    osc.onended = () => {
+                        osc.disconnect();
+                        gain.disconnect();
+                    };
                     osc.start(now);
                     osc.stop(now + 0.15);
                 } else {
@@ -6253,6 +6366,11 @@ workspace_data: ${base64Data}
                     gain.gain.setValueAtTime(0.9, now);
                     gain.gain.exponentialRampToValueAtTime(0.001, now + decayTime);
 
+                    osc.onended = () => {
+                        osc.disconnect();
+                        if (filter) filter.disconnect();
+                        gain.disconnect();
+                    };
                     osc.start(now);
                     osc.stop(now + decayTime);
                 }
@@ -9477,7 +9595,7 @@ workspace_data: ${base64Data}
                         updateAudioGraphConnections();
                         if (connection.targetInput === 'clock') {
                             const targetAudioNode = reteAudioNodes.get(connection.target);
-                            if (targetAudioNode && ['Arpeggiator', 'Sequencer'].includes(targetReteNode.label) && targetAudioNode.started) {
+                            if (targetAudioNode && targetReteNode && ['Arpeggiator', 'Sequencer'].includes(targetReteNode.label) && targetAudioNode.started) {
                                 targetAudioNode.stop();
                                 targetAudioNode.start();
                             }
@@ -9493,7 +9611,7 @@ workspace_data: ${base64Data}
                     const strategy = (connection.targetInput === 'midi') ? new MidiConnectionStrategy() : new VoltageConnectionStrategy();
                     strategy.disconnect(sourceReteNode, targetReteNode, connection.targetInput, connection.sourceOutput);
 
-                    if (connection.targetInput === 'clock' && targetReteNode.label === 'LFO') {
+                    if (connection.targetInput === 'clock' && targetReteNode && targetReteNode.label === 'LFO') {
                         targetReteNode.data.sync = false;
                         targetReteNode.controls.frequency.hidden = false;
                         if (targetReteNode.controls.fineTune) targetReteNode.controls.fineTune.hidden = false;
@@ -9506,7 +9624,7 @@ workspace_data: ${base64Data}
                         updateAudioGraphConnections(connection.id);
                         if (connection.targetInput === 'clock') {
                             const targetAudioNode = reteAudioNodes.get(connection.target);
-                            if (targetAudioNode && ['Arpeggiator', 'Sequencer'].includes(targetReteNode.label) && targetAudioNode.started) {
+                            if (targetAudioNode && targetReteNode && ['Arpeggiator', 'Sequencer'].includes(targetReteNode.label) && targetAudioNode.started) {
                                 targetAudioNode.stop();
                                 targetAudioNode.start();
                             }
