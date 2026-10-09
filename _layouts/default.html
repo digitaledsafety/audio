@@ -1599,6 +1599,9 @@ workspace_data: ${base64Data}
             }
 
             masterGain = audioContext.createGain();
+            // Start masterGain at 0 gain to prevent initial startup clicks and popping transients
+            masterGain.gain.setValueAtTime(0, audioContext.currentTime);
+
             analyser = audioContext.createAnalyser();
             analyser.fftSize = 2048;
             masterGain.connect(analyser);
@@ -1633,6 +1636,20 @@ workspace_data: ${base64Data}
                 reteNode.start();
             }
             updateAudioGraphConnections();
+
+            // Determine target master gain (from Output node if present, else default 1.0)
+            let targetGain = 1.0;
+            const outputReteNode = editor.getNodes().find(node =>
+                node instanceof MasterGainOutputNode || node.label === 'Output' || node.label === 'Master'
+            );
+            if (outputReteNode) {
+                targetGain = outputReteNode.data.mute ? 0 : (outputReteNode.data.gain !== undefined ? outputReteNode.data.gain : 0.5);
+            }
+
+            // Ramp masterGain smoothly to target gain over 15ms to eliminate initial play popping
+            const now = audioContext.currentTime;
+            masterGain.gain.setValueAtTime(0, now);
+            masterGain.gain.linearRampToValueAtTime(targetGain, now + 0.015);
         }
 
         function stopAll() {
@@ -1721,6 +1738,19 @@ workspace_data: ${base64Data}
 
             if (voltageConnectionStrategy && typeof voltageConnectionStrategy.clear === 'function') {
                 voltageConnectionStrategy.clear();
+            }
+
+            // Ramp down masterGain smoothly to 0 before stopping nodes to prevent stop popping
+            if (masterGain && audioContext && audioContext.state === 'running') {
+                const now = audioContext.currentTime;
+                try {
+                    masterGain.gain.cancelScheduledValues(now);
+                    masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+                    masterGain.gain.linearRampToValueAtTime(0, now + 0.015);
+                    await new Promise(resolve => setTimeout(resolve, 20));
+                } catch (e) {
+                    console.warn("Error ramping masterGain on stop:", e);
+                }
             }
 
             // Stop all audio nodes
@@ -4805,11 +4835,8 @@ workspace_data: ${base64Data}
             }
 
             build() {
-                // This node doesn't create a new audio node, it controls the global masterGain
-                if (masterGain) {
-                    masterGain.gain.setTargetAtTime(this.data.mute ? 0 : this.data.gain, audioContext.currentTime, 0.01);
-                }
-                return masterGain; // Return the existing masterGain
+                // Return the existing global masterGain. startAudio() handles initial ramp-up.
+                return masterGain;
             }
         }
 
