@@ -1551,6 +1551,55 @@ workspace_data: ${base64Data}
             sharedImpulseResponseCache.set(key, impulse);
             return impulse;
         }
+
+        class SharedConvolverPool {
+            constructor() {
+                this.convolvers = new Map();
+            }
+
+            acquire(audioCtx, duration, decay) {
+                if (!audioCtx) return null;
+                const key = `${audioCtx.sampleRate}-${duration}-${decay}`;
+                if (this.convolvers.has(key)) {
+                    const entry = this.convolvers.get(key);
+                    entry.refCount++;
+                    return entry;
+                }
+
+                const convolver = audioCtx.createConvolver();
+                convolver.buffer = generateImpulseResponse(audioCtx, duration, decay);
+                const entry = { convolver, key, refCount: 1 };
+                this.convolvers.set(key, entry);
+                return entry;
+            }
+
+            release(key) {
+                if (this.convolvers.has(key)) {
+                    const entry = this.convolvers.get(key);
+                    entry.refCount--;
+                    if (entry.refCount <= 0) {
+                        try {
+                            entry.convolver.disconnect();
+                        } catch (e) {
+                            console.warn(`Error disconnecting convolver for key ${key}: ${e.message}`);
+                        }
+                        this.convolvers.delete(key);
+                    }
+                }
+            }
+
+            clear() {
+                this.convolvers.forEach((entry) => {
+                    try {
+                        entry.convolver.disconnect();
+                    } catch (e) {}
+                });
+                this.convolvers.clear();
+            }
+        }
+
+        const sharedConvolverPool = new SharedConvolverPool();
+        window.sharedConvolverPool = sharedConvolverPool;
         
         // --- Web Audio API Management ---
 
@@ -2448,6 +2497,8 @@ workspace_data: ${base64Data}
                         return targetNode.widthGainNode ? targetNode.widthGainNode.gain : null;
                     case 'gain_cv':
                         return targetNode.gain;
+                    case 'mix_cv':
+                        return targetNode.wetGain ? targetNode.wetGain.gain : (targetNode.mix_cvInput || null);
                     case 'transpose_cv':
                         return targetNode.transposeControl;
                     case 'bands_cv':
@@ -7466,80 +7517,134 @@ workspace_data: ${base64Data}
             }
         }
 
+        class ReverbAudioNode {
+            constructor(audioCtx, id, data) {
+                this.audioContext = audioCtx;
+                this.id = id;
+                this.data = data;
+
+                this.mainInput = audioCtx.createGain();
+                this.mainOutput = audioCtx.createGain();
+                this.dryGain = audioCtx.createGain();
+                this.wetGain = audioCtx.createGain();
+
+                const mix = data.mix !== undefined ? data.mix : 0.5;
+                this.dryGain.gain.setValueAtTime(1 - mix, audioCtx.currentTime);
+                this.wetGain.gain.setValueAtTime(mix, audioCtx.currentTime);
+
+                // Routing: mainInput -> dryGain -> mainOutput
+                this.mainInput.connect(this.dryGain);
+                this.dryGain.connect(this.mainOutput);
+
+                // Acquire shared convolver from pool
+                this.duration = data.duration !== undefined ? data.duration : 2;
+                this.decay = data.decay !== undefined ? data.decay : 2;
+                this.convolverEntry = sharedConvolverPool.acquire(audioCtx, this.duration, this.decay);
+
+                if (this.convolverEntry) {
+                    this.mainInput.connect(this.wetGain);
+                    this.wetGain.connect(this.convolverEntry.convolver);
+                    this.convolverEntry.convolver.connect(this.mainOutput);
+                }
+
+                this.mix_cvInput = this.wetGain.gain;
+            }
+
+            updateConvolver(duration, decay) {
+                if (this.duration === duration && this.decay === decay) return;
+
+                if (this.convolverEntry) {
+                    try {
+                        this.wetGain.disconnect(this.convolverEntry.convolver);
+                        this.convolverEntry.convolver.disconnect(this.mainOutput);
+                    } catch (e) {}
+                    sharedConvolverPool.release(this.convolverEntry.key);
+                }
+
+                this.duration = duration;
+                this.decay = decay;
+                this.convolverEntry = sharedConvolverPool.acquire(this.audioContext, duration, decay);
+
+                if (this.convolverEntry) {
+                    this.wetGain.connect(this.convolverEntry.convolver);
+                    this.convolverEntry.convolver.connect(this.mainOutput);
+                }
+            }
+
+            updateMix(val) {
+                if (this.dryGain && this.wetGain) {
+                    this.dryGain.gain.setTargetAtTime(1 - val, this.audioContext.currentTime, 0.01);
+                    this.wetGain.gain.setTargetAtTime(val, this.audioContext.currentTime, 0.01);
+                }
+            }
+
+            connect(destination) {
+                this.mainOutput.connect(destination);
+            }
+
+            disconnect(destination) {
+                if (destination) {
+                    this.mainOutput.disconnect(destination);
+                } else {
+                    this.mainOutput.disconnect();
+                }
+            }
+
+            stop() {
+                if (this.convolverEntry) {
+                    try {
+                        this.wetGain.disconnect(this.convolverEntry.convolver);
+                        this.convolverEntry.convolver.disconnect(this.mainOutput);
+                    } catch (e) {}
+                    sharedConvolverPool.release(this.convolverEntry.key);
+                    this.convolverEntry = null;
+                }
+                try {
+                    this.mainInput.disconnect();
+                    this.dryGain.disconnect();
+                    this.wetGain.disconnect();
+                    this.mainOutput.disconnect();
+                } catch (e) {}
+            }
+        }
+
         class ReverbNode extends WebAudioNode {
             constructor() {
                 super('Reverb');
                 this.addInput('audio', new Classic.Input(voltageSocket, 'Audio In', true));
+                this.addInput('mix_cv', new Classic.Input(voltageSocket, 'Mix CV', true));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
                 
-                this.data.duration = 2;
+                this.data.duration = this.data.duration !== undefined ? this.data.duration : 2;
                 this.addControl('duration', new SliderControl('reverbDuration', 'Duration (s)', 0.1, 10, 0.1, this.data.duration, (val) => {
                     this.data.duration = val;
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode && audioNode.convolver) {
-                        audioNode.convolver.buffer = generateImpulseResponse(audioContext, this.data.duration, this.data.decay);
+                    if (audioNode && typeof audioNode.updateConvolver === 'function') {
+                        audioNode.updateConvolver(val, this.data.decay);
                     }
                 }));
                 
-                this.data.decay = 2;
+                this.data.decay = this.data.decay !== undefined ? this.data.decay : 2;
                 this.addControl('decay', new SliderControl('reverbDecay', 'Decay', 0.1, 10, 0.1, this.data.decay, (val) => {
                     this.data.decay = val;
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode && audioNode.convolver) {
-                        audioNode.convolver.buffer = generateImpulseResponse(audioContext, this.data.duration, this.data.decay);
+                    if (audioNode && typeof audioNode.updateConvolver === 'function') {
+                        audioNode.updateConvolver(this.data.duration, val);
                     }
                 }));
                 
-                this.data.mix = 0.5;
+                this.data.mix = this.data.mix !== undefined ? this.data.mix : 0.5;
                 this.addControl('mix', new SliderControl('reverbMix', 'Mix', 0, 1, 0.01, this.data.mix, (val) => {
                     this.data.mix = val;
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode && audioNode.dryGain && audioNode.wetGain) {
-                        audioNode.dryGain.gain.setTargetAtTime(1 - val, audioContext.currentTime, 0.01);
-                        audioNode.wetGain.gain.setTargetAtTime(val, audioContext.currentTime, 0.01);
+                    if (audioNode && typeof audioNode.updateMix === 'function') {
+                        audioNode.updateMix(val);
                     }
                 }));
-
             }
 
             build() {
-                const convolver = audioContext.createConvolver();
-                const dryGain = audioContext.createGain();
-                const wetGain = audioContext.createGain();
-                const mainInput = audioContext.createGain();
-                const mainOutput = audioContext.createGain();
-
-                // Generate and set the impulse response
-                this.data.duration = this.data.duration || 2;
-                this.data.decay = this.data.decay || 2;
-                convolver.buffer = generateImpulseResponse(audioContext, this.data.duration, this.data.decay);
-
-                // Set initial mix
-                this.data.mix = this.data.mix || 0.5;
-                dryGain.gain.value = 1 - this.data.mix;
-                wetGain.gain.value = this.data.mix;
-
-                // Routing
-                mainInput.connect(dryGain);
-                mainInput.connect(convolver);
-                convolver.connect(wetGain);
-                dryGain.connect(mainOutput);
-                wetGain.connect(mainOutput);
-
-                mainInput.convolver = convolver;
-                mainInput.dryGain = dryGain;
-                mainInput.wetGain = wetGain;
-                mainInput.mainOutput = mainOutput;
-
-                mainInput.connect = function(destination) {
-                    this.mainOutput.connect(destination);
-                };
-
-                mainInput.disconnect = function(destination) {
-                    this.mainOutput.disconnect(destination);
-                };
-                
-                return mainInput;
+                return new ReverbAudioNode(audioContext, this.id, this.data);
             }
         }
 
@@ -9530,7 +9635,7 @@ workspace_data: ${base64Data}
                     multiplayer.broadcast({ type: 'workspace', data: editorToJSON() });
                     autoSave();
                 }
-                if ((context.type === 'nodecreated' || context.type === 'nodecreate') && context.data instanceof WebAudioNode) {
+                if (context.type === 'nodecreated' && context.data instanceof WebAudioNode) {
                     if(!audioContext) {
                         console.warn('AudioContext not active, Nodes will be created when "Start Audio" is clicked.');
                         showMessage(`AudioContext not active, Nodes will be created when "Start Audio" is clicked.`, 'error');
@@ -9555,7 +9660,7 @@ workspace_data: ${base64Data}
                     } else {
                         showMessage(`${reteNode.label} node added to editor. Audio node will be active on "Start Audio".`, 'info');
                     }
-                } else if (context.type === 'noderemove') {
+                } else if (context.type === 'noderemove' || context.type === 'noderemoved') {
                     const node = context.data;
                     if (node && node.drawTimeout) {
                         clearTimeout(node.drawTimeout);
