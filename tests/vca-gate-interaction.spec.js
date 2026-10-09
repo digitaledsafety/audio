@@ -7,12 +7,12 @@ test.describe('VCA Gate Input Interaction', () => {
     if (await cta.isVisible()) {
       await cta.click();
     }
+    await page.waitForFunction(() => window.editor && window.editor.getNodes().length > 0);
     await page.waitForFunction(() => window.audioContext && window.audioContext.state === 'running');
   });
 
   test('should synchronize VCA gate state when connected, toggled, and disconnected', async ({ page }) => {
-    // Programmatically clear editor and create Gate and VCA nodes
-    const nodeState = await page.evaluate(async () => {
+    const results = await page.evaluate(async () => {
       if (typeof window.clearEditor === 'function') {
         await window.clearEditor();
       }
@@ -36,84 +36,49 @@ test.describe('VCA Gate Input Interaction', () => {
         await new Promise(r => setTimeout(r, 50));
       }
 
-      return {
-        gateId: gateNode.id,
-        vcaId: vcaNode.id,
-        initialVcaGateHigh: vcaAudio ? vcaAudio.gateHigh : null,
-        gateValue: gateAudio ? gateAudio.data.value : null
-      };
-    });
+      const initialVcaGateHigh = vcaAudio ? vcaAudio.gateHigh : null;
+      const gateValue = gateAudio ? gateAudio.data.value : null;
 
-    expect(nodeState.initialVcaGateHigh).toBe(true);
-    expect(nodeState.gateValue).toBe(false);
+      // Connect Manual Gate 'out' to VCA 'gate' input
+      await editor.addConnection(new window.Rete.ClassicPreset.Connection(gateNode, 'out', vcaNode, 'gate'));
+      const vcaGateHighAfterConnect = vcaAudio ? vcaAudio.gateHigh : null;
 
-    // Connect Manual Gate 'out' to VCA 'gate' input
-    const connectedState = await page.evaluate(async ({ gateId, vcaId }) => {
-      const editor = window.editor;
-
-      await editor.addConnection({
-        source: gateId,
-        sourceOutput: 'out',
-        target: vcaId,
-        targetInput: 'gate'
-      });
-
-      const vcaAudio = window.reteAudioNodes.get(vcaId);
-      return {
-        vcaGateHighAfterConnect: vcaAudio ? vcaAudio.gateHigh : null
-      };
-    }, { gateId: nodeState.gateId, vcaId: nodeState.vcaId });
-
-    // Since Gate node starts Low (false), connecting it should immediately mute VCA (gateHigh = false)
-    expect(connectedState.vcaGateHighAfterConnect).toBe(false);
-
-    // Toggle Manual Gate to High
-    const highState = await page.evaluate(async ({ gateId, vcaId }) => {
-      const gateAudio = window.reteAudioNodes.get(gateId);
+      // Toggle Manual Gate to High
       if (gateAudio && gateAudio.updateParameter) {
         gateAudio.updateParameter('value', true);
       }
+      const vcaGateHighWhenGateHigh = vcaAudio ? vcaAudio.gateHigh : null;
 
-      const vcaAudio = window.reteAudioNodes.get(vcaId);
-      return {
-        vcaGateHighWhenGateHigh: vcaAudio ? vcaAudio.gateHigh : null
-      };
-    }, { gateId: nodeState.gateId, vcaId: nodeState.vcaId });
-
-    expect(highState.vcaGateHighWhenGateHigh).toBe(true);
-
-    // Toggle Manual Gate back to Low
-    await page.evaluate(({ gateId }) => {
-      const gateAudio = window.reteAudioNodes.get(gateId);
+      // Toggle Manual Gate back to Low
       if (gateAudio && gateAudio.updateParameter) {
         gateAudio.updateParameter('value', false);
       }
-    }, { gateId: nodeState.gateId });
+      const vcaGateHighWhenGateLow = vcaAudio ? vcaAudio.gateHigh : null;
 
-    const lowState = await page.evaluate(({ vcaId }) => {
-      const vcaAudio = window.reteAudioNodes.get(vcaId);
-      return vcaAudio ? vcaAudio.gateHigh : null;
-    }, { vcaId: nodeState.vcaId });
-
-    expect(lowState).toBe(false);
-
-    // Disconnect Gate from VCA
-    const disconnectedState = await page.evaluate(async ({ gateId, vcaId }) => {
-      const editor = window.editor;
+      // Disconnect Gate from VCA
       const connections = editor.getConnections();
       for (const conn of connections) {
-        if (conn.source === gateId && conn.target === vcaId) {
+        if (conn.source === gateNode.id && conn.target === vcaNode.id) {
           await editor.removeConnection(conn.id);
         }
       }
+      const vcaGateHighAfterDisconnect = vcaAudio ? vcaAudio.gateHigh : null;
 
-      const vcaAudio = window.reteAudioNodes.get(vcaId);
       return {
-        vcaGateHighAfterDisconnect: vcaAudio ? vcaAudio.gateHigh : null
+        initialVcaGateHigh,
+        gateValue,
+        vcaGateHighAfterConnect,
+        vcaGateHighWhenGateHigh,
+        vcaGateHighWhenGateLow,
+        vcaGateHighAfterDisconnect
       };
-    }, { gateId: nodeState.gateId, vcaId: nodeState.vcaId });
+    });
 
-    // Disconnecting must restore VCA gate to default High (true)
-    expect(disconnectedState.vcaGateHighAfterDisconnect).toBe(true);
+    expect(results.initialVcaGateHigh).toBe(true);
+    expect(results.gateValue).toBe(false);
+    expect(results.vcaGateHighAfterConnect).toBe(false);
+    expect(results.vcaGateHighWhenGateHigh).toBe(true);
+    expect(results.vcaGateHighWhenGateLow).toBe(false);
+    expect(results.vcaGateHighAfterDisconnect).toBe(true);
   });
 });
