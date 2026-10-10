@@ -43,4 +43,52 @@ test.describe('Clock Synchronization', () => {
     const ppDelayNode = page.locator('[data-node-label="Ping Pong Delay"]');
     await expect(ppDelayNode).toBeVisible();
   });
+
+  test('should trigger step 0 on tick 0 for whole, half, and quarter note durations when synced to clock', async ({ page }) => {
+    // Add Master Clock and Sequencer programmatically
+    const result = await page.evaluate(async () => {
+      const ClockClass = window.NodeRegistry.getConstructor('Clock');
+      const SeqClass = window.NodeRegistry.getConstructor('Sequencer');
+      const clockNode = new ClockClass();
+      const seqNode = new SeqClass();
+
+      await window.editor.addNode(clockNode);
+      await window.editor.addNode(seqNode);
+
+      // Connect Clock Out -> Sequencer Clock In
+      const conn = new window.Rete.ClassicPreset.Connection(
+        clockNode, 'clock',
+        seqNode, 'clock'
+      );
+      await window.editor.addConnection(conn);
+
+      // Initialize audio nodes and connections
+      await window.startAudio();
+      await window.stopAudio();
+
+      const durations = ['1', '1/2', '1/4', '1/8', '1/16'];
+      const testResults = {};
+
+      for (const dur of durations) {
+        seqNode.data.noteDuration = dur;
+
+        await window.startAudio();
+
+        const seqAudio = window.reteAudioNodes.get(seqNode.id);
+
+        // Check if currentStep was advanced to step 1 (indicating step 0 fired on tick 0)
+        const stepAfterStart = seqAudio ? seqAudio.currentStep : null;
+        testResults[dur] = stepAfterStart;
+
+        await window.stopAudio();
+      }
+
+      return testResults;
+    });
+
+    // Step 0 should trigger immediately on start for every note duration, advancing currentStep to 1
+    for (const [dur, step] of Object.entries(result)) {
+      expect(step, `Expected currentStep to be 1 after startAudio for note duration ${dur}`).toBe(1);
+    }
+  });
 });
