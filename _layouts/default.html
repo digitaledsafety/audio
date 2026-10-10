@@ -1482,7 +1482,7 @@ workspace_data: ${base64Data}
             const releaseDuration = Math.max(0.001, adsrData.release || 0.1);
 
             gainParam.cancelScheduledValues(now);
-            gainParam.setTargetAtTime(0, now, 0.001); // Start from silence with a tiny fade to avoid clicks
+            gainParam.setValueAtTime(0, now); // Anchor initial gain at 0 to prevent click transients and enable linear ramp
 
             // Attack
             gainParam.linearRampToValueAtTime(maxGain, now + attackDuration);
@@ -1663,7 +1663,7 @@ workspace_data: ${base64Data}
         
             //showMessage('Audio context started! Nodes in the editor are now active.', 'success');
 
-            // Initialize/start audio nodes that are already in the editor
+            // 1. Ensure all audio nodes exist in reteAudioNodes and reset step counters
             for (const reteNode of editor.getNodes()) {
                 let audioNode = reteAudioNodes.get(reteNode.id);
 
@@ -1680,13 +1680,15 @@ workspace_data: ${base64Data}
                     }
                 }
 
-                // Start the audio node by calling its start method.
-                // The node itself will handle whether it needs to perform an action.
-                reteNode.start();
+                if (audioNode && typeof audioNode.reset === 'function') {
+                    audioNode.reset();
+                }
             }
+
+            // 2. Establish graph connections and listener bindings before starting clocks
             updateAudioGraphConnections();
 
-            // Determine target master gain (from Output node if present, else default 1.0)
+            // 3. Determine target master gain (from Output node if present, else default 1.0)
             let targetGain = 1.0;
             const outputReteNode = editor.getNodes().find(node =>
                 node instanceof MasterGainOutputNode || node.label === 'Output' || node.label === 'Master'
@@ -1699,6 +1701,18 @@ workspace_data: ${base64Data}
             const now = audioContext.currentTime;
             masterGain.gain.setValueAtTime(0, now);
             masterGain.gain.linearRampToValueAtTime(targetGain, now + 0.015);
+
+            // 4. Start non-clock nodes first, then start Master Clock nodes last to ensure tick 0 triggers step 0 after graph connections are active
+            const allNodes = editor.getNodes();
+            const clockNodes = allNodes.filter(node => node instanceof MasterClockNode);
+            const nonClockNodes = allNodes.filter(node => !(node instanceof MasterClockNode));
+
+            for (const reteNode of nonClockNodes) {
+                reteNode.start();
+            }
+            for (const reteNode of clockNodes) {
+                reteNode.start();
+            }
         }
 
         function stopAll() {
@@ -5990,6 +6004,11 @@ workspace_data: ${base64Data}
                 this.tickListeners = [];
             }
 
+            reset() {
+                this.currentStep = 0;
+                this.sequenceEvents = this.parseSequence();
+            }
+
             addTickListener(callback, outputKey) {
                 if (typeof callback === 'function' && !this.tickListeners.includes(callback)) {
                     this.tickListeners.push(callback);
@@ -6629,6 +6648,12 @@ workspace_data: ${base64Data}
                 this.tickListeners = [];
             }
 
+            reset() {
+                this.currentStep = 0;
+                this.tickCount = 0;
+                this.sequenceEvents = this.parseSequence();
+            }
+
             addTickListener(callback, outputKey) {
                 if (typeof callback === 'function' && !this.tickListeners.includes(callback)) {
                     this.tickListeners.push(callback);
@@ -6653,6 +6678,11 @@ workspace_data: ${base64Data}
                 if (index > -1) {
                     this.midiListeners.splice(index, 1);
                 }
+            }
+
+            reset() {
+                this.currentNoteIndex = 0;
+                this.tickCount = 0;
             }
 
             onTick(tickTime, tickDuration, tickIndex) {
@@ -6814,8 +6844,12 @@ workspace_data: ${base64Data}
             // Method to update parameters dynamically (called from Rete.js control changes)
             updateParameter(param, value) {
                 this.data[param] = value;
-                if (this.started) {
-                    // Restart sequencer to apply new tempo/notes
+                if (param === 'sequence') {
+                    this.sequenceEvents = this.parseSequence();
+                }
+                const hasClockConnection = editor && editor.getConnections().some(conn => conn.target === this.reteNodeId && conn.targetInput === 'clock');
+                if (this.started && !hasClockConnection) {
+                    // Restart sequencer to apply new tempo/notes if running standalone
                     this.stop();
                     this.start();
                 }
@@ -7213,6 +7247,10 @@ workspace_data: ${base64Data}
                 this.tickListeners = [];
                 this.timeoutId = null;
                 this.nextStepTime = 0;
+                this.beatCount = 0;
+            }
+
+            reset() {
                 this.beatCount = 0;
             }
 

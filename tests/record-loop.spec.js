@@ -58,6 +58,10 @@ test.describe('Record Loop Integration', () => {
     await expect(recordLoopBtn).toContainText('Waiting for Loop...');
     await expect(recordLoopBtn).toHaveClass(/bg-yellow-500/);
 
+    // Re-open settings dropdown to access record loop button again
+    await page.locator('#settingsToggle').click();
+    await expect(recordLoopBtn).toBeVisible();
+
     // Click again to cancel/stop
     await recordLoopBtn.click();
     await expect(recordLoopBtn).toContainText('Record Loop');
