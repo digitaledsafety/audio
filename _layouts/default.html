@@ -1,6 +1,3 @@
----
-layout: none
----
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -329,7 +326,6 @@ layout: none
         <div id="messageBox" class="message-box hidden"></div>
         
         <div id="workspace-view" class="flex-grow h-full active">
-            {{ content }}
             <div id="rete-container" class="relative h-full"></div>
         </div>
         
@@ -475,6 +471,18 @@ layout: none
                                     <!-- User list will be populated here -->
                                 </ul>
                             </div>
+                            <!-- Live Chat Panel -->
+                            <div class="mt-2 border-t pt-2">
+                                <h5 class="text-sm font-semibold text-center mb-1">Session Chat</h5>
+                                <div id="chatMessages" class="text-xs h-24 overflow-y-auto bg-gray-100 rounded p-1.5 flex flex-col gap-1 text-gray-700">
+                                    <div class="text-gray-400 italic text-[10px] text-center">Chat messages will appear here</div>
+                                </div>
+                                <div class="flex gap-1 mt-1.5">
+                                    <input type="text" id="chatInput" placeholder="Type message..." class="flex-grow p-1.5 text-xs border rounded bg-white">
+                                    <button id="sendChatBtn" class="button button-primary text-xs px-2.5 py-1">Send</button>
+                                </div>
+                            </div>
+                            <a href="{{ "/watch.html" | relative_url }}" target="_blank" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold text-center block mt-1">🌐 Live Session Directory ↗️</a>
                         </div>
                         <!-- Performance Controls -->
                         <div class="flex flex-col gap-2 p-3 bg-gray-50 rounded-lg border">
@@ -533,6 +541,7 @@ layout: none
     <script type="text/javascript" src="https://cdn.digitaleducationsafety.org/packages/rete-engine@2.1.1/rete-engine.min.js"></script>
     <script type="text/javascript" src="https://cdn.digitaleducationsafety.org/packages/peerjs@1.5.5/peerjs.min.js"></script>
     <script src="{{ "assets/js/mini-notation-parser.js" | relative_url }}"></script>
+    <script src="{{ "assets/js/multiplayer-session.js" | relative_url }}"></script>
 
     <script>
         // Capture global Rete.js objects into local constants after all CDN scripts have loaded
@@ -8523,7 +8532,9 @@ workspace_data: ${base64Data}
                 this.isHost = true;
                 this.hostId = this.getPeerId(); // The host's ID is their own peer ID
                 console.log('Started hosting with ID:', this.hostId);
-                this.emit('host-started', this.hostId);
+                if (this.hostId) {
+                    this.emit('host-started', this.hostId);
+                }
             }
 
             connectTo(hostId) {
@@ -8598,6 +8609,10 @@ workspace_data: ${base64Data}
                 console.log('My peer ID is: ' + id);
                 this._peerIdReady = true;
                 this.emit('peer-id-ready', id);
+
+                if (this.isHost && id) {
+                    this.emit('host-started', id);
+                }
 
                 if (this._pendingConnection) {
                     this.connectTo(this._pendingConnection);
@@ -9343,10 +9358,91 @@ workspace_data: ${base64Data}
 
             // --- Multiplayer Logic ---
             multiplayer = new Multiplayer();
-            multiplayer.initialize();            
+            multiplayer.initialize();
+
+            // Session Lobby Discovery & Chat Integration
+            let sessionLobby = null;
+            let sessionChat = null;
+
+            if (window.SessionLobby) {
+                sessionLobby = new window.SessionLobby();
+            }
+            if (window.SessionChat) {
+                sessionChat = new window.SessionChat(multiplayer);
+                window.sessionChat = sessionChat;
+                sessionChat.on('message', (msgPayload) => {
+                    renderChatMessage(msgPayload);
+                });
+            }
+
+            function renderChatMessage(msg) {
+                const chatBox = document.getElementById('chatMessages');
+                if (!chatBox) return;
+
+                // Remove placeholder text on first message
+                const placeholder = chatBox.querySelector('.italic');
+                if (placeholder) placeholder.remove();
+
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'p-1 rounded bg-white shadow-xs border border-gray-100 flex flex-col';
+
+                if (msg.isSystem) {
+                    msgDiv.className = 'p-1 rounded bg-blue-50 text-blue-700 italic text-[10px] text-center';
+                    msgDiv.textContent = msg.text;
+                } else {
+                    const header = document.createElement('div');
+                    header.className = 'font-bold text-[10px] text-indigo-600 flex justify-between';
+                    const senderSpan = document.createElement('span');
+                    senderSpan.textContent = msg.senderName || (msg.senderId ? msg.senderId.substring(0, 6) : 'User');
+                    const timeSpan = document.createElement('span');
+                    timeSpan.className = 'text-gray-400 font-normal';
+                    timeSpan.textContent = new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                    header.appendChild(senderSpan);
+                    header.appendChild(timeSpan);
+
+                    const textDiv = document.createElement('div');
+                    textDiv.className = 'text-gray-800 break-words mt-0.5';
+                    textDiv.textContent = msg.text;
+
+                    msgDiv.appendChild(header);
+                    msgDiv.appendChild(textDiv);
+                }
+
+                chatBox.appendChild(msgDiv);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
 
             multiplayer.on('peer-id-ready', (id) => {
                 document.getElementById('peerIdDisplay').textContent = id;
+            });
+
+            multiplayer.on('host-started', (hostId) => {
+                if (sessionLobby) {
+                    sessionLobby.startBroadcastingSession({
+                        id: hostId,
+                        title: `Studio Jam ${hostId.substring(0, 6)}`,
+                        peerCount: multiplayer.getConnectedPeers().length + 1,
+                        startTime: Date.now()
+                    });
+                }
+            });
+
+            multiplayer.on('connections-updated', (conns) => {
+                if (multiplayer.isHost && sessionLobby) {
+                    sessionLobby.startBroadcastingSession({
+                        id: multiplayer.getPeerId(),
+                        title: `Studio Jam ${multiplayer.getPeerId().substring(0, 6)}`,
+                        peerCount: conns.length + 1,
+                        startTime: Date.now()
+                    });
+                }
+            });
+
+            multiplayer.on('disconnected', () => {
+                if (sessionLobby && multiplayer.getPeerId()) {
+                    sessionLobby.stopBroadcastingSession(multiplayer.getPeerId());
+                }
             });
             
             multiplayer.on('data-received', async (msg) => {
@@ -10010,6 +10106,14 @@ workspace_data: ${base64Data}
                     showMessage('Session created! Share the link with others.', 'success');
                     document.getElementById('createSessionBtn').classList.add('hidden');
                     document.getElementById('disconnectBtn').classList.remove('hidden');
+                    if (sessionLobby) {
+                        sessionLobby.startBroadcastingSession({
+                            id: peerId,
+                            title: `Studio Jam ${peerId.substring(0, 6)}`,
+                            peerCount: multiplayer.getConnectedPeers().length + 1,
+                            startTime: Date.now()
+                        });
+                    }
                 } else {
                     showMessage('Peer connection not yet established. Please wait a moment.', 'error');
                 }
@@ -10032,6 +10136,30 @@ workspace_data: ${base64Data}
                     showMessage('Link copied to clipboard!', 'success');
                 }
             });
+
+            // Chat send event handlers
+            const chatInput = document.getElementById('chatInput');
+            const sendChatBtn = document.getElementById('sendChatBtn');
+
+            function handleSendChat() {
+                if (!chatInput || !chatInput.value.trim()) return;
+                if (sessionChat) {
+                    sessionChat.sendMessage(chatInput.value.trim());
+                    chatInput.value = '';
+                }
+            }
+
+            if (sendChatBtn) {
+                sendChatBtn.addEventListener('click', handleSendChat);
+            }
+            if (chatInput) {
+                chatInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSendChat();
+                    }
+                });
+            }
 
             playStopBtn.addEventListener('click', async () => {
                 if (audioState === 'stopped') {
@@ -10198,10 +10326,21 @@ workspace_data: ${base64Data}
                 
                 const urlParams = new URLSearchParams(window.location.search);
                 const sessionId = urlParams.get('session');
+                const hostParam = urlParams.get('host');
 
                 let workspaceData = {};
                 
-                if (sessionId) {
+                if (hostParam === 'true') {
+                    multiplayer.startHosting();
+                    const hostPeerId = multiplayer.getPeerId();
+                    if (hostPeerId) {
+                        const sessionUrl = `${window.location.origin}${window.location.pathname}?session=${hostPeerId}`;
+                        document.getElementById('shareLinkInput').value = sessionUrl;
+                        document.getElementById('createSessionBtn').classList.add('hidden');
+                        document.getElementById('disconnectBtn').classList.remove('hidden');
+                    }
+                    workspaceData = RandomWorkspaceGenerator.generate();
+                } else if (sessionId) {
                     multiplayer.connectTo(sessionId);
                 } else {
                 
