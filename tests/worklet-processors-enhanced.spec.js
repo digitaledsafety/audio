@@ -57,6 +57,63 @@ test.describe('Worklet Processors & Service Worker Enhancements', () => {
     expect(Number(jitterVal)).toBe(1);
   });
 
+  test('should add and configure Quantizer node with root note and scale type controls', async ({ page }) => {
+    await page.locator('#addNodeToggle').click();
+    await page.locator('#addQuantizerNodeBtn').click();
+
+    const quantizerNode = page.locator('[data-node-label="Quantizer"]').first();
+    await expect(quantizerNode).toBeVisible();
+
+    const selects = quantizerNode.locator('select');
+    await expect(selects).toHaveCount(2);
+
+    const rootSelect = selects.nth(0);
+    await rootSelect.selectOption('G4');
+    await rootSelect.dispatchEvent('change');
+
+    const scaleSelect = selects.nth(1);
+    await scaleSelect.selectOption('Pentatonic Minor');
+    await scaleSelect.dispatchEvent('change');
+
+    const nodeData = await page.evaluate(() => {
+      const editor = window.editor;
+      const nodes = editor.getNodes();
+      const node = nodes.find(n => n.label === 'Quantizer');
+      return node ? { rootNote: node.data.rootNote, scaleType: node.data.scaleType } : null;
+    });
+
+    expect(nodeData.rootNote).toBe('G4');
+    expect(nodeData.scaleType).toBe('Pentatonic Minor');
+  });
+
+  test('should add and configure Vocoder node controls and verify parameter synchronization', async ({ page }) => {
+    await page.locator('#addNodeToggle').click();
+    await page.locator('#addVocoderNodeBtn').click();
+
+    const vocoderNode = page.locator('[data-node-label="Vocoder"]').first();
+    await expect(vocoderNode).toBeVisible();
+
+    const waveSelect = vocoderNode.locator('select').first();
+    await waveSelect.selectOption('square');
+    await waveSelect.dispatchEvent('change');
+
+    const sliders = vocoderNode.locator('input[type="range"]');
+    const bandsSlider = sliders.nth(1); // numBands slider
+    await bandsSlider.fill('24');
+    await bandsSlider.dispatchEvent('input');
+    await bandsSlider.dispatchEvent('change');
+
+    const vocoderData = await page.evaluate(() => {
+      const editor = window.editor;
+      const nodes = editor.getNodes();
+      const node = nodes.find(n => n.label === 'Vocoder');
+      return node ? { waveform: node.data.waveform, numBands: node.data.numBands } : null;
+    });
+
+    expect(vocoderData.waveform).toBe('square');
+    expect(Number(vocoderData.numBands)).toBe(24);
+  });
+
   test('Service Worker fetch event handler includes non-GET and scheme guards and complete cache manifest', async ({ page }) => {
     const swContent = await page.evaluate(async () => {
       const response = await fetch('/sw.js');

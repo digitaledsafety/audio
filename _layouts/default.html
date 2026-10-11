@@ -8241,6 +8241,7 @@ workspace_data: ${base64Data}
             }
 
             build() {
+                if (reteAudioNodes.has(this.id)) return reteAudioNodes.get(this.id);
                 const audioNode = new AudioWorkletNode(audioContext, 'bitcrusher-processor');
                 audioNode.parameters.get('bits').setValueAtTime(
                     this.data.bits !== undefined ? this.data.bits : 8,
@@ -8308,6 +8309,7 @@ workspace_data: ${base64Data}
             }
 
             build() {
+                if (reteAudioNodes.has(this.id)) return reteAudioNodes.get(this.id);
                 return new Vocoder(audioContext, this.id, this.data);
             }
 
@@ -8404,6 +8406,7 @@ workspace_data: ${base64Data}
             }
 
             build() {
+                if (reteAudioNodes.has(this.id)) return reteAudioNodes.get(this.id);
                 return new Quantizer(audioContext, this.id, this.data);
             }
         }
@@ -8448,6 +8451,7 @@ workspace_data: ${base64Data}
             }
 
             build() {
+                if (reteAudioNodes.has(this.id)) return reteAudioNodes.get(this.id);
                 return new GranularSynthesizer(audioContext, this.id, this.data);
             }
         }
