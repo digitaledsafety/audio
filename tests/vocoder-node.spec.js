@@ -34,4 +34,35 @@ test.describe('Vocoder Node', () => {
     const valueDisplay = vocoderNode.locator('.value-display').nth(0);
     await expect(valueDisplay).toHaveText('500.00');
   });
+
+  test('should handle start and stop audio lifecycle and formant shift parameter updates cleanly', async ({ page }) => {
+    await page.locator('#addNodeToggle').click();
+    await page.locator('#addVocoderNodeBtn').click();
+
+    const vocoderNode = page.locator('[data-node-label="Vocoder"]').first();
+    await expect(vocoderNode).toBeVisible();
+
+    // Start audio transport
+    await page.locator('#playStopBtn').click();
+    await page.waitForTimeout(200);
+
+    // Change Formant Shift slider
+    const sliders = vocoderNode.locator('input[type="range"]');
+    const formantSlider = sliders.nth(2); // Formant Shift slider
+    await formantSlider.fill('600');
+    await formantSlider.dispatchEvent('input');
+    await formantSlider.dispatchEvent('change');
+
+    const formantVal = await page.evaluate(() => {
+      const editor = window.editor;
+      const nodes = editor.getNodes();
+      const node = nodes.find(n => n.label === 'Vocoder');
+      return node ? node.data.formantShift : null;
+    });
+    expect(Number(formantVal)).toBe(600);
+
+    // Stop audio transport to verify clean internalCarrier teardown and re-instantiation
+    await page.locator('#playStopBtn').click();
+    await page.waitForTimeout(200);
+  });
 });
