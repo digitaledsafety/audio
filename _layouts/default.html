@@ -1,6 +1,3 @@
----
-layout: none
----
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -329,7 +326,6 @@ layout: none
         <div id="messageBox" class="message-box hidden"></div>
         
         <div id="workspace-view" class="flex-grow h-full active">
-            {{ content }}
             <div id="rete-container" class="relative h-full"></div>
         </div>
         
@@ -475,6 +471,18 @@ layout: none
                                     <!-- User list will be populated here -->
                                 </ul>
                             </div>
+                            <!-- Live Chat Panel -->
+                            <div class="mt-2 border-t pt-2">
+                                <h5 class="text-sm font-semibold text-center mb-1">Session Chat</h5>
+                                <div id="chatMessages" class="text-xs h-24 overflow-y-auto bg-gray-100 rounded p-1.5 flex flex-col gap-1 text-gray-700">
+                                    <div class="text-gray-400 italic text-[10px] text-center">Chat messages will appear here</div>
+                                </div>
+                                <div class="flex gap-1 mt-1.5">
+                                    <input type="text" id="chatInput" placeholder="Type message..." class="flex-grow p-1.5 text-xs border rounded bg-white">
+                                    <button id="sendChatBtn" class="button button-primary text-xs px-2.5 py-1">Send</button>
+                                </div>
+                            </div>
+                            <a href="{{ "/watch.html" | relative_url }}" target="_blank" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold text-center block mt-1">🌐 Live Session Directory ↗️</a>
                         </div>
                         <!-- Performance Controls -->
                         <div class="flex flex-col gap-2 p-3 bg-gray-50 rounded-lg border">
@@ -533,6 +541,7 @@ layout: none
     <script type="text/javascript" src="https://cdn.digitaleducationsafety.org/packages/rete-engine@2.1.1/rete-engine.min.js"></script>
     <script type="text/javascript" src="https://cdn.digitaleducationsafety.org/packages/peerjs@1.5.5/peerjs.min.js"></script>
     <script src="{{ "assets/js/mini-notation-parser.js" | relative_url }}"></script>
+    <script src="{{ "assets/js/multiplayer-session.js" | relative_url }}"></script>
 
     <script>
         // Capture global Rete.js objects into local constants after all CDN scripts have loaded
@@ -1482,7 +1491,7 @@ workspace_data: ${base64Data}
             const releaseDuration = Math.max(0.001, adsrData.release || 0.1);
 
             gainParam.cancelScheduledValues(now);
-            gainParam.setTargetAtTime(0, now, 0.001); // Start from silence with a tiny fade to avoid clicks
+            gainParam.setValueAtTime(0, now); // Anchor initial gain at 0 to prevent click transients and enable linear ramp
 
             // Attack
             gainParam.linearRampToValueAtTime(maxGain, now + attackDuration);
@@ -1663,7 +1672,7 @@ workspace_data: ${base64Data}
         
             //showMessage('Audio context started! Nodes in the editor are now active.', 'success');
 
-            // Initialize/start audio nodes that are already in the editor
+            // 1. Ensure all audio nodes exist in reteAudioNodes and reset step counters
             for (const reteNode of editor.getNodes()) {
                 let audioNode = reteAudioNodes.get(reteNode.id);
 
@@ -1680,13 +1689,15 @@ workspace_data: ${base64Data}
                     }
                 }
 
-                // Start the audio node by calling its start method.
-                // The node itself will handle whether it needs to perform an action.
-                reteNode.start();
+                if (audioNode && typeof audioNode.reset === 'function') {
+                    audioNode.reset();
+                }
             }
+
+            // 2. Establish graph connections and listener bindings before starting clocks
             updateAudioGraphConnections();
 
-            // Determine target master gain (from Output node if present, else default 1.0)
+            // 3. Determine target master gain (from Output node if present, else default 1.0)
             let targetGain = 1.0;
             const outputReteNode = editor.getNodes().find(node =>
                 node instanceof MasterGainOutputNode || node.label === 'Output' || node.label === 'Master'
@@ -1699,6 +1710,18 @@ workspace_data: ${base64Data}
             const now = audioContext.currentTime;
             masterGain.gain.setValueAtTime(0, now);
             masterGain.gain.linearRampToValueAtTime(targetGain, now + 0.015);
+
+            // 4. Start non-clock nodes first, then start Master Clock nodes last to ensure tick 0 triggers step 0 after graph connections are active
+            const allNodes = editor.getNodes();
+            const clockNodes = allNodes.filter(node => node instanceof MasterClockNode);
+            const nonClockNodes = allNodes.filter(node => !(node instanceof MasterClockNode));
+
+            for (const reteNode of nonClockNodes) {
+                reteNode.start();
+            }
+            for (const reteNode of clockNodes) {
+                reteNode.start();
+            }
         }
 
         function stopAll() {
@@ -2700,6 +2723,10 @@ workspace_data: ${base64Data}
 
                 this.mainOutput = this.audioContext.createGain();
 
+                // Scale incoming pitch CV (1V/Oct) to 1200 cents/Volt on oscillator detune
+                this.transposeControl = this.audioContext.createGain();
+                this.transposeControl.gain.value = 1200;
+
                 // Frequency proxy to keep CV connections alive during oscillator recreation
                 this.frequencyProxy = this.audioContext.createConstantSource();
                 const baseFreq = this.data.frequency !== undefined ? this.data.frequency : 440;
@@ -2717,6 +2744,7 @@ workspace_data: ${base64Data}
                 this.oscillator.type = this.data.waveform || 'sine';
                 this.oscillator.frequency.value = 0; // Use proxy for frequency
                 this.frequencyProxy.connect(this.oscillator.frequency);
+                this.transposeControl.connect(this.oscillator.detune);
                 this.oscillator.connect(this.mainOutput);
             }
 
@@ -4230,6 +4258,9 @@ workspace_data: ${base64Data}
                 this.outAOutput.start();
                 this.outBOutput = this.audioContext.createConstantSource();
                 this.outBOutput.start();
+
+                this.probabilityControl = this.audioContext.createGain();
+                this.probabilityControl.gain.value = 0;
             }
 
             addTickListener(callback, outputKey) {
@@ -4268,27 +4299,46 @@ workspace_data: ${base64Data}
                 }
             }
 
+            getEffectiveProbability() {
+                let cvProbability = 0;
+                if (this.probabilityControl) {
+                    if (!this.probAnalyser) {
+                        this.probAnalyser = this.audioContext.createAnalyser();
+                        this.probAnalyser.fftSize = 32;
+                        this.probCVSource = this.audioContext.createConstantSource();
+                        this.probCVSource.offset.value = 1.0;
+                        this.probCVSource.start();
+                        this.probCVSource.connect(this.probabilityControl);
+                        this.probabilityControl.connect(this.probAnalyser);
+                    }
+                    this.probAnalyser.getFloatTimeDomainData(sharedSingleSampleBuffer);
+                    cvProbability = sharedSingleSampleBuffer[0];
+                }
+                const manualProb = this.data.probability !== undefined ? this.data.probability : 0.5;
+                return Math.max(0, Math.min(1, manualProb + cvProbability));
+            }
+
             onTick(tickTime, tickDuration) {
-                const probability = this.data.probability !== undefined ? this.data.probability : 0.5;
-                if (Math.random() < probability) {
-                    this.tickListenersB.forEach(l => l(tickTime, tickDuration));
-                    firePulse(this.outBOutput, tickTime);
-                } else {
+                const probability = this.getEffectiveProbability();
+                if (Math.random() <= probability) {
                     this.tickListenersA.forEach(l => l(tickTime, tickDuration));
                     firePulse(this.outAOutput, tickTime);
+                } else {
+                    this.tickListenersB.forEach(l => l(tickTime, tickDuration));
+                    firePulse(this.outBOutput, tickTime);
                 }
             }
 
             handleGate(isGateHigh) {
-                const probability = this.data.probability !== undefined ? this.data.probability : 0.5;
-                if (Math.random() < probability) {
-                    this.gateListenersB.forEach(l => l(isGateHigh));
-                    setGate(this.outBOutput, isGateHigh, this.audioContext.currentTime);
-                    setGate(this.outAOutput, false, this.audioContext.currentTime);
-                } else {
+                const probability = this.getEffectiveProbability();
+                if (Math.random() <= probability) {
                     this.gateListenersA.forEach(l => l(isGateHigh));
                     setGate(this.outAOutput, isGateHigh, this.audioContext.currentTime);
                     setGate(this.outBOutput, false, this.audioContext.currentTime);
+                } else {
+                    this.gateListenersB.forEach(l => l(isGateHigh));
+                    setGate(this.outBOutput, isGateHigh, this.audioContext.currentTime);
+                    setGate(this.outAOutput, false, this.audioContext.currentTime);
                 }
             }
 
@@ -4303,11 +4353,12 @@ workspace_data: ${base64Data}
             constructor() {
                 super('Bernoulli Gate');
                 this.addInput('clock', new Classic.Input(voltageSocket, 'Clock/Gate'));
+                this.addInput('probability_cv', new Classic.Input(voltageSocket, 'Prob CV', true));
                 this.addOutput('outA', new Classic.Output(voltageSocket, 'Out A'));
                 this.addOutput('outB', new Classic.Output(voltageSocket, 'Out B'));
 
                 this.data.probability = 0.5;
-                this.addControl('probability', new SliderControl('probSlider', 'Probability (B)', 0, 1, 0.01, this.data.probability, (val) => {
+                this.addControl('probability', new SliderControl('probSlider', 'Probability', 0, 1, 0.01, this.data.probability, (val) => {
                     this.data.probability = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('probability', val);
@@ -4623,7 +4674,7 @@ workspace_data: ${base64Data}
                 this.audioContext = audioContext;
                 this.reteNodeId = reteNodeId;
                 this.data = data;
-                this.register = 0b1010101010101010; // 16-bit register
+                this.register = 0b1010101010101010; // 16-bit initial register
                 this.tickListeners = [];
 
                 // CV Output
@@ -4640,7 +4691,7 @@ workspace_data: ${base64Data}
             }
 
             addTickListener(callback, outputKey) {
-                if (outputKey === 'trigger') {
+                if (!outputKey || outputKey === 'trigger') {
                     if (!this.tickListeners.includes(callback)) this.tickListeners.push(callback);
                 }
             }
@@ -4651,20 +4702,11 @@ workspace_data: ${base64Data}
             }
 
             onTick(tickTime, tickDuration) {
-                // Get CV value from probabilityControl (normalized to roughly -1 to 1)
-                // We use an analyser to read the current value of the Gain node's gain AudioParam if needed,
-                // but for simple CV we can just use the value directly if we were polling.
-                // However, the best way for Turing Machine (which is event-based) is to read from the probabilityControl if it's connected.
-
                 let cvProbability = 0;
                 if (this.probabilityControl) {
-                    // For event-based nodes, we might need a way to sample the CV at the moment of the tick.
-                    // A simple way is to use a hidden AnalyserNode.
                     if (!this.probAnalyser) {
                         this.probAnalyser = this.audioContext.createAnalyser();
                         this.probAnalyser.fftSize = 32;
-                        // We need a source to connect to the analyser.
-                        // A ConstantSourceNode(1.0) connected to the probabilityControl GainNode.
                         this.probCVSource = this.audioContext.createConstantSource();
                         this.probCVSource.offset.value = 1.0;
                         this.probCVSource.start();
@@ -4677,7 +4719,7 @@ workspace_data: ${base64Data}
 
                 const manualProb = this.data.probability !== undefined ? this.data.probability : 0.0;
                 const probability = Math.max(0, Math.min(1, manualProb + cvProbability));
-                const steps = this.data.steps !== undefined ? this.data.steps : 16;
+                const steps = Math.max(2, Math.min(32, this.data.steps !== undefined ? this.data.steps : 16));
 
                 // Shift register logic
                 let lastBit = this.register & 1;
@@ -4686,8 +4728,8 @@ workspace_data: ${base64Data}
                     lastBit = 1 - lastBit;
                 }
 
-                this.register = (this.register >> 1) | (lastBit << (steps - 1));
-                this.register &= (1 << steps) - 1;
+                const mask = steps === 32 ? 0xFFFFFFFF : (1 << steps) - 1;
+                this.register = (((this.register >>> 1) | (lastBit << (steps - 1))) >>> 0) & mask;
 
                 // CV Output (normalized 0-1)
                 const cvValue = (this.register & 0xFF) / 255.0;
@@ -4723,7 +4765,7 @@ workspace_data: ${base64Data}
                 }));
 
                 this.data.steps = 16;
-                this.addControl('steps', new SliderControl('stepsSlider', 'Steps', 2, 16, 1, this.data.steps, (val) => {
+                this.addControl('steps', new SliderControl('stepsSlider', 'Steps', 2, 32, 1, this.data.steps, (val) => {
                     this.data.steps = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('steps', val);
@@ -4787,18 +4829,29 @@ workspace_data: ${base64Data}
             }
 
             onTick(tickTime, tickDuration) {
-                const smoothness = this.data.smoothness !== undefined ? this.data.smoothness : 0.0;
-                const newValue = Math.random() * 2 - 1; // Range -1 to 1
+                const min = this.data.min !== undefined ? Number(this.data.min) : -1.0;
+                const max = this.data.max !== undefined ? Number(this.data.max) : 1.0;
+                const smoothness = this.data.smoothness !== undefined ? Number(this.data.smoothness) : 0.0;
 
-                // If smoothness is 0, transition is nearly instant (stepped)
-                // If smoothness is 1, transition takes the whole tick duration
-                const timeConstant = Math.max(0.001, tickDuration * smoothness);
-                this.cvSource.offset.setTargetAtTime(newValue, tickTime, timeConstant);
+                const minVal = Math.min(min, max);
+                const maxVal = Math.max(min, max);
+                const newValue = minVal + Math.random() * (maxVal - minVal);
+
+                this.lastValue = newValue;
+                if (smoothness <= 0) {
+                    this.cvSource.offset.cancelScheduledValues(tickTime);
+                    this.cvSource.offset.setValueAtTime(newValue, tickTime);
+                } else {
+                    const timeConstant = Math.max(0.001, tickDuration * smoothness);
+                    this.cvSource.offset.setTargetAtTime(newValue, tickTime, timeConstant);
+                }
             }
 
             start() {}
             stop() {}
-            updateParameter() {}
+            updateParameter(paramName, value) {
+                this.data[paramName] = value;
+            }
         }
 
         class RandomVoltageNode extends ModulatorNode {
@@ -4807,9 +4860,25 @@ workspace_data: ${base64Data}
                 this.addInput('clock', new Classic.Input(voltageSocket, 'Clock'));
                 this.addOutput('out', new Classic.Output(voltageSocket, 'CV Out'));
 
+                this.data.min = -1.0;
+                this.addControl('min', new SliderControl('minSlider', 'Range Min', -5, 5, 0.1, this.data.min, (val) => {
+                    this.data.min = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) audioNode.updateParameter('min', val);
+                }));
+
+                this.data.max = 1.0;
+                this.addControl('max', new SliderControl('maxSlider', 'Range Max', -5, 5, 0.1, this.data.max, (val) => {
+                    this.data.max = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) audioNode.updateParameter('max', val);
+                }));
+
                 this.data.smoothness = 0.0;
-                this.addControl('smoothness', new SliderControl('smoothSlider', 'Smoothness', 0, 1, 0.01, this.data.smoothness, (val) => {
+                this.addControl('smoothness', new SliderControl('smoothSlider', 'Slew / Smoothness', 0, 1, 0.01, this.data.smoothness, (val) => {
                     this.data.smoothness = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) audioNode.updateParameter('smoothness', val);
                 }));
             }
 
@@ -5990,6 +6059,11 @@ workspace_data: ${base64Data}
                 this.tickListeners = [];
             }
 
+            reset() {
+                this.currentStep = 0;
+                this.sequenceEvents = this.parseSequence();
+            }
+
             addTickListener(callback, outputKey) {
                 if (typeof callback === 'function' && !this.tickListeners.includes(callback)) {
                     this.tickListeners.push(callback);
@@ -6629,6 +6703,12 @@ workspace_data: ${base64Data}
                 this.tickListeners = [];
             }
 
+            reset() {
+                this.currentStep = 0;
+                this.tickCount = 0;
+                this.sequenceEvents = this.parseSequence();
+            }
+
             addTickListener(callback, outputKey) {
                 if (typeof callback === 'function' && !this.tickListeners.includes(callback)) {
                     this.tickListeners.push(callback);
@@ -6653,6 +6733,11 @@ workspace_data: ${base64Data}
                 if (index > -1) {
                     this.midiListeners.splice(index, 1);
                 }
+            }
+
+            reset() {
+                this.currentNoteIndex = 0;
+                this.tickCount = 0;
             }
 
             onTick(tickTime, tickDuration, tickIndex) {
@@ -6814,8 +6899,12 @@ workspace_data: ${base64Data}
             // Method to update parameters dynamically (called from Rete.js control changes)
             updateParameter(param, value) {
                 this.data[param] = value;
-                if (this.started) {
-                    // Restart sequencer to apply new tempo/notes
+                if (param === 'sequence') {
+                    this.sequenceEvents = this.parseSequence();
+                }
+                const hasClockConnection = editor && editor.getConnections().some(conn => conn.target === this.reteNodeId && conn.targetInput === 'clock');
+                if (this.started && !hasClockConnection) {
+                    // Restart sequencer to apply new tempo/notes if running standalone
                     this.stop();
                     this.start();
                 }
@@ -7213,6 +7302,10 @@ workspace_data: ${base64Data}
                 this.tickListeners = [];
                 this.timeoutId = null;
                 this.nextStepTime = 0;
+                this.beatCount = 0;
+            }
+
+            reset() {
                 this.beatCount = 0;
             }
 
@@ -8527,7 +8620,9 @@ workspace_data: ${base64Data}
                 this.isHost = true;
                 this.hostId = this.getPeerId(); // The host's ID is their own peer ID
                 console.log('Started hosting with ID:', this.hostId);
-                this.emit('host-started', this.hostId);
+                if (this.hostId) {
+                    this.emit('host-started', this.hostId);
+                }
             }
 
             connectTo(hostId) {
@@ -8602,6 +8697,10 @@ workspace_data: ${base64Data}
                 console.log('My peer ID is: ' + id);
                 this._peerIdReady = true;
                 this.emit('peer-id-ready', id);
+
+                if (this.isHost && id) {
+                    this.emit('host-started', id);
+                }
 
                 if (this._pendingConnection) {
                     this.connectTo(this._pendingConnection);
@@ -9347,10 +9446,91 @@ workspace_data: ${base64Data}
 
             // --- Multiplayer Logic ---
             multiplayer = new Multiplayer();
-            multiplayer.initialize();            
+            multiplayer.initialize();
+
+            // Session Lobby Discovery & Chat Integration
+            let sessionLobby = null;
+            let sessionChat = null;
+
+            if (window.SessionLobby) {
+                sessionLobby = new window.SessionLobby();
+            }
+            if (window.SessionChat) {
+                sessionChat = new window.SessionChat(multiplayer);
+                window.sessionChat = sessionChat;
+                sessionChat.on('message', (msgPayload) => {
+                    renderChatMessage(msgPayload);
+                });
+            }
+
+            function renderChatMessage(msg) {
+                const chatBox = document.getElementById('chatMessages');
+                if (!chatBox) return;
+
+                // Remove placeholder text on first message
+                const placeholder = chatBox.querySelector('.italic');
+                if (placeholder) placeholder.remove();
+
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'p-1 rounded bg-white shadow-xs border border-gray-100 flex flex-col';
+
+                if (msg.isSystem) {
+                    msgDiv.className = 'p-1 rounded bg-blue-50 text-blue-700 italic text-[10px] text-center';
+                    msgDiv.textContent = msg.text;
+                } else {
+                    const header = document.createElement('div');
+                    header.className = 'font-bold text-[10px] text-indigo-600 flex justify-between';
+                    const senderSpan = document.createElement('span');
+                    senderSpan.textContent = msg.senderName || (msg.senderId ? msg.senderId.substring(0, 6) : 'User');
+                    const timeSpan = document.createElement('span');
+                    timeSpan.className = 'text-gray-400 font-normal';
+                    timeSpan.textContent = new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                    header.appendChild(senderSpan);
+                    header.appendChild(timeSpan);
+
+                    const textDiv = document.createElement('div');
+                    textDiv.className = 'text-gray-800 break-words mt-0.5';
+                    textDiv.textContent = msg.text;
+
+                    msgDiv.appendChild(header);
+                    msgDiv.appendChild(textDiv);
+                }
+
+                chatBox.appendChild(msgDiv);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
 
             multiplayer.on('peer-id-ready', (id) => {
                 document.getElementById('peerIdDisplay').textContent = id;
+            });
+
+            multiplayer.on('host-started', (hostId) => {
+                if (sessionLobby) {
+                    sessionLobby.startBroadcastingSession({
+                        id: hostId,
+                        title: `Studio Jam ${hostId.substring(0, 6)}`,
+                        peerCount: multiplayer.getConnectedPeers().length + 1,
+                        startTime: Date.now()
+                    });
+                }
+            });
+
+            multiplayer.on('connections-updated', (conns) => {
+                if (multiplayer.isHost && sessionLobby) {
+                    sessionLobby.startBroadcastingSession({
+                        id: multiplayer.getPeerId(),
+                        title: `Studio Jam ${multiplayer.getPeerId().substring(0, 6)}`,
+                        peerCount: conns.length + 1,
+                        startTime: Date.now()
+                    });
+                }
+            });
+
+            multiplayer.on('disconnected', () => {
+                if (sessionLobby && multiplayer.getPeerId()) {
+                    sessionLobby.stopBroadcastingSession(multiplayer.getPeerId());
+                }
             });
             
             multiplayer.on('data-received', async (msg) => {
@@ -10014,6 +10194,14 @@ workspace_data: ${base64Data}
                     showMessage('Session created! Share the link with others.', 'success');
                     document.getElementById('createSessionBtn').classList.add('hidden');
                     document.getElementById('disconnectBtn').classList.remove('hidden');
+                    if (sessionLobby) {
+                        sessionLobby.startBroadcastingSession({
+                            id: peerId,
+                            title: `Studio Jam ${peerId.substring(0, 6)}`,
+                            peerCount: multiplayer.getConnectedPeers().length + 1,
+                            startTime: Date.now()
+                        });
+                    }
                 } else {
                     showMessage('Peer connection not yet established. Please wait a moment.', 'error');
                 }
@@ -10036,6 +10224,30 @@ workspace_data: ${base64Data}
                     showMessage('Link copied to clipboard!', 'success');
                 }
             });
+
+            // Chat send event handlers
+            const chatInput = document.getElementById('chatInput');
+            const sendChatBtn = document.getElementById('sendChatBtn');
+
+            function handleSendChat() {
+                if (!chatInput || !chatInput.value.trim()) return;
+                if (sessionChat) {
+                    sessionChat.sendMessage(chatInput.value.trim());
+                    chatInput.value = '';
+                }
+            }
+
+            if (sendChatBtn) {
+                sendChatBtn.addEventListener('click', handleSendChat);
+            }
+            if (chatInput) {
+                chatInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSendChat();
+                    }
+                });
+            }
 
             playStopBtn.addEventListener('click', async () => {
                 if (audioState === 'stopped') {
@@ -10202,10 +10414,21 @@ workspace_data: ${base64Data}
                 
                 const urlParams = new URLSearchParams(window.location.search);
                 const sessionId = urlParams.get('session');
+                const hostParam = urlParams.get('host');
 
                 let workspaceData = {};
                 
-                if (sessionId) {
+                if (hostParam === 'true') {
+                    multiplayer.startHosting();
+                    const hostPeerId = multiplayer.getPeerId();
+                    if (hostPeerId) {
+                        const sessionUrl = `${window.location.origin}${window.location.pathname}?session=${hostPeerId}`;
+                        document.getElementById('shareLinkInput').value = sessionUrl;
+                        document.getElementById('createSessionBtn').classList.add('hidden');
+                        document.getElementById('disconnectBtn').classList.remove('hidden');
+                    }
+                    workspaceData = RandomWorkspaceGenerator.generate();
+                } else if (sessionId) {
                     multiplayer.connectTo(sessionId);
                 } else {
                 

@@ -58,8 +58,14 @@ test.describe('Record Loop Integration', () => {
     await expect(recordLoopBtn).toContainText('Waiting for Loop...');
     await expect(recordLoopBtn).toHaveClass(/bg-yellow-500/);
 
-    // Click again to cancel/stop
-    await recordLoopBtn.click();
+    // Ensure settings dropdown is open to access record loop button again
+    if (await page.locator('#settingsDropdown').isHidden()) {
+      await page.locator('#settingsToggle').click();
+    }
+    await expect(recordLoopBtn).toBeVisible();
+
+    // Click again to cancel/stop (using force: true to bypass animate-pulse stability checks)
+    await recordLoopBtn.click({ force: true });
     await expect(recordLoopBtn).toContainText('Record Loop');
   });
 });
