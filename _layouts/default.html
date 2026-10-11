@@ -8588,6 +8588,7 @@ workspace_data: ${base64Data}
                 this.eventListeners = new Map();
                 this._peerIdReady = false;
                 this._pendingConnection = null;
+                this._pendingHosting = false;
             }
 
             // --- Public API ---
@@ -8618,6 +8619,8 @@ workspace_data: ${base64Data}
                 console.log('Started hosting with ID:', this.hostId);
                 if (this.hostId) {
                     this.emit('host-started', this.hostId);
+                } else {
+                    this._pendingHosting = true;
                 }
             }
 
@@ -8692,6 +8695,11 @@ workspace_data: ${base64Data}
             _handlePeerOpen(id) {
                 console.log('My peer ID is: ' + id);
                 this._peerIdReady = true;
+                if (this.isHost || this._pendingHosting) {
+                    this.isHost = true;
+                    this.hostId = id;
+                    this._pendingHosting = false;
+                }
                 this.emit('peer-id-ready', id);
 
                 if (this.isHost && id) {
@@ -9497,34 +9505,50 @@ workspace_data: ${base64Data}
                 chatBox.scrollTop = chatBox.scrollHeight;
             }
 
+            function updateSessionUI(hostId) {
+                if (!hostId) return;
+                const sessionUrl = `${window.location.origin}${window.location.pathname}?session=${hostId}`;
+                const shareInput = document.getElementById('shareLinkInput');
+                if (shareInput) shareInput.value = sessionUrl;
+                const createBtn = document.getElementById('createSessionBtn');
+                if (createBtn) createBtn.classList.add('hidden');
+                const disconnectBtn = document.getElementById('disconnectBtn');
+                if (disconnectBtn) disconnectBtn.classList.remove('hidden');
+            }
+
             multiplayer.on('peer-id-ready', (id) => {
                 document.getElementById('peerIdDisplay').textContent = id;
             });
 
             multiplayer.on('host-started', (hostId) => {
-                if (sessionLobby) {
+                updateSessionUI(hostId);
+                if (sessionLobby && hostId) {
                     sessionLobby.startBroadcastingSession({
                         id: hostId,
                         title: `Studio Jam ${hostId.substring(0, 6)}`,
-                        peerCount: multiplayer.getConnectedPeers().length + 1,
-                        startTime: Date.now()
+                        peerCount: multiplayer.getConnectedPeers().length + 1
                     });
                 }
             });
 
             multiplayer.on('connections-updated', (conns) => {
-                if (multiplayer.isHost && sessionLobby) {
+                if (multiplayer.isHost && sessionLobby && multiplayer.getPeerId()) {
                     sessionLobby.startBroadcastingSession({
                         id: multiplayer.getPeerId(),
                         title: `Studio Jam ${multiplayer.getPeerId().substring(0, 6)}`,
-                        peerCount: conns.length + 1,
-                        startTime: Date.now()
+                        peerCount: conns.length + 1
                     });
                 }
             });
 
             multiplayer.on('disconnected', () => {
                 if (sessionLobby && multiplayer.getPeerId()) {
+                    sessionLobby.stopBroadcastingSession(multiplayer.getPeerId());
+                }
+            });
+
+            window.addEventListener('beforeunload', () => {
+                if (multiplayer && multiplayer.isHost && multiplayer.getPeerId() && sessionLobby) {
                     sessionLobby.stopBroadcastingSession(multiplayer.getPeerId());
                 }
             });
@@ -10185,26 +10209,19 @@ workspace_data: ${base64Data}
                 multiplayer.startHosting();
                 const peerId = multiplayer.getPeerId();
                 if (peerId) {
-                    const sessionUrl = `${window.location.origin}${window.location.pathname}?session=${peerId}`;
-                    document.getElementById('shareLinkInput').value = sessionUrl;
+                    updateSessionUI(peerId);
                     showMessage('Session created! Share the link with others.', 'success');
-                    document.getElementById('createSessionBtn').classList.add('hidden');
-                    document.getElementById('disconnectBtn').classList.remove('hidden');
-                    if (sessionLobby) {
-                        sessionLobby.startBroadcastingSession({
-                            id: peerId,
-                            title: `Studio Jam ${peerId.substring(0, 6)}`,
-                            peerCount: multiplayer.getConnectedPeers().length + 1,
-                            startTime: Date.now()
-                        });
-                    }
                 } else {
-                    showMessage('Peer connection not yet established. Please wait a moment.', 'error');
+                    showMessage('Creating session... Connection will start shortly.', 'info');
                 }
             });
 
             document.getElementById('disconnectBtn').addEventListener('click', () => {
+                const currentPeerId = multiplayer.getPeerId();
                 multiplayer.disconnect();
+                if (sessionLobby && currentPeerId) {
+                    sessionLobby.stopBroadcastingSession(currentPeerId);
+                }
                 document.getElementById('shareLinkInput').value = '';
                 document.getElementById('createSessionBtn').classList.remove('hidden');
                 document.getElementById('disconnectBtn').classList.add('hidden');

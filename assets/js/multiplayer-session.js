@@ -280,14 +280,23 @@ class SessionLobby {
     }
 
     startBroadcastingSession(sessionInfo) {
+        if (this.announcementInterval) {
+            clearInterval(this.announcementInterval);
+            this.announcementInterval = null;
+        }
+
         const announce = () => {
             try {
+                if (!sessionInfo || !sessionInfo.id) return;
                 const existingSessions = this.getActiveSessions();
+                const existing = existingSessions.find(s => s.id === sessionInfo.id);
+                const startTime = sessionInfo.startTime || (existing ? existing.startTime : Date.now());
+
                 const sessionData = {
                     id: sessionInfo.id,
                     title: sessionInfo.title || `Session ${sessionInfo.id.substring(0, 6)}`,
                     peerCount: sessionInfo.peerCount || 1,
-                    startTime: sessionInfo.startTime || Date.now(),
+                    startTime: startTime,
                     lastSeen: Date.now()
                 };
 
