@@ -2723,6 +2723,10 @@ workspace_data: ${base64Data}
 
                 this.mainOutput = this.audioContext.createGain();
 
+                // Scale incoming pitch CV (1V/Oct) to 1200 cents/Volt on oscillator detune
+                this.transposeControl = this.audioContext.createGain();
+                this.transposeControl.gain.value = 1200;
+
                 // Frequency proxy to keep CV connections alive during oscillator recreation
                 this.frequencyProxy = this.audioContext.createConstantSource();
                 const baseFreq = this.data.frequency !== undefined ? this.data.frequency : 440;
@@ -2740,6 +2744,7 @@ workspace_data: ${base64Data}
                 this.oscillator.type = this.data.waveform || 'sine';
                 this.oscillator.frequency.value = 0; // Use proxy for frequency
                 this.frequencyProxy.connect(this.oscillator.frequency);
+                this.transposeControl.connect(this.oscillator.detune);
                 this.oscillator.connect(this.mainOutput);
             }
 
