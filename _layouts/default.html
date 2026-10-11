@@ -2723,6 +2723,10 @@ workspace_data: ${base64Data}
 
                 this.mainOutput = this.audioContext.createGain();
 
+                // Scale incoming pitch CV (1V/Oct) to 1200 cents/Volt on oscillator detune
+                this.transposeControl = this.audioContext.createGain();
+                this.transposeControl.gain.value = 1200;
+
                 // Frequency proxy to keep CV connections alive during oscillator recreation
                 this.frequencyProxy = this.audioContext.createConstantSource();
                 const baseFreq = this.data.frequency !== undefined ? this.data.frequency : 440;
@@ -2740,6 +2744,7 @@ workspace_data: ${base64Data}
                 this.oscillator.type = this.data.waveform || 'sine';
                 this.oscillator.frequency.value = 0; // Use proxy for frequency
                 this.frequencyProxy.connect(this.oscillator.frequency);
+                this.transposeControl.connect(this.oscillator.detune);
                 this.oscillator.connect(this.mainOutput);
             }
 
@@ -4253,6 +4258,9 @@ workspace_data: ${base64Data}
                 this.outAOutput.start();
                 this.outBOutput = this.audioContext.createConstantSource();
                 this.outBOutput.start();
+
+                this.probabilityControl = this.audioContext.createGain();
+                this.probabilityControl.gain.value = 0;
             }
 
             addTickListener(callback, outputKey) {
@@ -4291,27 +4299,46 @@ workspace_data: ${base64Data}
                 }
             }
 
+            getEffectiveProbability() {
+                let cvProbability = 0;
+                if (this.probabilityControl) {
+                    if (!this.probAnalyser) {
+                        this.probAnalyser = this.audioContext.createAnalyser();
+                        this.probAnalyser.fftSize = 32;
+                        this.probCVSource = this.audioContext.createConstantSource();
+                        this.probCVSource.offset.value = 1.0;
+                        this.probCVSource.start();
+                        this.probCVSource.connect(this.probabilityControl);
+                        this.probabilityControl.connect(this.probAnalyser);
+                    }
+                    this.probAnalyser.getFloatTimeDomainData(sharedSingleSampleBuffer);
+                    cvProbability = sharedSingleSampleBuffer[0];
+                }
+                const manualProb = this.data.probability !== undefined ? this.data.probability : 0.5;
+                return Math.max(0, Math.min(1, manualProb + cvProbability));
+            }
+
             onTick(tickTime, tickDuration) {
-                const probability = this.data.probability !== undefined ? this.data.probability : 0.5;
-                if (Math.random() < probability) {
-                    this.tickListenersB.forEach(l => l(tickTime, tickDuration));
-                    firePulse(this.outBOutput, tickTime);
-                } else {
+                const probability = this.getEffectiveProbability();
+                if (Math.random() <= probability) {
                     this.tickListenersA.forEach(l => l(tickTime, tickDuration));
                     firePulse(this.outAOutput, tickTime);
+                } else {
+                    this.tickListenersB.forEach(l => l(tickTime, tickDuration));
+                    firePulse(this.outBOutput, tickTime);
                 }
             }
 
             handleGate(isGateHigh) {
-                const probability = this.data.probability !== undefined ? this.data.probability : 0.5;
-                if (Math.random() < probability) {
-                    this.gateListenersB.forEach(l => l(isGateHigh));
-                    setGate(this.outBOutput, isGateHigh, this.audioContext.currentTime);
-                    setGate(this.outAOutput, false, this.audioContext.currentTime);
-                } else {
+                const probability = this.getEffectiveProbability();
+                if (Math.random() <= probability) {
                     this.gateListenersA.forEach(l => l(isGateHigh));
                     setGate(this.outAOutput, isGateHigh, this.audioContext.currentTime);
                     setGate(this.outBOutput, false, this.audioContext.currentTime);
+                } else {
+                    this.gateListenersB.forEach(l => l(isGateHigh));
+                    setGate(this.outBOutput, isGateHigh, this.audioContext.currentTime);
+                    setGate(this.outAOutput, false, this.audioContext.currentTime);
                 }
             }
 
@@ -4326,11 +4353,12 @@ workspace_data: ${base64Data}
             constructor() {
                 super('Bernoulli Gate');
                 this.addInput('clock', new Classic.Input(voltageSocket, 'Clock/Gate'));
+                this.addInput('probability_cv', new Classic.Input(voltageSocket, 'Prob CV', true));
                 this.addOutput('outA', new Classic.Output(voltageSocket, 'Out A'));
                 this.addOutput('outB', new Classic.Output(voltageSocket, 'Out B'));
 
                 this.data.probability = 0.5;
-                this.addControl('probability', new SliderControl('probSlider', 'Probability (B)', 0, 1, 0.01, this.data.probability, (val) => {
+                this.addControl('probability', new SliderControl('probSlider', 'Probability', 0, 1, 0.01, this.data.probability, (val) => {
                     this.data.probability = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('probability', val);
@@ -4646,7 +4674,7 @@ workspace_data: ${base64Data}
                 this.audioContext = audioContext;
                 this.reteNodeId = reteNodeId;
                 this.data = data;
-                this.register = 0b1010101010101010; // 16-bit register
+                this.register = 0b1010101010101010; // 16-bit initial register
                 this.tickListeners = [];
 
                 // CV Output
@@ -4663,7 +4691,7 @@ workspace_data: ${base64Data}
             }
 
             addTickListener(callback, outputKey) {
-                if (outputKey === 'trigger') {
+                if (!outputKey || outputKey === 'trigger') {
                     if (!this.tickListeners.includes(callback)) this.tickListeners.push(callback);
                 }
             }
@@ -4674,20 +4702,11 @@ workspace_data: ${base64Data}
             }
 
             onTick(tickTime, tickDuration) {
-                // Get CV value from probabilityControl (normalized to roughly -1 to 1)
-                // We use an analyser to read the current value of the Gain node's gain AudioParam if needed,
-                // but for simple CV we can just use the value directly if we were polling.
-                // However, the best way for Turing Machine (which is event-based) is to read from the probabilityControl if it's connected.
-
                 let cvProbability = 0;
                 if (this.probabilityControl) {
-                    // For event-based nodes, we might need a way to sample the CV at the moment of the tick.
-                    // A simple way is to use a hidden AnalyserNode.
                     if (!this.probAnalyser) {
                         this.probAnalyser = this.audioContext.createAnalyser();
                         this.probAnalyser.fftSize = 32;
-                        // We need a source to connect to the analyser.
-                        // A ConstantSourceNode(1.0) connected to the probabilityControl GainNode.
                         this.probCVSource = this.audioContext.createConstantSource();
                         this.probCVSource.offset.value = 1.0;
                         this.probCVSource.start();
@@ -4700,7 +4719,7 @@ workspace_data: ${base64Data}
 
                 const manualProb = this.data.probability !== undefined ? this.data.probability : 0.0;
                 const probability = Math.max(0, Math.min(1, manualProb + cvProbability));
-                const steps = this.data.steps !== undefined ? this.data.steps : 16;
+                const steps = Math.max(2, Math.min(32, this.data.steps !== undefined ? this.data.steps : 16));
 
                 // Shift register logic
                 let lastBit = this.register & 1;
@@ -4709,8 +4728,8 @@ workspace_data: ${base64Data}
                     lastBit = 1 - lastBit;
                 }
 
-                this.register = (this.register >> 1) | (lastBit << (steps - 1));
-                this.register &= (1 << steps) - 1;
+                const mask = steps === 32 ? 0xFFFFFFFF : (1 << steps) - 1;
+                this.register = (((this.register >>> 1) | (lastBit << (steps - 1))) >>> 0) & mask;
 
                 // CV Output (normalized 0-1)
                 const cvValue = (this.register & 0xFF) / 255.0;
@@ -4746,7 +4765,7 @@ workspace_data: ${base64Data}
                 }));
 
                 this.data.steps = 16;
-                this.addControl('steps', new SliderControl('stepsSlider', 'Steps', 2, 16, 1, this.data.steps, (val) => {
+                this.addControl('steps', new SliderControl('stepsSlider', 'Steps', 2, 32, 1, this.data.steps, (val) => {
                     this.data.steps = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode) audioNode.updateParameter('steps', val);
@@ -4810,18 +4829,29 @@ workspace_data: ${base64Data}
             }
 
             onTick(tickTime, tickDuration) {
-                const smoothness = this.data.smoothness !== undefined ? this.data.smoothness : 0.0;
-                const newValue = Math.random() * 2 - 1; // Range -1 to 1
+                const min = this.data.min !== undefined ? Number(this.data.min) : -1.0;
+                const max = this.data.max !== undefined ? Number(this.data.max) : 1.0;
+                const smoothness = this.data.smoothness !== undefined ? Number(this.data.smoothness) : 0.0;
 
-                // If smoothness is 0, transition is nearly instant (stepped)
-                // If smoothness is 1, transition takes the whole tick duration
-                const timeConstant = Math.max(0.001, tickDuration * smoothness);
-                this.cvSource.offset.setTargetAtTime(newValue, tickTime, timeConstant);
+                const minVal = Math.min(min, max);
+                const maxVal = Math.max(min, max);
+                const newValue = minVal + Math.random() * (maxVal - minVal);
+
+                this.lastValue = newValue;
+                if (smoothness <= 0) {
+                    this.cvSource.offset.cancelScheduledValues(tickTime);
+                    this.cvSource.offset.setValueAtTime(newValue, tickTime);
+                } else {
+                    const timeConstant = Math.max(0.001, tickDuration * smoothness);
+                    this.cvSource.offset.setTargetAtTime(newValue, tickTime, timeConstant);
+                }
             }
 
             start() {}
             stop() {}
-            updateParameter() {}
+            updateParameter(paramName, value) {
+                this.data[paramName] = value;
+            }
         }
 
         class RandomVoltageNode extends ModulatorNode {
@@ -4830,9 +4860,25 @@ workspace_data: ${base64Data}
                 this.addInput('clock', new Classic.Input(voltageSocket, 'Clock'));
                 this.addOutput('out', new Classic.Output(voltageSocket, 'CV Out'));
 
+                this.data.min = -1.0;
+                this.addControl('min', new SliderControl('minSlider', 'Range Min', -5, 5, 0.1, this.data.min, (val) => {
+                    this.data.min = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) audioNode.updateParameter('min', val);
+                }));
+
+                this.data.max = 1.0;
+                this.addControl('max', new SliderControl('maxSlider', 'Range Max', -5, 5, 0.1, this.data.max, (val) => {
+                    this.data.max = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) audioNode.updateParameter('max', val);
+                }));
+
                 this.data.smoothness = 0.0;
-                this.addControl('smoothness', new SliderControl('smoothSlider', 'Smoothness', 0, 1, 0.01, this.data.smoothness, (val) => {
+                this.addControl('smoothness', new SliderControl('smoothSlider', 'Slew / Smoothness', 0, 1, 0.01, this.data.smoothness, (val) => {
                     this.data.smoothness = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) audioNode.updateParameter('smoothness', val);
                 }));
             }
 
