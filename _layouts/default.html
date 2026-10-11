@@ -8414,9 +8414,10 @@ workspace_data: ${base64Data}
                 if (!this.started) return;
                 try {
                     this.internalCarrier.stop(0);
+                    this.internalCarrier.disconnect();
                     this.internalCarrier = this.audioContext.createOscillator();
-                    this.internalCarrier.type = this.data.waveform;
-                    this.internalCarrier.frequency.value = this.data.frequency;
+                    this.internalCarrier.type = this.data.waveform || 'sawtooth';
+                    this.internalCarrier.frequency.value = this.data.frequency || 110;
                     this.internalCarrier.connect(this.carrierInput);
                     this.started = false;
                 } catch (e) {
