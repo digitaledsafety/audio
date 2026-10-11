@@ -7,7 +7,7 @@ A random looping shift register for generating semi-random musical melodies and 
 * **Prob CV**: Voltage control input to modulate mutation probability.
 
 ## Outputs
-* **CV Out**: Stepped control voltage output scaled between 0V and 5V.
+* **Out**: Stepped control voltage output scaled between 0V and 5V.
 * **Gate Out**: Gate trigger output active on selected step patterns.
 
 ## Controls

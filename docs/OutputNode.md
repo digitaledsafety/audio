@@ -4,7 +4,7 @@ The Output Node is the final output for all audio. There can only be one Output 
 
 ## Inputs
 
-*   **Audio In**: The audio input to the node.
+*   **In**: The audio input to the node.
 
 ## Controls
 

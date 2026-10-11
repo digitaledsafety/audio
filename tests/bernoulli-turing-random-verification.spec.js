@@ -75,7 +75,7 @@ test.describe('Bernoulli, Turing Machine, and Random Voltage Verification', () =
     // Check sockets
     await expect(node.locator('.input-title:has-text("Clock")')).toBeVisible();
     await expect(node.locator('.input-title:has-text("Prob CV")')).toBeVisible();
-    await expect(node.locator('.output-title:has-text("CV Out")')).toBeVisible();
+    await expect(node.locator('.output-title:has-text("Out")')).toBeVisible();
     await expect(node.locator('.output-title:has-text("Trigger Out")')).toBeVisible();
 
     // Check controls

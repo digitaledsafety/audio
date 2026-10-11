@@ -4,12 +4,12 @@ The Stereo Panner Node is used to position an audio signal in the stereo field (
 
 ## Inputs
 
-*   **Audio In**: The audio signal to be panned.
+*   **In**: The audio signal to be panned.
 *   **Pan CV**: A Control Voltage input to modulate the stereo position.
 
 ## Outputs
 
-*   **Audio Out**: The panned stereo audio signal.
+*   **Out**: The panned stereo audio signal.
 
 ## Controls
 

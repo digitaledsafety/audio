@@ -4,12 +4,12 @@ The Reverb Node applies high-fidelity acoustic convolution reverb to an audio si
 
 ## Inputs
 
-*   **Audio In**: The main audio input socket (supports multiple incoming audio connections).
+*   **In**: The main audio input socket (supports multiple incoming audio connections).
 *   **Mix CV**: Control voltage input for real-time modulation of the Wet/Dry mix balance via external CV sources (such as LFOs or envelopes).
 
 ## Outputs
 
-*   **Audio Out**: The processed audio output carrying the blended dry signal and spatial convolution tail.
+*   **Out**: The processed audio output carrying the blended dry signal and spatial convolution tail.
 
 ## Controls
 

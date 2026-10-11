@@ -8,10 +8,10 @@ This method gives you precise control over each signal and stays true to the mod
 
 Let's say you have two different sound sources, like a `ToneGeneratorNode` and a `NoiseGeneratorNode`, and you want to mix them together before sending them to a `FilterNode`.
 
-1.  **First VCA:** Connect the `Audio` output of your `ToneGeneratorNode` to the `Audio In` of a `VCANode`.
-2.  **Second VCA:** Connect the `Audio` output of your `NoiseGeneratorNode` to the `Audio In` of a *second* `VCANode`.
-3.  **Chain the VCAs:** This is the key step. Connect the `Audio Out` of the first VCA to the **`Audio In`** of the second VCA.
-4.  **Connect to Destination:** Connect the `Audio Out` of the *second* VCA to your desired destination, like the `Audio In` of the `FilterNode`.
+1.  **First VCA:** Connect the `Audio` output of your `ToneGeneratorNode` to the `In` of a `VCANode`.
+2.  **Second VCA:** Connect the `Audio` output of your `NoiseGeneratorNode` to the `In` of a *second* `VCANode`.
+3.  **Chain the VCAs:** This is the key step. Connect the `Out` of the first VCA to the **`In`** of the second VCA.
+4.  **Connect to Destination:** Connect the `Out` of the *second* VCA to your desired destination, like the `In` of the `FilterNode`.
 
 Now, the output of the second VCA contains the mixed signal of both the tone generator and the noise generator.
 

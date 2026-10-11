@@ -3,11 +3,11 @@
 Multi-stage all-pass phase modulation filter effect.
 
 ## Inputs
-* **Audio In**: Input audio signal.
+* **In**: Input audio signal.
 * **Rate CV**: Control voltage for LFO rate.
 
 ## Outputs
-* **Audio Out**: Stereo phaser audio output.
+* **Out**: Stereo phaser audio output.
 
 ## Controls
 * **Rate**: Modulation speed in Hz (0.1 to 10.0 Hz).

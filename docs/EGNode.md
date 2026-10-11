@@ -14,7 +14,7 @@ The envelope is controlled by an incoming gate signal. When the gate signal goes
 
 | Name      | Description                              |
 | --------- | ---------------------------------------- |
-| **CV Out**  | The envelope's control signal output.      |
+| **Out**  | The envelope's control signal output.      |
 
 ## Controls
 

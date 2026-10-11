@@ -4,7 +4,7 @@ The Granular Synthesizer Node processes an incoming audio signal by breaking it 
 
 ## Inputs
 
-*   **Audio In**: The live audio signal to be granulated.
+*   **In**: The live audio signal to be granulated.
 *   **Grain Size CV**: Modulates the duration of each individual grain.
 *   **Grain Density CV**: Modulates the rate at which new grains are generated.
 *   **Pitch Shift CV**: Modulates the pitch transposition of each grain.
@@ -12,7 +12,7 @@ The Granular Synthesizer Node processes an incoming audio signal by breaking it 
 
 ## Outputs
 
-*   **Audio Out**: The processed granular audio signal.
+*   **Out**: The processed granular audio signal.
 
 ## Controls
 

@@ -36,7 +36,7 @@ test.describe('Stereo Widener Node', () => {
 
     const widenerNode = page.locator('[data-node-label="Stereo Widener"]').first();
 
-    await expect(widenerNode.locator('.input-title:has-text("Audio In")')).toBeVisible();
-    await expect(widenerNode.locator('.output-title:has-text("Audio Out")')).toBeVisible();
+    await expect(widenerNode.locator('.input-title:has-text("In")')).toBeVisible();
+    await expect(widenerNode.locator('.output-title:has-text("Out")')).toBeVisible();
   });
 });
