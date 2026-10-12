@@ -122,7 +122,7 @@ test.describe('Extended Multiplayer Synchronization', () => {
         const nodes = Array.from(window.editor.getNodes());
         const toneNode = nodes.find(n => n.label === 'VCO');
         const masterNode = nodes.find(n => n.label === 'Output');
-        await window.editor.addConnection(new window.Rete.ClassicPreset.Connection(toneNode, 'audio', masterNode, 'audio'));
+        await window.editor.addConnection(new window.Rete.ClassicPreset.Connection(toneNode, 'out', masterNode, 'in'));
     });
 
     // Verify connection on Player 2

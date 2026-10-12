@@ -2282,6 +2282,7 @@ workspace_data: ${base64Data}
         
         class MidiConnectionStrategy extends ConnectionStrategy {
             connect(sourceReteNode, targetReteNode, targetInputKey, sourceOutputKey) {
+                if (!sourceReteNode || !targetReteNode) return;
                 const sourceAudioNode = reteAudioNodes.get(sourceReteNode.id);
                 const targetAudioNode = reteAudioNodes.get(targetReteNode.id);
 
@@ -2299,6 +2300,7 @@ workspace_data: ${base64Data}
             }
 
             disconnect(sourceReteNode, targetReteNode, targetInputKey, sourceOutputKey) {
+                if (!sourceReteNode || !targetReteNode) return;
                 const sourceAudioNode = reteAudioNodes.get(sourceReteNode.id);
                 const targetAudioNode = reteAudioNodes.get(targetReteNode.id);
 
@@ -2333,6 +2335,7 @@ workspace_data: ${base64Data}
             }
 
             connect(sourceReteNode, targetReteNode, targetInputKey, sourceOutputKey) {
+                if (!sourceReteNode || !targetReteNode) return;
                 const sourceAudioNode = reteAudioNodes.get(sourceReteNode.id);
                 const targetAudioNode = reteAudioNodes.get(targetReteNode.id);
                 if (!sourceAudioNode || !targetAudioNode) return;
@@ -2414,6 +2417,7 @@ workspace_data: ${base64Data}
             }
 
             disconnect(sourceReteNode, targetReteNode, targetInputKey, sourceOutputKey) {
+                if (!sourceReteNode || !targetReteNode) return;
                 const sourceAudioNode = reteAudioNodes.get(sourceReteNode.id);
                 const targetAudioNode = reteAudioNodes.get(targetReteNode.id);
                 if (!sourceAudioNode || !targetAudioNode) return;
