@@ -11,10 +11,10 @@ class BiquadFilter {
         const sinW0 = Math.sin(w0);
         const alpha = sinW0 / (2 * q);
 
-        this.b0 = alpha;
-        this.b1 = 0;
-        this.b2 = -alpha;
         const a0 = 1 + alpha;
+        this.b0 = alpha / a0;
+        this.b1 = 0;
+        this.b2 = -alpha / a0;
         this.a1 = -2 * cosW0 / a0;
         this.a2 = (1 - alpha) / a0;
     }
@@ -104,7 +104,7 @@ class VocoderProcessor extends AudioWorkletProcessor {
             const freq = minFreq * Math.pow(maxFreq / minFreq, ratio);
             this.baseFrequencies.push(freq);
 
-            const shiftedFreq = freq * formantRatio;
+            const shiftedFreq = Math.max(20, Math.min(freq * formantRatio, 0.49 * this.sampleRate));
 
             const modFilter = new BiquadFilter();
             modFilter.setBandpass(shiftedFreq, 20, this.sampleRate); // Increased Q
