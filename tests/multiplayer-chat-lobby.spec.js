@@ -25,12 +25,6 @@ test.describe('Multiplayer Chat and Lobby Discovery', () => {
         const p2Raw = await page2.evaluate(() => localStorage.getItem('audio_active_sessions_v1'));
         console.log('P2 raw storage:', p2Raw);
 
-        if (!p2Raw && p1Raw) {
-            await page2.evaluate((data) => {
-                localStorage.setItem('audio_active_sessions_v1', data);
-            }, p1Raw);
-        }
-
         // Refresh sessions directory
         await page2.click('#refresh-btn');
 
