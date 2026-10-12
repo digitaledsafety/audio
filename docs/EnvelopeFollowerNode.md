@@ -6,13 +6,13 @@ The **Envelope Follower** node analyzes the amplitude (volume) of an incoming au
 
 | Name       | Description                              |
 | ---------- | ---------------------------------------- |
-| **Audio In** | The incoming audio signal whose volume envelope is analyzed. |
+| **In** | The incoming audio signal whose volume envelope is analyzed. |
 
 ## Outputs
 
 | Name       | Description                              |
 | ---------- | ---------------------------------------- |
-| **CV Out**  | The generated control voltage signal representing the tracked volume envelope. |
+| **Out**  | The generated control voltage signal representing the tracked volume envelope. |
 
 ## Controls
 

@@ -3,7 +3,7 @@
 2D quad/surround vector panner for dynamic 2D spatial positioning across X and Y axes.
 
 ## Inputs
-* **Audio In**: Input audio signal.
+* **In**: Input audio signal.
 * **X CV**: Control voltage input for horizontal pan position (-1.0 to 1.0).
 * **Y CV**: Control voltage input for vertical pan position (-1.0 to 1.0).
 

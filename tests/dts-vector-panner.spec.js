@@ -30,7 +30,7 @@ test.describe('DTS Enhancer and Vector Panner Nodes', () => {
     await expect(page.locator('text=LFE Gain').first()).toBeVisible();
 
     // Verify outputs
-    await expect(page.locator('text=Audio Out').first()).toBeVisible();
+    await expect(page.locator('text=Out').first()).toBeVisible();
     await expect(page.locator('text=LFE Out').first()).toBeVisible();
   });
 

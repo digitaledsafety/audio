@@ -4,11 +4,11 @@ The Quantizer node snaps an incoming continuous voltage (CV) signal to the neare
 
 ## Inputs
 
--   **CV In**: Accepts a CV signal for quantization. The standard is 1V/Octave.
+-   **In**: Accepts a CV signal for quantization. The standard is 1V/Octave.
 
 ## Outputs
 
--   **CV Out**: Outputs the quantized CV signal, which will correspond to the notes of the selected scale.
+-   **Out**: Outputs the quantized CV signal, which will correspond to the notes of the selected scale.
 
 ## Controls
 

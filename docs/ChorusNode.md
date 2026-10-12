@@ -3,11 +3,11 @@
 Stereo chorus modulation effect for adding depth, warmth, and ensemble thickening.
 
 ## Inputs
-* **Audio In**: Input audio signal.
+* **In**: Input audio signal.
 * **Rate CV**: Control voltage for LFO modulation rate.
 
 ## Outputs
-* **Audio Out**: Stereo chorus audio output.
+* **Out**: Stereo chorus audio output.
 
 ## Controls
 * **Rate**: Modulation speed in Hz (0.1 to 10.0 Hz).

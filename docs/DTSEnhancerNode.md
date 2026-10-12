@@ -3,10 +3,10 @@
 Spatial psychoacoustic audio enhancer providing surround field depth and presence.
 
 ## Inputs
-* **Audio In**: Input audio signal.
+* **In**: Input audio signal.
 
 ## Outputs
-* **Audio Out**: Enhanced stereo audio output.
+* **Out**: Enhanced stereo audio output.
 
 ## Controls
 * **Depth**: Stereo depth enhancement slider (0.0 to 1.0).

@@ -37,14 +37,14 @@ test.describe('Enhancements Verification', () => {
     await expect(divNode.locator('.output-title:has-text("/16")')).toBeVisible();
   });
 
-  test('Signal Inverter should be addable and have correct IO', async ({ page }) => {
+  test('Inverter should be addable and have correct IO', async ({ page }) => {
     await page.locator('#addNodeToggle').click();
     await page.locator('#addSignalInverterNodeBtn').click();
 
     const invNode = page.locator('[data-node-label="Inverter"]').first();
     await expect(invNode).toBeVisible();
 
-    await expect(invNode.locator('.input-title:has-text("Signal In")')).toBeVisible();
-    await expect(invNode.locator('.output-title:has-text("Signal Out")')).toBeVisible();
+    await expect(invNode.locator('.input-title:has-text("In")')).toBeVisible();
+    await expect(invNode.locator('.output-title:has-text("Out")')).toBeVisible();
   });
 });

@@ -4,7 +4,7 @@ The LFO Node can be used to create a low-frequency oscillator.
 
 ## Outputs
 
-*   **CV Out**: The CV output of the node.
+*   **Out**: The CV output of the node.
 
 ## Controls
 

@@ -13,7 +13,7 @@ The Vocoder Node imposes the spectral characteristics of a modulator signal onto
 
 ## Outputs
 
-*   **Audio Out**: The vocoded audio signal.
+*   **Out**: The vocoded audio signal.
 
 ## Controls
 

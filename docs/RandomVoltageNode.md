@@ -6,7 +6,7 @@ Generates stepped or smooth random control voltages on clock triggers or continu
 * **Trigger In**: Clock trigger input for stepped random generation.
 
 ## Outputs
-* **CV Out**: Random voltage output.
+* **Out**: Random voltage output.
 
 ## Controls
 * **Range Min**: Minimum output voltage bound (-5.0V to 5.0V).

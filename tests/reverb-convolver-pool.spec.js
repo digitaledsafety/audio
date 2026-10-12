@@ -139,7 +139,7 @@ test.describe('Reverb Shared Convolver Pool & Controls', () => {
       const audioNode = await getAudioNode(reverb.id);
 
       // Connect LFO CV output to Reverb Mix CV input
-      const conn = new window.Rete.ClassicPreset.Connection(lfo, 'cv', reverb, 'mix_cv');
+      const conn = new window.Rete.ClassicPreset.Connection(lfo, 'out', reverb, 'mix_cv');
       await editor.addConnection(conn);
       await new Promise((res) => setTimeout(res, 200));
 

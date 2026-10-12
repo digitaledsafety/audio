@@ -3,10 +3,10 @@
 Oscilloscope and spectrum analyzer visualizer node.
 
 ## Inputs
-* **Audio In**: Input audio signal to visualize.
+* **In**: Input audio signal to visualize.
 
 ## Outputs
-* **Audio Out**: Passthrough audio output.
+* **Out**: Passthrough audio output.
 
 ## Controls
 * **Freeze**: Toggle button to pause waveform frame updates.
