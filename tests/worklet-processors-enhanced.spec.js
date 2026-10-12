@@ -57,6 +57,16 @@ test.describe('Worklet Processors & Service Worker Enhancements', () => {
     expect(Number(jitterVal)).toBe(1);
   });
 
+  test('MiniNotationParser bounds Euclidean pattern steps to max 128', async ({ page }) => {
+    const resultCount = await page.evaluate(() => {
+      const parser = new MiniNotationParser({ C4: 60 });
+      const parsed = parser.parse('C4*5/100000');
+      return parsed.length;
+    });
+
+    expect(resultCount).toBe(128);
+  });
+
   test('Service Worker fetch event handler includes non-GET and scheme guards and complete cache manifest', async ({ page }) => {
     const swContent = await page.evaluate(async () => {
       const response = await fetch('/sw.js');
