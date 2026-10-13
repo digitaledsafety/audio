@@ -14,17 +14,18 @@ const urlsToCache = [
   '{{ site.baseurl }}/assets/js/audio-worklets/quantizer-processor.js',
   '{{ site.baseurl }}/assets/js/audio-worklets/vocoder-processor.js',
   'https://cdn.digitaleducationsafety.org/packages/tailwindcss@3.4.17/tailwindcss.js',
-  'https://cdn.jsdelivr.net/npm/rete@2.0.0-beta.6/rete.min.js',
-  'https://unpkg.com/react-is@17.0.2/umd/react-is.production.min.js',
-  'https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js',
-  'https://unpkg.com/styled-components@5.2.3/dist/styled-components.js',
-  'https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js',
-  'https://cdn.jsdelivr.net/npm/rete-area-plugin@2.0.0-beta.8/rete-area-plugin.min.js',
-  'https://cdn.jsdelivr.net/npm/rete-render-utils@2.0.0-beta.8/rete-render-utils.min.js',
-  'https://cdn.jsdelivr.net/npm/rete-react-render-plugin@2.0.0-beta.9/rete-react-render-plugin.min.js',
-  'https://cdn.jsdelivr.net/npm/rete-connection-plugin@2.0.0-beta.7/rete-connection-plugin.min.js',
-  'https://cdn.jsdelivr.net/npm/rete-context-menu-plugin@2.0.0-beta.6/rete-context-menu-plugin.min.js',
-  'https://cdn.jsdelivr.net/npm/rete-engine@2.0.0-beta.7/rete-engine.min.js'
+  'https://cdn.digitaleducationsafety.org/packages/rete@2.0.6/rete.min.js',
+  'https://cdn.digitaleducationsafety.org/packages/react-is@18.3.1/react-is.production.min.js',
+  'https://cdn.digitaleducationsafety.org/packages/react@18.3.0/react.production.min.js',
+  'https://cdn.digitaleducationsafety.org/packages/styled-components@6.1.19/styled-components.js',
+  'https://cdn.digitaleducationsafety.org/packages/react-dom@18.3.1/react-dom.production.min.js',
+  'https://cdn.digitaleducationsafety.org/packages/rete-area-plugin@2.1.5/rete-area-plugin.min.js',
+  'https://cdn.digitaleducationsafety.org/packages/rete-render-utils@2.0.0-beta.10/rete-render-utils.min.js',
+  'https://cdn.digitaleducationsafety.org/packages/rete-react-render-plugin@2.0.0-beta.9/rete-react-render-plugin.min.js',
+  'https://cdn.digitaleducationsafety.org/packages/rete-connection-plugin@2.0.5/rete-connection-plugin.min.js',
+  'https://cdn.digitaleducationsafety.org/packages/rete-context-menu-plugin@2.0.6/rete-context-menu-plugin.min.js',
+  'https://cdn.digitaleducationsafety.org/packages/rete-engine@2.1.1/rete-engine.min.js',
+  'https://cdn.digitaleducationsafety.org/packages/peerjs@1.5.5/peerjs.min.js'
 ];
 
 self.addEventListener('install', event => {
