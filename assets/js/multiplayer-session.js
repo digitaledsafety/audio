@@ -90,6 +90,7 @@ class SessionConnection {
         this.eventListeners = new Map();
         this._peerIdReady = false;
         this._pendingConnection = null;
+        this._pendingHosting = false;
         this.PeerClass = options.PeerClass || (typeof window !== 'undefined' ? window.Peer : null);
     }
 
@@ -121,7 +122,11 @@ class SessionConnection {
     startHosting() {
         this.isHost = true;
         this.hostId = this.getPeerId();
-        this.emit('host-started', this.hostId);
+        if (this.hostId) {
+            this.emit('host-started', this.hostId);
+        } else {
+            this._pendingHosting = true;
+        }
     }
 
     connectTo(hostId) {
@@ -194,6 +199,13 @@ class SessionConnection {
     _handlePeerOpen(id) {
         this._peerIdReady = true;
         this.emit('peer-id-ready', id);
+
+        if ((this.isHost || this._pendingHosting) && id) {
+            this.isHost = true;
+            this.hostId = id;
+            this._pendingHosting = false;
+            this.emit('host-started', id);
+        }
 
         if (this._pendingConnection) {
             this.connectTo(this._pendingConnection);

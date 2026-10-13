@@ -8549,6 +8549,7 @@ workspace_data: ${base64Data}
                 this.eventListeners = new Map();
                 this._peerIdReady = false;
                 this._pendingConnection = null;
+                this._pendingHosting = false;
             }
 
             // --- Public API ---
@@ -8576,9 +8577,12 @@ workspace_data: ${base64Data}
             startHosting() {
                 this.isHost = true;
                 this.hostId = this.getPeerId(); // The host's ID is their own peer ID
-                console.log('Started hosting with ID:', this.hostId);
                 if (this.hostId) {
+                    console.log('Started hosting with ID:', this.hostId);
                     this.emit('host-started', this.hostId);
+                } else {
+                    this._pendingHosting = true;
+                    console.log('Peer ID not ready, hosting pending.');
                 }
             }
 
@@ -8655,7 +8659,10 @@ workspace_data: ${base64Data}
                 this._peerIdReady = true;
                 this.emit('peer-id-ready', id);
 
-                if (this.isHost && id) {
+                if ((this.isHost || this._pendingHosting) && id) {
+                    this.isHost = true;
+                    this.hostId = id;
+                    this._pendingHosting = false;
                     this.emit('host-started', id);
                 }
 
@@ -9463,6 +9470,17 @@ workspace_data: ${base64Data}
             });
 
             multiplayer.on('host-started', (hostId) => {
+                const sessionUrl = `${window.location.origin}${window.location.pathname.replace(/\/watch\.html$/, '/') || '/'}?session=${hostId}`;
+                const shareInput = document.getElementById('shareLinkInput');
+                if (shareInput) {
+                    shareInput.value = sessionUrl;
+                }
+                const createBtn = document.getElementById('createSessionBtn');
+                const disconnectBtn = document.getElementById('disconnectBtn');
+                if (createBtn && disconnectBtn) {
+                    createBtn.classList.add('hidden');
+                    disconnectBtn.classList.remove('hidden');
+                }
                 if (sessionLobby) {
                     sessionLobby.startBroadcastingSession({
                         id: hostId,
@@ -10146,21 +10164,9 @@ workspace_data: ${base64Data}
                 multiplayer.startHosting();
                 const peerId = multiplayer.getPeerId();
                 if (peerId) {
-                    const sessionUrl = `${window.location.origin}${window.location.pathname}?session=${peerId}`;
-                    document.getElementById('shareLinkInput').value = sessionUrl;
                     showMessage('Session created! Share the link with others.', 'success');
-                    document.getElementById('createSessionBtn').classList.add('hidden');
-                    document.getElementById('disconnectBtn').classList.remove('hidden');
-                    if (sessionLobby) {
-                        sessionLobby.startBroadcastingSession({
-                            id: peerId,
-                            title: `Studio Jam ${peerId.substring(0, 6)}`,
-                            peerCount: multiplayer.getConnectedPeers().length + 1,
-                            startTime: Date.now()
-                        });
-                    }
                 } else {
-                    showMessage('Peer connection not yet established. Please wait a moment.', 'error');
+                    showMessage('Creating session... Link will appear once connection is established.', 'info');
                 }
             });
 
@@ -10377,13 +10383,6 @@ workspace_data: ${base64Data}
                 
                 if (hostParam === 'true') {
                     multiplayer.startHosting();
-                    const hostPeerId = multiplayer.getPeerId();
-                    if (hostPeerId) {
-                        const sessionUrl = `${window.location.origin}${window.location.pathname}?session=${hostPeerId}`;
-                        document.getElementById('shareLinkInput').value = sessionUrl;
-                        document.getElementById('createSessionBtn').classList.add('hidden');
-                        document.getElementById('disconnectBtn').classList.remove('hidden');
-                    }
                     workspaceData = RandomWorkspaceGenerator.generate();
                 } else if (sessionId) {
                     multiplayer.connectTo(sessionId);
