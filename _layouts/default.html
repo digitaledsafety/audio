@@ -5953,12 +5953,12 @@ workspace_data: ${base64Data}
                     area.update('node', this.id);
                 }));
 
-                this.addControl('attack', new SliderControl('arpAttack', 'Attack (s)', 0.01, 2, 0.01, this.data.attack, (val) => {
+                this.addControl('attack', new SliderControl('arpAttack', 'Attack (s)', 0.01, 10, 0.01, this.data.attack, (val) => {
                     this.data.attack = val;
                 }));
                 this.controls.attack.hidden = true;
 
-                this.addControl('decay', new SliderControl('arpDecay', 'Decay (s)', 0.01, 2, 0.01, this.data.decay, (val) => {
+                this.addControl('decay', new SliderControl('arpDecay', 'Decay (s)', 0.01, 10, 0.01, this.data.decay, (val) => {
                     this.data.decay = val;
                 }));
                 this.controls.decay.hidden = true;
@@ -7145,12 +7145,12 @@ workspace_data: ${base64Data}
                     area.update('node', this.id);
                 }));
 
-                this.addControl('attack', new SliderControl('seqAttack', 'Attack (s)', 0.01, 2, 0.01, this.data.attack, (val) => {
+                this.addControl('attack', new SliderControl('seqAttack', 'Attack (s)', 0.01, 10, 0.01, this.data.attack, (val) => {
                     this.data.attack = val;
                 }));
                 this.controls.attack.hidden = true;
 
-                this.addControl('decay', new SliderControl('seqDecay', 'Decay (s)', 0.01, 2, 0.01, this.data.decay, (val) => {
+                this.addControl('decay', new SliderControl('seqDecay', 'Decay (s)', 0.01, 10, 0.01, this.data.decay, (val) => {
                     this.data.decay = val;
                 }));
                 this.controls.decay.hidden = true;
@@ -8138,14 +8138,14 @@ workspace_data: ${base64Data}
                 }));
 
                 this.data.attack = 0.01;
-                this.addControl('attack', new SliderControl('adsrAttack', 'Attack (s)', 0.001, 2, 0.001, this.data.attack, (val) => {
+                this.addControl('attack', new SliderControl('adsrAttack', 'Attack (s)', 0.001, 10, 0.001, this.data.attack, (val) => {
                     this.data.attack = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof ADSREnvelope) audioNode.updateParameter('attack', val);
                 }));
 
                 this.data.decay = 0.1;
-                this.addControl('decay', new SliderControl('adsrDecay', 'Decay (s)', 0.001, 2, 0.001, this.data.decay, (val) => {
+                this.addControl('decay', new SliderControl('adsrDecay', 'Decay (s)', 0.001, 10, 0.001, this.data.decay, (val) => {
                     this.data.decay = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof ADSREnvelope) audioNode.updateParameter('decay', val);
