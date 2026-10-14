@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-test.describe('LFO Node BPM Slider', () => {
+test.describe('LFO Node BPM Slider & Legacy Clock Support', () => {
   test('allows changing BPM via slider when in BPM mode', async ({ page }) => {
     await page.goto('/');
     const cta = page.locator('#cta-button');
@@ -39,5 +39,31 @@ test.describe('LFO Node BPM Slider', () => {
     });
 
     expect(effectiveFreq).toBe(3);
+  });
+
+  test('defaults to BPM mode when loading workspace node data containing bpm or MasterClockNode', async ({ page }) => {
+    await page.goto('/');
+    const cta = page.locator('#cta-button');
+    if (await cta.isVisible()) {
+      await cta.click();
+    }
+
+    // Load a legacy clock node JSON structure into window.editor
+    await page.evaluate(async () => {
+      const legacyClockNode = new window.NodeRegistry._nodes.get('MasterClockNode')();
+      legacyClockNode.data = { bpm: 140 };
+      await window.editor.addNode(legacyClockNode);
+    });
+
+    const addedNode = page.locator('.node').last();
+    await expect(addedNode).toBeVisible();
+
+    const rateModeVal = await page.evaluate(() => {
+      const nodes = window.editor.getNodes();
+      const lastNode = nodes[nodes.length - 1];
+      return lastNode.data.rateMode;
+    });
+
+    expect(rateModeVal).toBe('BPM');
   });
 });

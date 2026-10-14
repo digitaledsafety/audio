@@ -7723,7 +7723,9 @@ workspace_data: ${base64Data}
                 this.addOutput('cv', new Classic.Output(voltageSocket, 'CV Out')); // Can be used for modulation
 
                 this.data.sync = this.data.sync || false;
-                this.data.rateMode = this.data.rateMode || 'Hz';
+                if (!this.data.rateMode) {
+                    this.data.rateMode = (this.data.bpm !== undefined) ? 'BPM' : 'Hz';
+                }
 
                 this.addControl('rateMode', new SelectControl('lfoRateMode', 'Rate Mode', ['Hz', 'BPM'], this.data.rateMode, (val) => {
                     this.data.rateMode = val;
@@ -7814,7 +7816,13 @@ workspace_data: ${base64Data}
         }
 
         class MasterClock extends LFOGenerator {}
-        class MasterClockNode extends LFONode {}
+        class MasterClockNode extends LFONode {
+            constructor() {
+                super();
+                this.data.rateMode = 'BPM';
+                this.updateControlVisibilities();
+            }
+        }
 
         // Envelope Follower Class
         class EnvelopeFollower {
