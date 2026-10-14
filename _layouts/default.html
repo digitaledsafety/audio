@@ -2331,7 +2331,7 @@ workspace_data: ${base64Data}
                 }
 
                 // Event-based (Push) or Polling connections for clocks, triggers, and gates
-                const isEventInput = targetInputKey.includes('clock') || targetInputKey.includes('trigger') || targetInputKey.includes('gate');
+                const isEventInput = targetInputKey.includes('clock') || targetInputKey.includes('trigger') || targetInputKey.includes('gate') || targetInputKey.includes('sync');
                 if (isEventInput) {
                     let connected = false;
 
@@ -2405,7 +2405,7 @@ workspace_data: ${base64Data}
                 const listenerKey = `${sourceReteNode.id}-${sourceOutputKey}-${targetInputKey}`;
 
                 // PUSH method disconnect
-                if ((targetInputKey.includes('clock') || targetInputKey.includes('trigger')) && sourceAudioNode && typeof sourceAudioNode.removeTickListener === 'function') {
+                if ((targetInputKey.includes('clock') || targetInputKey.includes('trigger') || targetInputKey.includes('sync')) && sourceAudioNode && typeof sourceAudioNode.removeTickListener === 'function') {
                     if (targetAudioNode._tickListeners && targetAudioNode._tickListeners.has(listenerKey)) {
                         const listener = targetAudioNode._tickListeners.get(listenerKey);
                         sourceAudioNode.removeTickListener(listener, sourceOutputKey);
@@ -9789,11 +9789,11 @@ workspace_data: ${base64Data}
                 } else if (context.type === 'connectioncreated' || context.type === 'connectioncreate') {
                     const connection = context.data;
                     const targetReteNode = editor.getNode(connection.target);
-                    if (connection.targetInput === 'clock' && targetReteNode.label === 'LFO') {
+                    if (connection.targetInput === 'clock' && (targetReteNode.label === 'LFO' || targetReteNode instanceof LFONode)) {
                         targetReteNode.data.sync = true;
-                        targetReteNode.controls.frequency.hidden = true;
-                        if (targetReteNode.controls.fineTune) targetReteNode.controls.fineTune.hidden = true;
-                        targetReteNode.controls.division.hidden = false;
+                        if (typeof targetReteNode.updateControlVisibilities === 'function') {
+                            targetReteNode.updateControlVisibilities();
+                        }
                         area.update('node', targetReteNode.id);
                         const audioNode = reteAudioNodes.get(targetReteNode.id);
                         if (audioNode) audioNode.updateParameter('sync', true);
@@ -9818,11 +9818,11 @@ workspace_data: ${base64Data}
                     const strategy = (connection.targetInput === 'midi') ? midiConnectionStrategy : voltageConnectionStrategy;
                     strategy.disconnect(sourceReteNode, targetReteNode, connection.targetInput, connection.sourceOutput);
 
-                    if (connection.targetInput === 'clock' && targetReteNode.label === 'LFO') {
+                    if (connection.targetInput === 'clock' && (targetReteNode.label === 'LFO' || targetReteNode instanceof LFONode)) {
                         targetReteNode.data.sync = false;
-                        targetReteNode.controls.frequency.hidden = false;
-                        if (targetReteNode.controls.fineTune) targetReteNode.controls.fineTune.hidden = false;
-                        targetReteNode.controls.division.hidden = true;
+                        if (typeof targetReteNode.updateControlVisibilities === 'function') {
+                            targetReteNode.updateControlVisibilities();
+                        }
                         area.update('node', targetReteNode.id);
                         const audioNode = reteAudioNodes.get(targetReteNode.id);
                         if (audioNode) audioNode.updateParameter('sync', false);

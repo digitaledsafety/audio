@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-test.describe('LFO Node BPM Slider & Legacy Clock Support', () => {
+test.describe('LFO Node BPM Slider & Sync In Connection', () => {
   test('allows changing BPM via slider when in BPM mode', async ({ page }) => {
     await page.goto('/');
     const cta = page.locator('#cta-button');
@@ -65,5 +65,33 @@ test.describe('LFO Node BPM Slider & Legacy Clock Support', () => {
     });
 
     expect(rateModeVal).toBe('BPM');
+  });
+
+  test('verifies sync in connection works between two LFO nodes', async ({ page }) => {
+    await page.goto('/');
+    const cta = page.locator('#cta-button');
+    if (await cta.isVisible()) {
+      await cta.click();
+    }
+
+    // Add two LFO nodes
+    await page.evaluate(async () => {
+      const lfo1 = new window.NodeRegistry._nodes.get('LFO')();
+      const lfo2 = new window.NodeRegistry._nodes.get('LFO')();
+      await window.editor.addNode(lfo1);
+      await window.editor.addNode(lfo2);
+
+      // Connect LFO 1 CV Out to LFO 2 Sync In (clock input)
+      const conn = new window.Rete.ClassicPreset.Connection(lfo1, 'cv', lfo2, 'clock');
+      await window.editor.addConnection(conn);
+    });
+
+    // Check that target LFO node data.sync was set to true
+    const isSynced = await page.evaluate(() => {
+      const nodes = window.editor.getNodes();
+      return nodes[1].data.sync;
+    });
+
+    expect(isSynced).toBe(true);
   });
 });
