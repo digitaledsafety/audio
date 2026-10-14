@@ -35,15 +35,15 @@ test.describe('Record Loop Integration', () => {
     // Enter the studio
     await page.locator('#cta-button').click();
 
-    // Add a Clock node (required for loop recording)
+    // Add an LFO node (required as clock source for loop recording)
     const addNodeToggle = page.locator('#addNodeToggle');
     await addNodeToggle.click();
-    const addMasterClockBtn = page.locator('#addMasterClockNodeBtn');
-    await expect(addMasterClockBtn).toBeVisible();
-    await addMasterClockBtn.click();
+    const addLFOBtn = page.locator('#addLFONodeBtn');
+    await expect(addLFOBtn).toBeVisible();
+    await addLFOBtn.click();
 
-    // Verify Clock node exists
-    await expect(page.locator('text=Clock').first()).toBeVisible();
+    // Verify LFO node exists
+    await expect(page.locator('text=LFO').first()).toBeVisible();
 
     // Toggle Settings menu to see Record Loop button
     await page.locator('#settingsToggle').click();

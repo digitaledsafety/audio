@@ -16,22 +16,24 @@ test.describe('Clock Synchronization', () => {
   });
 
   test('should add clock-related nodes and ping pong delay', async ({ page }) => {
-    // Add Clock
+    // Add LFO
     await page.locator('#addNodeToggle').click();
-    await page.locator('#addMasterClockNodeBtn').click();
+    await page.locator('#addLFONodeBtn').click();
 
     // Add Sequencer
     await page.locator('#addNodeToggle').click();
     await page.locator('#addSequencerNodeBtn').click();
 
-    const masterClockNode = page.locator('[data-node-label="Clock"]');
-    await expect(masterClockNode).toBeVisible();
+    const lfoNode = page.locator('[data-node-label="LFO"]');
+    await expect(lfoNode).toBeVisible();
 
     const sequencerNode = page.locator('[data-node-label="Sequencer"]');
     await expect(sequencerNode).toBeVisible();
 
-    // Verify the BPM controls exist
-    await expect(masterClockNode.locator('input[type="range"]')).toBeVisible();
+    // Switch LFO Rate Mode to BPM and verify BPM controls exist
+    const rateModeSelect = lfoNode.locator('select').first();
+    await rateModeSelect.selectOption('BPM');
+    await expect(lfoNode.locator('input[type="range"]').first()).toBeVisible();
     await expect(sequencerNode.locator('input[type="range"]')).toBeVisible();
 
     // Check if Ping Pong Delay was added too

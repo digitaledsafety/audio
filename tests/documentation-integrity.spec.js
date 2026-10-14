@@ -28,7 +28,7 @@ test.describe('Documentation Integrity', () => {
       'MasterGainOutputNode': 'outputnode.md',
       'FilterNode': 'vcfnode.md',
       'ADSREnvelopeNode': 'egnode.md',
-      'MasterClockNode': 'clocknode.md',
+      'MasterClockNode': 'lfonode.md',
       'ManualGateNode': 'gatenode.md',
       'MixerNode': 'mixing-signals.md'
     };
