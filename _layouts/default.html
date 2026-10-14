@@ -7728,6 +7728,7 @@ workspace_data: ${base64Data}
                 this.addControl('rateMode', new SelectControl('lfoRateMode', 'Rate Mode', ['Hz', 'BPM'], this.data.rateMode, (val) => {
                     this.data.rateMode = val;
                     this.updateControlVisibilities();
+                    if (typeof area !== 'undefined' && area && this.id) area.update('node', this.id);
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof LFOGenerator) audioNode.updateParameter('rateMode', val);
                 }));
