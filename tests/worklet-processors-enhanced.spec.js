@@ -66,7 +66,9 @@ test.describe('Worklet Processors & Service Worker Enhancements', () => {
     expect(swContent).toContain("event.request.method !== 'GET'");
     expect(swContent).toContain("['http:', 'https:'].includes(requestUrl.protocol)");
     expect(swContent).toContain("showcase.html");
+    expect(swContent).toContain("watch.html");
     expect(swContent).toContain("mini-notation-parser.js");
+    expect(swContent).toContain("multiplayer-session.js");
     expect(swContent).toContain("bitcrusher-processor.js");
     expect(swContent).toContain("granular-processor.js");
     expect(swContent).toContain("quantizer-processor.js");
