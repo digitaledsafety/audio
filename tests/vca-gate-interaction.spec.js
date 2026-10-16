@@ -57,6 +57,7 @@ test.describe('VCA Gate Input Interaction', () => {
         target: vcaId,
         targetInput: 'gate'
       });
+      await new Promise(r => setTimeout(r, 50));
 
       const vcaAudio = window.reteAudioNodes.get(vcaId);
       return {
