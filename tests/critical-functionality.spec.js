@@ -6,7 +6,14 @@ test.describe('Critical Functionality', () => {
     await page.waitForSelector('#cta-button');
   });
 
-  test('should enter the studio and show the editor', async ({ page }) => {
+  test('should enter the studio and show the editor without console errors', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') {
+        consoleErrors.push(msg.text());
+      }
+    });
+
     // Click CTA button
     const ctaButton = page.locator('#cta-button');
     await expect(ctaButton).toBeVisible({ timeout: 15000 });
@@ -18,6 +25,10 @@ test.describe('Critical Functionality', () => {
     // Verify Rete container is visible
     const reteContainer = page.locator('.rete-container');
     await expect(reteContainer).toBeVisible();
+
+    // Ensure no workspace decoding or loading errors occurred
+    const workspaceErrors = consoleErrors.filter(err => err.includes('Error loading workspace data') || err.includes('InvalidCharacterError'));
+    expect(workspaceErrors).toEqual([]);
   });
 
   test('should add a Tone Generator node', async ({ page }) => {

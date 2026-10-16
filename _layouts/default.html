@@ -1201,8 +1201,13 @@
         }
 
         function getWorkspaces() {
-            const workspaces = localStorage.getItem('rete-workspaces');
-            return workspaces ? JSON.parse(workspaces) : {};
+            try {
+                const workspaces = localStorage.getItem('rete-workspaces');
+                return workspaces ? JSON.parse(workspaces) : {};
+            } catch (e) {
+                console.error('Error reading workspaces from localStorage:', e);
+                return {};
+            }
         }
 
         function populateWorkspacesDropdown() {
@@ -8698,7 +8703,7 @@ workspace_data: ${base64Data}
 
             _handleData(conn, data) {
                 try {
-                    const parsedData = JSON.parse(data);
+                    const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
                     if (this.isHost) {
                         this._broadcastToOthers(conn.peer, parsedData);
                     }
@@ -10391,14 +10396,17 @@ workspace_data: ${base64Data}
                 
                     workspaceData = RandomWorkspaceGenerator.generate();
                 
-                    {% if page.workspace_data %}
+                    {% if page.workspace_data and page.workspace_data != "" %}
                     try {
-                        workspaceData = JSON.parse(atob('{{ page.workspace_data }}'));
-                        if (isWorkspaceOutdated(workspaceData)) {
-                            showMessage('This workspace may be outdated. An update is available in the settings menu.', 'info');
-                            const updateBtn = document.getElementById('updateWorkspaceBtn');
-                            updateBtn.classList.remove('hidden');
-                            updateBtn.disabled = false;
+                        const rawData = '{{ page.workspace_data }}'.trim();
+                        if (rawData && !rawData.includes('{{') && rawData !== '') {
+                            workspaceData = JSON.parse(atob(rawData));
+                            if (isWorkspaceOutdated(workspaceData)) {
+                                showMessage('This workspace may be outdated. An update is available in the settings menu.', 'info');
+                                const updateBtn = document.getElementById('updateWorkspaceBtn');
+                                updateBtn.classList.remove('hidden');
+                                updateBtn.disabled = false;
+                            }
                         }
                     } catch (e) {
                         console.error('Error loading workspace data:', e);
