@@ -34,4 +34,14 @@ test.describe('Vocoder Node', () => {
     const valueDisplay = vocoderNode.locator('.value-display').nth(0);
     await expect(valueDisplay).toHaveText('500.00');
   });
+
+  test('vocoder worklet processor contains normalized bandpass filter coefficients', async ({ page }) => {
+    const processorContent = await page.evaluate(async () => {
+      const response = await fetch('/assets/js/audio-worklets/vocoder-processor.js');
+      return await response.text();
+    });
+
+    expect(processorContent).toContain('this.b0 = alpha / a0;');
+    expect(processorContent).toContain('this.b2 = -alpha / a0;');
+  });
 });
