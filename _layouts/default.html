@@ -4776,12 +4776,25 @@ workspace_data: ${base64Data}
                 this.cvSource = this.audioContext.createConstantSource();
                 this.cvSource.start();
                 this.mainOutput = this.cvSource;
+                this.lastGateState = false;
+            }
+
+            sampleSignal(time) {
+                this.analyser.getFloatTimeDomainData(sharedSingleSampleBuffer);
+                const sampledValue = sharedSingleSampleBuffer[0];
+                const targetTime = time || this.audioContext.currentTime;
+                this.cvSource.offset.setTargetAtTime(sampledValue, targetTime, 0.001);
             }
 
             onTick(tickTime, tickDuration) {
-                this.analyser.getFloatTimeDomainData(sharedSingleSampleBuffer);
-                const sampledValue = sharedSingleSampleBuffer[0];
-                this.cvSource.offset.setTargetAtTime(sampledValue, tickTime, 0.001);
+                this.sampleSignal(tickTime);
+            }
+
+            handleGate(state, time) {
+                if (state && !this.lastGateState) {
+                    this.sampleSignal(time);
+                }
+                this.lastGateState = !!state;
             }
 
             start() {}
@@ -8287,26 +8300,90 @@ workspace_data: ${base64Data}
             }
         }
 
+        class Attenuverter {
+            constructor(audioContext, reteNodeId, data) {
+                this.audioContext = audioContext;
+                this.reteNodeId = reteNodeId;
+                this.data = data;
+
+                this.attenuatorNode = this.audioContext.createGain();
+                this.attenuatorNode.gain.value = this.data.level !== undefined ? Number(this.data.level) : 1.0;
+
+                this.offsetSource = this.audioContext.createConstantSource();
+                this.offsetSource.offset.value = this.data.offset !== undefined ? Number(this.data.offset) : 0.0;
+                this.offsetSource.start();
+
+                this.summerNode = this.audioContext.createGain();
+                this.summerNode.gain.value = 1.0;
+
+                this.attenuatorNode.connect(this.summerNode);
+                this.offsetSource.connect(this.summerNode);
+
+                this.mainInput = this.attenuatorNode;
+                this.mainOutput = this.summerNode;
+            }
+
+            updateParameter(key, val) {
+                if (key === 'level') {
+                    this.attenuatorNode.gain.setTargetAtTime(val, this.audioContext.currentTime, 0.01);
+                } else if (key === 'offset') {
+                    this.offsetSource.offset.setTargetAtTime(val, this.audioContext.currentTime, 0.01);
+                }
+            }
+
+            connect(destination) {
+                if (this.mainOutput && typeof this.mainOutput.connect === 'function') {
+                    this.mainOutput.connect(destination);
+                }
+            }
+
+            disconnect(destination) {
+                if (this.mainOutput && typeof this.mainOutput.disconnect === 'function') {
+                    if (destination) {
+                        this.mainOutput.disconnect(destination);
+                    } else {
+                        this.mainOutput.disconnect();
+                    }
+                }
+            }
+
+            stop() {
+                if (this.offsetSource) {
+                    try { this.offsetSource.stop(); } catch (e) {}
+                }
+            }
+        }
+
         class AttenuverterNode extends WebAudioNode {
             constructor() {
                 super('Attenuverter');
                 this.addInput('in', new Classic.Input(voltageSocket, 'In', true));
                 this.addOutput('out', new Classic.Output(voltageSocket, 'Out'));
 
-                this.data.level = 1;
+                this.data.level = this.data.level !== undefined ? this.data.level : 1;
+                this.data.offset = this.data.offset !== undefined ? this.data.offset : 0;
+
                 this.addControl('level', new SliderControl('levelSlider', 'Level', -1, 1, 0.01, this.data.level, (val) => {
                     this.data.level = val;
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode && audioNode.gain) {
+                    if (audioNode && typeof audioNode.updateParameter === 'function') {
+                        audioNode.updateParameter('level', val);
+                    } else if (audioNode && audioNode.gain) {
                         audioNode.gain.setTargetAtTime(val, audioContext.currentTime, 0.01);
+                    }
+                }));
+
+                this.addControl('offset', new SliderControl('offsetSlider', 'Offset', -1, 1, 0.01, this.data.offset, (val) => {
+                    this.data.offset = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode && typeof audioNode.updateParameter === 'function') {
+                        audioNode.updateParameter('offset', val);
                     }
                 }));
             }
 
             build() {
-                const audioNode = audioContext.createGain();
-                audioNode.gain.value = this.data.level;
-                return audioNode;
+                return new Attenuverter(audioContext, this.id, this.data);
             }
         }
 
