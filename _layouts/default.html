@@ -2556,6 +2556,8 @@ workspace_data: ${base64Data}
                         return targetNode.positionJitter;
                     case 'probability_cv':
                         return targetNode.probabilityControl ? targetNode.probabilityControl.gain : null;
+                    case 'threshold_cv':
+                        return targetNode.threshold;
                     case 'gain1_cv': return targetNode.channels ? targetNode.channels[0].gain.gain : null;
                     case 'gain2_cv': return targetNode.channels ? targetNode.channels[1].gain.gain : null;
                     case 'gain3_cv': return targetNode.channels ? targetNode.channels[2].gain.gain : null;
@@ -7557,43 +7559,96 @@ workspace_data: ${base64Data}
             constructor() {
                 super('Compressor');
                 this.addInput('audio', new Classic.Input(voltageSocket, 'Audio In', true));
+                this.addInput('threshold_cv', new Classic.Input(voltageSocket, 'Threshold CV'));
                 this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
 
                 this.data.threshold = -24; // dB
                 this.addControl('threshold', new SliderControl('compThreshold', 'Threshold (dB)', -60, 0, 1, this.data.threshold, (val) => {
                     this.data.threshold = val;
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode && audioNode.threshold) audioNode.threshold.value = val;
+                    if (audioNode && audioNode.threshold) {
+                        audioNode.threshold.setTargetAtTime(val, audioContext.currentTime, 0.01);
+                    }
+                }));
+
+                this.data.knee = 30; // dB
+                this.addControl('knee', new SliderControl('compKnee', 'Knee (dB)', 0, 40, 1, this.data.knee, (val) => {
+                    this.data.knee = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode && audioNode.knee) {
+                        audioNode.knee.setTargetAtTime(val, audioContext.currentTime, 0.01);
+                    }
                 }));
 
                 this.data.ratio = 12; // 1 to 20
                 this.addControl('ratio', new SliderControl('compRatio', 'Ratio', 1, 20, 0.1, this.data.ratio, (val) => {
                     this.data.ratio = val;
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode && audioNode.ratio) audioNode.ratio.value = val;
+                    if (audioNode && audioNode.ratio) {
+                        audioNode.ratio.setTargetAtTime(val, audioContext.currentTime, 0.01);
+                    }
                 }));
 
                 this.data.attack = 0.003; // seconds
                 this.addControl('attack', new SliderControl('compAttack', 'Attack (s)', 0, 1, 0.001, this.data.attack, (val) => {
                     this.data.attack = val;
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode && audioNode.attack) audioNode.attack.value = val;
+                    if (audioNode && audioNode.attack) {
+                        audioNode.attack.setTargetAtTime(val, audioContext.currentTime, 0.01);
+                    }
                 }));
 
                 this.data.release = 0.25; // seconds
                 this.addControl('release', new SliderControl('compRelease', 'Release (s)', 0, 1, 0.001, this.data.release, (val) => {
                     this.data.release = val;
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode && audioNode.release) audioNode.release.value = val;
+                    if (audioNode && audioNode.release) {
+                        audioNode.release.setTargetAtTime(val, audioContext.currentTime, 0.01);
+                    }
+                }));
+
+                this.data.makeupGain = 0; // dB
+                this.addControl('makeupGain', new SliderControl('compMakeupGain', 'Makeup Gain (dB)', 0, 24, 0.1, this.data.makeupGain, (val) => {
+                    this.data.makeupGain = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode && audioNode.makeupGainNode) {
+                        const gainLinear = Math.pow(10, val / 20);
+                        audioNode.makeupGainNode.gain.setTargetAtTime(gainLinear, audioContext.currentTime, 0.01);
+                    }
                 }));
             }
 
             build() {
-                const audioNode = audioContext.createDynamicsCompressor();
-                audioNode.threshold.value = this.data.threshold !== undefined ? this.data.threshold : -24;
-                audioNode.ratio.value = this.data.ratio !== undefined ? this.data.ratio : 12;
-                audioNode.attack.value = this.data.attack !== undefined ? this.data.attack : 0.003;
-                audioNode.release.value = this.data.release !== undefined ? this.data.release : 0.25;
+                const compressor = audioContext.createDynamicsCompressor();
+                compressor.threshold.value = this.data.threshold !== undefined ? this.data.threshold : -24;
+                compressor.knee.value = this.data.knee !== undefined ? this.data.knee : 30;
+                compressor.ratio.value = this.data.ratio !== undefined ? this.data.ratio : 12;
+                compressor.attack.value = this.data.attack !== undefined ? this.data.attack : 0.003;
+                compressor.release.value = this.data.release !== undefined ? this.data.release : 0.25;
+
+                const makeupGainNode = audioContext.createGain();
+                const gainDb = this.data.makeupGain !== undefined ? this.data.makeupGain : 0;
+                makeupGainNode.gain.value = Math.pow(10, gainDb / 20);
+
+                compressor.connect(makeupGainNode);
+
+                const audioNode = {
+                    mainInput: compressor,
+                    mainOutput: makeupGainNode,
+                    compressor: compressor,
+                    makeupGainNode: makeupGainNode,
+                    threshold: compressor.threshold,
+                    knee: compressor.knee,
+                    ratio: compressor.ratio,
+                    attack: compressor.attack,
+                    release: compressor.release,
+                    connect: function(destination) {
+                        this.mainOutput.connect(destination);
+                    },
+                    disconnect: function(destination) {
+                        this.mainOutput.disconnect(destination);
+                    }
+                };
                 return audioNode;
             }
         }
