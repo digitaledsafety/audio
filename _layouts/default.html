@@ -7168,6 +7168,24 @@ workspace_data: ${base64Data}
                 this.controls.release.hidden = true;
             }
 
+            onDataLoaded() {
+                const showRand = !!this.data.showRandomSettings;
+                if (this.controls.randomizeMode) this.controls.randomizeMode.hidden = !showRand;
+                if (this.controls.chordType) this.controls.chordType.hidden = !showRand || (this.data.randomizeMode === 'Scale');
+                if (this.controls.scaleType) this.controls.scaleType.hidden = !showRand || (this.data.randomizeMode === 'Chord');
+                if (this.controls.rootNote) this.controls.rootNote.hidden = !showRand;
+                if (this.controls.octaveRange) this.controls.octaveRange.hidden = !showRand;
+                if (this.controls.sequenceLength) this.controls.sequenceLength.hidden = !showRand;
+                if (this.controls.arpeggioPattern) this.controls.arpeggioPattern.hidden = !showRand;
+                if (this.controls.randomize) this.controls.randomize.hidden = !showRand;
+
+                const showEnv = !!this.data.showEnvelope;
+                if (this.controls.attack) this.controls.attack.hidden = !showEnv;
+                if (this.controls.decay) this.controls.decay.hidden = !showEnv;
+                if (this.controls.sustain) this.controls.sustain.hidden = !showEnv;
+                if (this.controls.release) this.controls.release.hidden = !showEnv;
+            }
+
             randomize() {
                 const audioNode = reteAudioNodes.get(this.id);
                 if (audioNode) {
@@ -7937,6 +7955,13 @@ workspace_data: ${base64Data}
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof LFOGenerator) audioNode.updateParameter('offset', val);
                 }));
+            }
+
+            onDataLoaded() {
+                const isSynced = !!this.data.sync;
+                if (this.controls.division) this.controls.division.hidden = !isSynced;
+                if (this.controls.frequency) this.controls.frequency.hidden = isSynced;
+                if (this.controls.fineTune) this.controls.fineTune.hidden = isSynced;
             }
 
             build() {
