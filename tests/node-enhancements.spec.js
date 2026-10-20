@@ -52,4 +52,45 @@ test.describe('Node Enhancements and Parameter Updates', () => {
     await offsetSlider.fill('200');
     await expect(offsetSlider).toHaveValue('200');
   });
+
+  test('LFONode and SequencerNode onDataLoaded should synchronize control visibility on workspace restore', async ({ page }) => {
+    await page.locator('#addNodeToggle').click();
+    await page.locator('button:has-text("LFO")').first().click();
+    await page.locator('#addNodeToggle').click();
+    await page.locator('button:has-text("Sequencer")').first().click();
+
+    const visibilityState = await page.evaluate(async () => {
+      const editor = window.editor;
+      const nodes = editor.getNodes();
+      const lfoNode = nodes.find(n => n.label === 'LFO');
+      const seqNode = nodes.find(n => n.label === 'Sequencer');
+
+      lfoNode.data.sync = true;
+      if (typeof lfoNode.onDataLoaded === 'function') lfoNode.onDataLoaded();
+
+      seqNode.data.showEnvelope = true;
+      seqNode.data.showRandomSettings = true;
+      seqNode.data.randomizeMode = 'Chord';
+      if (typeof seqNode.onDataLoaded === 'function') seqNode.onDataLoaded();
+
+      return {
+        lfoDivisionHidden: lfoNode.controls.division.hidden,
+        lfoFrequencyHidden: lfoNode.controls.frequency.hidden,
+        lfoFineTuneHidden: lfoNode.controls.fineTune.hidden,
+        seqAttackHidden: seqNode.controls.attack.hidden,
+        seqRandomizeModeHidden: seqNode.controls.randomizeMode.hidden,
+        seqChordTypeHidden: seqNode.controls.chordType.hidden,
+        seqScaleTypeHidden: seqNode.controls.scaleType.hidden
+      };
+    });
+
+    expect(visibilityState.lfoDivisionHidden).toBe(false);
+    expect(visibilityState.lfoFrequencyHidden).toBe(true);
+    expect(visibilityState.lfoFineTuneHidden).toBe(true);
+
+    expect(visibilityState.seqAttackHidden).toBe(false);
+    expect(visibilityState.seqRandomizeModeHidden).toBe(false);
+    expect(visibilityState.seqChordTypeHidden).toBe(false);
+    expect(visibilityState.seqScaleTypeHidden).toBe(true);
+  });
 });
