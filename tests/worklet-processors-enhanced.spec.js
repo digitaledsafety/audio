@@ -63,6 +63,8 @@ test.describe('Worklet Processors & Service Worker Enhancements', () => {
       return await response.text();
     });
 
+    expect(swContent).not.toContain("---");
+    expect(swContent).not.toContain("{{");
     expect(swContent).toContain("event.request.method !== 'GET'");
     expect(swContent).toContain("['http:', 'https:'].includes(requestUrl.protocol)");
     expect(swContent).toContain("showcase.html");
@@ -71,5 +73,31 @@ test.describe('Worklet Processors & Service Worker Enhancements', () => {
     expect(swContent).toContain("granular-processor.js");
     expect(swContent).toContain("quantizer-processor.js");
     expect(swContent).toContain("vocoder-processor.js");
+  });
+
+  test('PWA manifest.json and icons are valid and accessible', async ({ page }) => {
+    const manifestRes = await page.evaluate(async () => {
+      const response = await fetch('/manifest.json');
+      const text = await response.text();
+      return { status: response.status, text };
+    });
+
+    expect(manifestRes.status).toBe(200);
+    expect(manifestRes.text).not.toContain("---");
+    expect(manifestRes.text).not.toContain("{{");
+
+    const parsedManifest = JSON.parse(manifestRes.text);
+    expect(parsedManifest.name).toBe('Audio');
+    expect(parsedManifest.start_url).toBe('/');
+    expect(Array.isArray(parsedManifest.icons)).toBe(true);
+    expect(parsedManifest.icons.length).toBeGreaterThan(0);
+
+    for (const icon of parsedManifest.icons) {
+      const iconRes = await page.evaluate(async (src) => {
+        const res = await fetch(src);
+        return res.status;
+      }, icon.src);
+      expect(iconRes).toBe(200);
+    }
   });
 });
