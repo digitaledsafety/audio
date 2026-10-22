@@ -68,12 +68,27 @@ def build():
     with open('_site/showcase.html', 'w', encoding='utf-8') as f:
         f.write(showcase_html)
 
-    # 4. Copy assets & root files
+    # 4. Copy assets & process PWA files
     os.system('cp -r assets _site/')
+    if os.path.exists('icons'):
+        os.system('cp -r icons _site/')
+
+    def process_pwa_file(filepath):
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+        # Strip Jekyll frontmatter
+        content = re.sub(r'^---\s*\n.*?\n---\s*\n', '', content, flags=re.DOTALL)
+        # Strip site.baseurl Liquid tags
+        content = content.replace('{{ site.baseurl }}', '')
+        return content
+
     if os.path.exists('sw.js'):
-        os.system('cp sw.js _site/')
+        with open('_site/sw.js', 'w', encoding='utf-8') as f:
+            f.write(process_pwa_file('sw.js'))
+
     if os.path.exists('manifest.json'):
-        os.system('cp manifest.json _site/')
+        with open('_site/manifest.json', 'w', encoding='utf-8') as f:
+            f.write(process_pwa_file('manifest.json'))
 
 if __name__ == '__main__':
     build()
