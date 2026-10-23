@@ -7,11 +7,21 @@ test.describe('Enhanced Delay Node', () => {
     if (await cta.isVisible()) {
         await cta.click();
     }
+    await page.evaluate(async () => {
+      if (window.clearEditor) {
+        await window.clearEditor();
+      } else if (window.editor) {
+        await window.editor.clear();
+      }
+    });
   });
 
   test('should add and configure enhanced Delay node', async ({ page }) => {
     // Add Delay Node
-    await page.locator('#addNodeToggle').click();
+    const menu = page.locator('#addNodeDropdown');
+    if (!(await menu.isVisible())) {
+      await page.locator('#addNodeToggle').click();
+    }
     await page.locator('#addDelayNodeBtn').click();
 
     const delayNode = page.locator('[data-node-label="Delay"]').first();
@@ -38,7 +48,10 @@ test.describe('Enhanced Delay Node', () => {
   });
 
   test('should have Delay CV input', async ({ page }) => {
-    await page.locator('#addNodeToggle').click();
+    const menu = page.locator('#addNodeDropdown');
+    if (!(await menu.isVisible())) {
+      await page.locator('#addNodeToggle').click();
+    }
     await page.locator('#addDelayNodeBtn').click();
 
     const delayNode = page.locator('[data-node-label="Delay"]').first();

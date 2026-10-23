@@ -7232,12 +7232,21 @@ workspace_data: ${base64Data}
 
                 this.addControl('randomize', new ButtonControl('randomizeDm', '🎲', () => {
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode) {
-                        const newSequence = audioNode.generateRandomSequence();
+                    let newSequence;
+                    if (audioNode && audioNode.generateRandomSequence) {
+                        newSequence = audioNode.generateRandomSequence();
+                    } else if (typeof DrumMachine !== 'undefined' && DrumMachine.prototype.generateRandomSequence) {
+                        newSequence = DrumMachine.prototype.generateRandomSequence.call(this);
+                    }
+                    if (newSequence) {
                         this.controls.sequence.value = newSequence;
                         this.data.sequence = newSequence;
-                        audioNode.updateParameter('sequence', newSequence);
-                        area.update('node', this.id);
+                        if (audioNode && audioNode.updateParameter) {
+                            audioNode.updateParameter('sequence', newSequence);
+                        }
+                        if (typeof area !== 'undefined' && area.update) {
+                            area.update('node', this.id);
+                        }
                     }
                 }));
             }

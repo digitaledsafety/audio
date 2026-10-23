@@ -7,10 +7,20 @@ test.describe('Logic Gates Node', () => {
     if (await cta.isVisible()) {
         await cta.click();
     }
+    await page.evaluate(async () => {
+      if (window.clearEditor) {
+        await window.clearEditor();
+      } else if (window.editor) {
+        await window.editor.clear();
+      }
+    });
   });
 
   test('should add and configure Logic Gates node', async ({ page }) => {
-    await page.locator('#addNodeToggle').click();
+    const menu = page.locator('#addNodeDropdown');
+    if (!(await menu.isVisible())) {
+      await page.locator('#addNodeToggle').click();
+    }
     await page.locator('#addLogicGatesNodeBtn').click();
 
     const logicNode = page.locator('[data-node-label="Logic Gates"]').first();
@@ -31,7 +41,10 @@ test.describe('Logic Gates Node', () => {
   });
 
   test('should have two gate inputs and one output', async ({ page }) => {
-    await page.locator('#addNodeToggle').click();
+    const menu = page.locator('#addNodeDropdown');
+    if (!(await menu.isVisible())) {
+      await page.locator('#addNodeToggle').click();
+    }
     await page.locator('#addLogicGatesNodeBtn').click();
 
     const logicNode = page.locator('[data-node-label="Logic Gates"]').first();

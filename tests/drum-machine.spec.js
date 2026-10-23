@@ -17,7 +17,10 @@ test.describe('Drum Machine Node & Drum Kits', () => {
   });
 
   test('should add Drum Machine node, switch drum kits, and handle extended mini-notation', async ({ page }) => {
-    await page.locator('#addNodeToggle').click();
+    const menu = page.locator('#addNodeDropdown');
+    if (!(await menu.isVisible())) {
+      await page.locator('#addNodeToggle').click();
+    }
     await page.locator('#addDrumMachineNodeBtn').click();
 
     const dmNode = page.locator('[data-node-label="Drum Machine"]').first();
@@ -62,9 +65,14 @@ test.describe('Drum Machine Node & Drum Kits', () => {
     }).toPass({ timeout: 5000 });
 
     // Verify programmatic audio node execution for all kits and drum sounds
-    const soundCheck = await page.evaluate(() => {
-      const audioNodes = Array.from(window.reteAudioNodes.values());
-      const dmAudio = audioNodes.find(node => node.constructor.name === 'DrumMachine');
+    const soundCheck = await page.evaluate(async () => {
+      let dmAudio = null;
+      for (let i = 0; i < 20; i++) {
+        const audioNodes = Array.from(window.reteAudioNodes.values());
+        dmAudio = audioNodes.find(node => node.constructor.name === 'DrumMachine');
+        if (dmAudio) break;
+        await new Promise(r => setTimeout(r, 50));
+      }
       if (!dmAudio) return { success: false, error: 'DrumMachine audio node not found' };
 
       try {

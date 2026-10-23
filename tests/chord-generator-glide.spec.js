@@ -3,11 +3,24 @@ const { test, expect } = require('@playwright/test');
 test.describe('Chord Generator Glide & Pop-Free Transitions', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.locator('#cta-button').click();
+    const cta = page.locator('#cta-button');
+    if (await cta.isVisible()) {
+      await cta.click();
+    }
+    await page.evaluate(async () => {
+      if (window.clearEditor) {
+        await window.clearEditor();
+      } else if (window.editor) {
+        await window.editor.clear();
+      }
+    });
   });
 
   test('should add Chord Generator node and verify controls including Glide', async ({ page }) => {
-    await page.locator('#addNodeToggle').click();
+    const menu = page.locator('#addNodeDropdown');
+    if (!(await menu.isVisible())) {
+      await page.locator('#addNodeToggle').click();
+    }
     await page.locator('#addChordGeneratorNodeBtn').click();
 
     const chordNode = page.locator('[data-node-label="Chord Generator"]').first();
@@ -26,7 +39,10 @@ test.describe('Chord Generator Glide & Pop-Free Transitions', () => {
 
   test('should update root note smoothly using AudioParams without recreating oscillators when running', async ({ page }) => {
     // Add Chord Generator Node
-    await page.locator('#addNodeToggle').click();
+    const menu = page.locator('#addNodeDropdown');
+    if (!(await menu.isVisible())) {
+      await page.locator('#addNodeToggle').click();
+    }
     await page.locator('#addChordGeneratorNodeBtn').click();
 
     // Start audio
@@ -34,13 +50,17 @@ test.describe('Chord Generator Glide & Pop-Free Transitions', () => {
 
     // Evaluate on page to test ChordGenerator audio node instance directly
     const result = await page.evaluate(async () => {
-      // Find Chord Generator node in reteAudioNodes
+      // Find Chord Generator node in reteAudioNodes with retry loop
       let chordAudioNode = null;
-      for (const [id, audioNode] of window.reteAudioNodes.entries()) {
-        if (audioNode && audioNode.constructor.name === 'ChordGenerator') {
-          chordAudioNode = audioNode;
-          break;
+      for (let i = 0; i < 20; i++) {
+        for (const [id, audioNode] of window.reteAudioNodes.entries()) {
+          if (audioNode && audioNode.constructor.name === 'ChordGenerator') {
+            chordAudioNode = audioNode;
+            break;
+          }
         }
+        if (chordAudioNode) break;
+        await new Promise(r => setTimeout(r, 50));
       }
 
       if (!chordAudioNode) return { success: false, reason: 'ChordGenerator audio node not found' };
@@ -78,17 +98,24 @@ test.describe('Chord Generator Glide & Pop-Free Transitions', () => {
   });
 
   test('should configure Glide parameter and crossfade on Chord Type change', async ({ page }) => {
-    await page.locator('#addNodeToggle').click();
+    const menu = page.locator('#addNodeDropdown');
+    if (!(await menu.isVisible())) {
+      await page.locator('#addNodeToggle').click();
+    }
     await page.locator('#addChordGeneratorNodeBtn').click();
     await page.locator('#playStopBtn').click();
 
     const evalResult = await page.evaluate(async () => {
       let chordAudioNode = null;
-      for (const [id, audioNode] of window.reteAudioNodes.entries()) {
-        if (audioNode && audioNode.constructor.name === 'ChordGenerator') {
-          chordAudioNode = audioNode;
-          break;
+      for (let i = 0; i < 20; i++) {
+        for (const [id, audioNode] of window.reteAudioNodes.entries()) {
+          if (audioNode && audioNode.constructor.name === 'ChordGenerator') {
+            chordAudioNode = audioNode;
+            break;
+          }
         }
+        if (chordAudioNode) break;
+        await new Promise(r => setTimeout(r, 50));
       }
 
       if (!chordAudioNode) return { success: false };
