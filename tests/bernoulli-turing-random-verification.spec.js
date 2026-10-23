@@ -7,10 +7,20 @@ test.describe('Bernoulli, Turing Machine, and Random Voltage Verification', () =
     if (await cta.isVisible()) {
       await cta.click();
     }
+    await page.evaluate(async () => {
+      if (window.clearEditor) {
+        await window.clearEditor();
+      } else if (window.editor) {
+        await window.editor.clear();
+      }
+    });
   });
 
   test('Bernoulli Gate should have Prob CV input, Out A/B outputs, and route correctly', async ({ page }) => {
-    await page.locator('#addNodeToggle').click();
+    const menu = page.locator('#addNodeDropdown');
+    if (!(await menu.isVisible())) {
+      await page.locator('#addNodeToggle').click();
+    }
     await page.locator('#addBernoulliGateNodeBtn').click();
 
     const node = page.locator('[data-node-label="Bernoulli Gate"]').first();
@@ -29,7 +39,12 @@ test.describe('Bernoulli, Turing Machine, and Random Voltage Verification', () =
 
     // Test audio node execution
     const results = await page.evaluate(async () => {
-      const nodeEntry = Array.from(window.reteAudioNodes.entries()).find(([id, n]) => n.constructor.name === 'BernoulliGate');
+      let nodeEntry = null;
+      for (let i = 0; i < 20; i++) {
+        nodeEntry = Array.from(window.reteAudioNodes.entries()).find(([id, n]) => n.constructor.name === 'BernoulliGate');
+        if (nodeEntry) break;
+        await new Promise(r => setTimeout(r, 50));
+      }
       if (!nodeEntry) return { error: 'BernoulliGate instance not found' };
       const audioNode = nodeEntry[1];
 
@@ -66,7 +81,10 @@ test.describe('Bernoulli, Turing Machine, and Random Voltage Verification', () =
   });
 
   test('Turing Machine should support 2-32 steps, Prob CV, and deterministic looping at prob 0', async ({ page }) => {
-    await page.locator('#addNodeToggle').click();
+    const menu = page.locator('#addNodeDropdown');
+    if (!(await menu.isVisible())) {
+      await page.locator('#addNodeToggle').click();
+    }
     await page.locator('#addTuringMachineNodeBtn').click();
 
     const node = page.locator('[data-node-label="Turing Machine"]').first();
@@ -89,7 +107,12 @@ test.describe('Bernoulli, Turing Machine, and Random Voltage Verification', () =
 
     // Test audio node execution
     const results = await page.evaluate(async () => {
-      const nodeEntry = Array.from(window.reteAudioNodes.entries()).find(([id, n]) => n.constructor.name === 'TuringMachine');
+      let nodeEntry = null;
+      for (let i = 0; i < 20; i++) {
+        nodeEntry = Array.from(window.reteAudioNodes.entries()).find(([id, n]) => n.constructor.name === 'TuringMachine');
+        if (nodeEntry) break;
+        await new Promise(r => setTimeout(r, 50));
+      }
       if (!nodeEntry) return { error: 'TuringMachine instance not found' };
       const audioNode = nodeEntry[1];
 
@@ -123,7 +146,10 @@ test.describe('Bernoulli, Turing Machine, and Random Voltage Verification', () =
   });
 
   test('Random Voltage should support Range Min, Range Max, and generate bounded CV output', async ({ page }) => {
-    await page.locator('#addNodeToggle').click();
+    const menu = page.locator('#addNodeDropdown');
+    if (!(await menu.isVisible())) {
+      await page.locator('#addNodeToggle').click();
+    }
     await page.locator('#addRandomVoltageNodeBtn').click();
 
     const node = page.locator('[data-node-label="Random Voltage"]').first();
@@ -144,7 +170,12 @@ test.describe('Bernoulli, Turing Machine, and Random Voltage Verification', () =
 
     // Test audio node execution bounds
     const results = await page.evaluate(async () => {
-      const nodeEntry = Array.from(window.reteAudioNodes.entries()).find(([id, n]) => n.constructor.name === 'RandomVoltage');
+      let nodeEntry = null;
+      for (let i = 0; i < 20; i++) {
+        nodeEntry = Array.from(window.reteAudioNodes.entries()).find(([id, n]) => n.constructor.name === 'RandomVoltage');
+        if (nodeEntry) break;
+        await new Promise(r => setTimeout(r, 50));
+      }
       if (!nodeEntry) return { error: 'RandomVoltage instance not found' };
       const audioNode = nodeEntry[1];
 
