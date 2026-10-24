@@ -413,7 +413,6 @@
                                 <button id="addMixerNodeBtn" class="button button-secondary w-full text-xs">🎛️ Mixer</button>
                                 <button id="addVisualizerNodeBtn" class="button button-secondary w-full text-xs">👁️ Visualizer</button>
                                 <button id="addAttenuverterNodeBtn" class="button button-secondary w-full text-xs">🔄 Attenuverter</button>
-                                <button id="addMasterClockNodeBtn" class="button button-secondary w-full text-xs">⏱️ Clock</button>
                                 <button id="addMasterGainOutputNodeBtn" class="button button-secondary w-full text-xs">🔊 Output</button>
                                 <button id="addSignalInverterNodeBtn" class="button button-secondary w-full text-xs">🔄 Inverter</button>
                             </div>
@@ -586,7 +585,7 @@
                 'Gate': 'ManualGateNode',
                 'Inverter': 'SignalInverterNode',
                 'Noise Source': 'NoiseGeneratorNode',
-                'Clock': 'MasterClockNode',
+                'Clock': 'LFONode',
 
                 'Media Player': 'MediaPlayerNode',
                 'Wave Player': 'MediaPlayerNode',
@@ -600,7 +599,7 @@
                 'Manual Gate': 'ManualGateNode',
                 'Signal Inverter': 'SignalInverterNode',
                 'Noise Generator': 'NoiseGeneratorNode',
-                'Master Clock': 'MasterClockNode'
+                'Master Clock': 'LFONode'
             };
             return mapping[label] || label;
         }
@@ -739,7 +738,6 @@
         const addBitcrusherNodeBtn = document.getElementById('addBitcrusherNodeBtn');
         const addSequencerNodeBtn = document.getElementById('addSequencerNodeBtn');
         const addAttenuverterNodeBtn = document.getElementById('addAttenuverterNodeBtn');
-        const addMasterClockNodeBtn = document.getElementById('addMasterClockNodeBtn');
         const addVocoderNodeBtn = document.getElementById('addVocoderNodeBtn');
         const addMicrophoneInputNodeBtn = document.getElementById('addMicrophoneInputNodeBtn');
         const addGranularSynthesizerNodeBtn = document.getElementById('addGranularSynthesizerNodeBtn');
@@ -861,7 +859,7 @@
 
         function getMasterClockInstance() {
             for (const [id, audioNode] of reteAudioNodes.entries()) {
-                if (audioNode instanceof MasterClock) {
+                if (audioNode instanceof LFOGenerator) {
                     return audioNode;
                 }
             }
@@ -2333,7 +2331,7 @@ workspace_data: ${base64Data}
                 }
 
                 // Event-based (Push) or Polling connections for clocks, triggers, and gates
-                const isEventInput = targetInputKey.includes('clock') || targetInputKey.includes('trigger') || targetInputKey.includes('gate');
+                const isEventInput = targetInputKey.includes('clock') || targetInputKey.includes('trigger') || targetInputKey.includes('gate') || targetInputKey.includes('sync');
                 if (isEventInput) {
                     let connected = false;
 
@@ -2407,7 +2405,7 @@ workspace_data: ${base64Data}
                 const listenerKey = `${sourceReteNode.id}-${sourceOutputKey}-${targetInputKey}`;
 
                 // PUSH method disconnect
-                if ((targetInputKey.includes('clock') || targetInputKey.includes('trigger')) && sourceAudioNode && typeof sourceAudioNode.removeTickListener === 'function') {
+                if ((targetInputKey.includes('clock') || targetInputKey.includes('trigger') || targetInputKey.includes('sync')) && sourceAudioNode && typeof sourceAudioNode.removeTickListener === 'function') {
                     if (targetAudioNode._tickListeners && targetAudioNode._tickListeners.has(listenerKey)) {
                         const listener = targetAudioNode._tickListeners.get(listenerKey);
                         sourceAudioNode.removeTickListener(listener, sourceOutputKey);
@@ -7258,181 +7256,6 @@ workspace_data: ${base64Data}
             }
         }
 
-        // --- New Master Clock Node ---
-        class MasterClock {
-            constructor(audioContext, reteNodeId, data) {
-                this.audioContext = audioContext;
-                this.reteNodeId = reteNodeId;
-                this.data = data;
-                this.started = false;
-                this.stopping = false;
-                this.tickListeners = [];
-                this.timeoutId = null;
-                this.nextStepTime = 0;
-                this.beatCount = 0;
-            }
-
-            addTickListener(callback, outputKey) {
-                if (typeof callback === 'function' && !this.tickListeners.includes(callback)) {
-                    this.tickListeners.push(callback);
-                }
-            }
-
-            removeTickListener(callback, outputKey) {
-                const index = this.tickListeners.indexOf(callback);
-                if (index > -1) {
-                    this.tickListeners.splice(index, 1);
-                }
-            }
-
-            start() {
-                if (this.started || !this.audioContext) return;
-                this.started = true;
-                this.stopping = false;
-                this.beatCount = 0; // Reset beat count on start
-                this.nextStepTime = this.audioContext.currentTime;
-                this.schedule();
-            }
-
-            stop() {
-                if (!this.started || this.stopping) return;
-                this.stopping = true;
-            }
-
-            _internalStop() {
-                clearTimeout(this.timeoutId);
-                this.timeoutId = null;
-                this.started = false;
-                this.stopping = false;
-
-                // Update the UI toggle control to reflect the stopped state
-                const reteNode = editor.getNode(this.reteNodeId);
-                if (reteNode) {
-                    if (reteNode.controls.running) {
-                        reteNode.controls.running.value = false;
-                        reteNode.controls.running.label = 'Start';
-                    }
-                    reteNode.data.running = false;
-                    reteNode.stopBlinker();
-                    area.update('node', this.reteNodeId);
-                }
-            }
-
-            schedule() {
-                if (!this.started) return;
-
-                const bpm = this.data.bpm || 120;
-                const ppqn = 96; // Pulses per quarter note for higher resolution
-                const ticksPerMeasure = ppqn * 4; // Assuming 4/4 time
-                const secondsPerBeat = 60.0 / bpm;
-                const tickDuration = secondsPerBeat / ppqn;
-
-                while (this.nextStepTime < this.audioContext.currentTime + 0.1) {
-                    if (this.stopping && this.beatCount % ticksPerMeasure === 0) {
-                        this._internalStop();
-                        return;
-                    }
-
-                    // The MasterClockNode will now handle its own visual updates.
-                    // This MasterClock class is only responsible for the audio-rate scheduling.
-                    // Now passing beatCount (tickIndex) for robust synchronization
-                    this.tickListeners.forEach(listener => listener(this.nextStepTime, tickDuration, this.beatCount));
-                    this.nextStepTime += tickDuration;
-                    this.beatCount++;
-                }
-
-                this.timeoutId = setTimeout(() => this.schedule(), 25);
-            }
-
-            updateParameter(param, value) {
-                this.data[param] = value;
-                // No need to restart, the new BPM will be picked up on the next schedule call
-            }
-        }
-
-        class MasterClockNode extends GeneratorNode {
-            constructor() {
-                super('Clock');
-                this.addOutput('clock', new Classic.Output(voltageSocket, 'Clock Out'));
-
-                this.addControl('indicator', new IndicatorControl('indicator', 'Clock Pulse'));
-
-                this.data.bpm = 120;
-                this.addControl('bpm', new SliderControl('mcBpm', 'BPM', 30, 240, 1, this.data.bpm, (val) => {
-                    this.data.bpm = val;
-                    const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode) audioNode.updateParameter('bpm', val);
-                    if (this.data.running) {
-                        this.startBlinker();
-                    }
-                }));
-
-                this.data.running = false;
-                this.addControl('running', new ButtonControl('runningBtn', 'Start', async () => {
-                    if (!audioContext || audioContext.state !== 'running') {
-                        await startAudio();
-                    }
-
-                    this.data.running = !this.data.running;
-                    this.controls.running.label = this.data.running ? 'Stop' : 'Start';
-                    if (this.data.running) {
-                        this.start();
-                    } else {
-                        this.stop();
-                    }
-                    area.update('node', this.id);
-                }));
-            }
-
-            build() {
-                return new MasterClock(audioContext, this.id, this.data);
-            }
-
-            startBlinker() {
-                this.stopBlinker();
-                this.blinkInterval = setInterval(() => {
-                    const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode && audioNode.started) {
-                        const indicator = document.querySelector(`[data-node-id='${this.id}'] .clock-indicator`);
-                        if (indicator) {
-                            indicator.classList.add('blinking');
-                            setTimeout(() => indicator.classList.remove('blinking'), 50);
-                        }
-                    }
-                }, 1000 / ((this.data.bpm || 120) / 60));
-            }
-
-            stopBlinker() {
-                if (this.blinkInterval) {
-                    clearInterval(this.blinkInterval);
-                    this.blinkInterval = null;
-                }
-            }
-
-            start() {
-                this.data.running = true;
-                this.controls.running.label = 'Stop';
-                area.update('node', this.id);
-
-                const audioNode = reteAudioNodes.get(this.id);
-                if (audioNode && !audioNode.started) {
-                    audioNode.start();
-                }
-                this.startBlinker();
-            }
-
-            stop() {
-                this.data.running = false;
-                this.controls.running.label = 'Start';
-                area.update('node', this.id);
-
-                const audioNode = reteAudioNodes.get(this.id);
-                if (audioNode && audioNode.started) {
-                    audioNode._internalStop();
-                }
-                this.stopBlinker();
-            }
-        }
 
 
         // --- New Effects Nodes ---
@@ -7793,6 +7616,10 @@ workspace_data: ${base64Data}
                 this.reteNodeId = reteNodeId;
                 this.data = data;
                 this.started = false;
+                this.tickListeners = [];
+                this.timeoutId = null;
+                this.nextStepTime = 0;
+                this.beatCount = 0;
 
                 this.oscillator = this.audioContext.createOscillator();
                 this.amountGain = this.audioContext.createGain();
@@ -7809,6 +7636,8 @@ workspace_data: ${base64Data}
                 this.amountGain.connect(this.mainOutput);
                 this.offsetSource.connect(this.mainOutput);
 
+                this.data.rateMode = this.data.rateMode || 'Hz';
+                this.data.bpm = this.data.bpm !== undefined ? this.data.bpm : 120;
                 this.updateParameter('sync', this.data.sync || false);
                 this.updateParameter('division', this.data.division || '1/4');
                 this.updateParameter('frequency', this.data.frequency !== undefined ? this.data.frequency : 5, false);
@@ -7816,6 +7645,44 @@ workspace_data: ${base64Data}
                 this.updateParameter('waveform', this.data.waveform || 'sine', false);
                 this.updateParameter('amount', this.data.amount !== undefined ? this.data.amount : 500, false);
                 this.updateParameter('offset', this.data.offset !== undefined ? this.data.offset : 0, false);
+                this.updateFrequency();
+            }
+
+            addTickListener(callback) {
+                if (typeof callback === 'function' && !this.tickListeners.includes(callback)) {
+                    this.tickListeners.push(callback);
+                }
+            }
+
+            removeTickListener(callback) {
+                const index = this.tickListeners.indexOf(callback);
+                if (index > -1) {
+                    this.tickListeners.splice(index, 1);
+                }
+            }
+
+            computeEffectiveFrequency() {
+                if (this.data.sync) return null; // Controlled externally by onTick
+                if (this.data.rateMode === 'BPM') {
+                    const bpm = this.data.bpm !== undefined ? this.data.bpm : 120;
+                    const divisionMultipliers = {
+                        '1': 0.25, '1/2': 0.5, '1/4': 1, '1/8': 2, '1/16': 4, '1/32': 8
+                    };
+                    const mult = divisionMultipliers[this.data.division] || 1;
+                    return (bpm / 60) * mult;
+                } else {
+                    const baseFreq = this.data.frequency !== undefined ? this.data.frequency : 5;
+                    const fineFreq = this.data.fineTune || 0;
+                    return Math.max(0.01, baseFreq + fineFreq);
+                }
+            }
+
+            updateFrequency() {
+                if (!this.oscillator || this.data.sync) return;
+                const freq = this.computeEffectiveFrequency();
+                if (freq !== null) {
+                    this.oscillator.frequency.setTargetAtTime(freq, this.audioContext.currentTime, 0.01);
+                }
             }
 
             onTick(tickTime, tickDuration) {
@@ -7833,11 +7700,32 @@ workspace_data: ${base64Data}
                 }
             }
 
+            _schedule() {
+                if (!this.started) return;
+
+                const bpm = this.data.bpm !== undefined ? this.data.bpm : 120;
+                const ppqn = 96;
+                const tickDuration = 60 / (bpm * ppqn);
+                const lookahead = 0.1;
+                const scheduleInterval = 25;
+
+                while (this.nextStepTime < this.audioContext.currentTime + lookahead) {
+                    this.tickListeners.forEach(listener => listener(this.nextStepTime, tickDuration, this.beatCount));
+                    this.nextStepTime += tickDuration;
+                    this.beatCount++;
+                }
+
+                this.timeoutId = setTimeout(() => this._schedule(), scheduleInterval);
+            }
+
             start() {
                 if (this.started) return;
                 try {
                     this.oscillator.start(0);
                     this.started = true;
+                    this.beatCount = 0;
+                    this.nextStepTime = this.audioContext ? this.audioContext.currentTime : 0;
+                    this._schedule();
                     console.log(`LFO ${this.reteNodeId} started.`);
                 } catch (e) {
                     console.warn(`Could not start LFO ${this.reteNodeId}:`, e);
@@ -7847,15 +7735,15 @@ workspace_data: ${base64Data}
             stop() {
                 if (!this.started) return;
                 try {
+                    if (this.timeoutId) clearTimeout(this.timeoutId);
                     this.oscillator.stop(0);
                     this.oscillator.disconnect();
                     // Recreate oscillator if it needs to be started again later
                     this.oscillator = this.audioContext.createOscillator();
                     this.oscillator.connect(this.amountGain);
                     this.oscillator.type = this.data.waveform;
-                    const baseFreq = this.data.frequency !== undefined ? this.data.frequency : 5;
-                    const fineFreq = this.data.fineTune || 0;
-                    this.oscillator.frequency.value = Math.max(0.01, baseFreq + fineFreq);
+                    const freq = this.computeEffectiveFrequency() || 5;
+                    this.oscillator.frequency.value = freq;
                     
                     this.started = false;
                     console.log(`LFO ${this.reteNodeId} stopped.`);
@@ -7866,11 +7754,8 @@ workspace_data: ${base64Data}
 
             updateParameter(paramName, value) {
                 this.data[paramName] = value;
-                if ((paramName === 'frequency' || paramName === 'fineTune') && this.oscillator && !this.data.sync) {
-                    const baseFreq = this.data.frequency !== undefined ? this.data.frequency : 5;
-                    const fineFreq = this.data.fineTune || 0;
-                    const effectiveFreq = Math.max(0.01, baseFreq + fineFreq);
-                    this.oscillator.frequency.setTargetAtTime(effectiveFreq, this.audioContext.currentTime, 0.01);
+                if (paramName === 'rateMode' || paramName === 'bpm' || paramName === 'frequency' || paramName === 'fineTune' || paramName === 'division' || paramName === 'sync') {
+                    this.updateFrequency();
                 } else if (paramName === 'waveform' && this.oscillator) {
                     this.oscillator.type = value;
                 } else if (paramName === 'amount' && this.amountGain) {
@@ -7889,17 +7774,35 @@ workspace_data: ${base64Data}
         class LFONode extends ModulatorNode {
             constructor() {
                 super('LFO');
-                this.addInput('clock', new Classic.Input(voltageSocket, 'Clock In'));
+                this.addInput('clock', new Classic.Input(voltageSocket, 'Sync In'));
                 this.addOutput('cv', new Classic.Output(voltageSocket, 'CV Out')); // Can be used for modulation
 
                 this.data.sync = this.data.sync || false;
-                this.data.division = '1/4';
+                if (!this.data.rateMode) {
+                    this.data.rateMode = (this.data.bpm !== undefined) ? 'BPM' : 'Hz';
+                }
+
+                this.addControl('rateMode', new SelectControl('lfoRateMode', 'Rate Mode', ['Hz', 'BPM'], this.data.rateMode, (val) => {
+                    this.data.rateMode = val;
+                    this.updateControlVisibilities();
+                    if (typeof area !== 'undefined' && area && this.id) area.update('node', this.id);
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode instanceof LFOGenerator) audioNode.updateParameter('rateMode', val);
+                }));
+
+                this.data.bpm = this.data.bpm !== undefined ? this.data.bpm : 120;
+                this.addControl('bpm', new SliderControl('lfoBpm', 'BPM', 30, 240, 1, this.data.bpm, (val) => {
+                    this.data.bpm = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode instanceof LFOGenerator) audioNode.updateParameter('bpm', val);
+                }));
+
+                this.data.division = this.data.division || '1/4';
                 this.addControl('division', new SelectControl('lfoDivision', 'Division', ['1', '1/2', '1/4', '1/8', '1/16', '1/32'], this.data.division, (val) => {
                     this.data.division = val;
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof LFOGenerator) audioNode.updateParameter('division', val);
                 }));
-                this.controls.division.hidden = !this.data.sync;
 
                 this.data.frequency = this.data.frequency !== undefined ? this.data.frequency : 5;
                 this.addControl('frequency', new SliderControl('lfoFreq', 'Frequency (Hz)', 0.1, 20, 0.1, this.data.frequency, (val) => {
@@ -7907,7 +7810,6 @@ workspace_data: ${base64Data}
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof LFOGenerator) audioNode.updateParameter('frequency', val);
                 }));
-                this.controls.frequency.hidden = this.data.sync;
 
                 this.data.fineTune = this.data.fineTune !== undefined ? this.data.fineTune : 0;
                 this.addControl('fineTune', new SliderControl('lfoFineTune', 'Fine Rate (Hz)', -1.0, 1.0, 0.01, this.data.fineTune, (val) => {
@@ -7915,7 +7817,6 @@ workspace_data: ${base64Data}
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof LFOGenerator) audioNode.updateParameter('fineTune', val);
                 }));
-                this.controls.fineTune.hidden = this.data.sync;
 
                 this.data.waveform = 'sine';
                 this.addControl('waveform', new SelectControl('lfoWaveform', 'Waveform', ['sine', 'square', 'sawtooth', 'triangle'], this.data.waveform, (val) => {
@@ -7937,6 +7838,19 @@ workspace_data: ${base64Data}
                     const audioNode = reteAudioNodes.get(this.id);
                     if (audioNode instanceof LFOGenerator) audioNode.updateParameter('offset', val);
                 }));
+
+                this.updateControlVisibilities();
+            }
+
+            updateControlVisibilities() {
+                const isSync = !!this.data.sync;
+                const isBpm = this.data.rateMode === 'BPM';
+
+                if (this.controls.rateMode) this.controls.rateMode.hidden = isSync;
+                if (this.controls.bpm) this.controls.bpm.hidden = isSync || !isBpm;
+                if (this.controls.division) this.controls.division.hidden = !isSync && !isBpm;
+                if (this.controls.frequency) this.controls.frequency.hidden = isSync || isBpm;
+                if (this.controls.fineTune) this.controls.fineTune.hidden = isSync || isBpm;
             }
 
             build() {
@@ -7953,6 +7867,15 @@ workspace_data: ${base64Data}
                         console.warn(`Could not start ${this.label} for node ${this.id}:`, e);
                     }
                 }
+            }
+        }
+
+        class MasterClock extends LFOGenerator {}
+        class MasterClockNode extends LFONode {
+            constructor() {
+                super();
+                this.data.rateMode = 'BPM';
+                this.updateControlVisibilities();
             }
         }
 
@@ -9224,11 +9147,6 @@ workspace_data: ${base64Data}
             await editor.addNode(new AttenuverterNode());
             clearEditorBtn.disabled = false;
         });
-          
-        addMasterClockNodeBtn.addEventListener('click', async () => {
-            await editor.addNode(new MasterClockNode());
-            clearEditorBtn.disabled = false;
-        });
 
         addVocoderNodeBtn.addEventListener('click', async () => {
             await editor.addNode(new VocoderNode());
@@ -9388,8 +9306,8 @@ workspace_data: ${base64Data}
         NodeRegistry.register('SequencerNode', SequencerNode);
         NodeRegistry.register('Attenuverter', AttenuverterNode);
         NodeRegistry.register('AttenuverterNode', AttenuverterNode);
-        NodeRegistry.register('Clock', MasterClockNode);
-        NodeRegistry.register('MasterClockNode', MasterClockNode);
+        NodeRegistry.register('Clock', LFONode);
+        NodeRegistry.register('MasterClockNode', LFONode);
         NodeRegistry.register('Vocoder', VocoderNode);
         NodeRegistry.register('VocoderNode', VocoderNode);
         NodeRegistry.register('🎤 Mic Input', MicrophoneInputNode);
@@ -9667,7 +9585,6 @@ workspace_data: ${base64Data}
                     ['Bitcrusher', () => new BitcrusherNode()],
                     ['Sequencer', () => new SequencerNode()],
                     ['Attenuverter', () => new AttenuverterNode()],
-                    ['Clock', () => new MasterClockNode()],
                     ['Vocoder', () => new VocoderNode()],
                     ['Granular Synthesizer', () => new GranularSynthesizerNode()],
                     ['Mixer', () => new MixerNode()],
@@ -9927,11 +9844,11 @@ workspace_data: ${base64Data}
                 } else if (context.type === 'connectioncreated' || context.type === 'connectioncreate') {
                     const connection = context.data;
                     const targetReteNode = editor.getNode(connection.target);
-                    if (connection.targetInput === 'clock' && targetReteNode.label === 'LFO') {
+                    if (connection.targetInput === 'clock' && (targetReteNode.label === 'LFO' || targetReteNode instanceof LFONode)) {
                         targetReteNode.data.sync = true;
-                        targetReteNode.controls.frequency.hidden = true;
-                        if (targetReteNode.controls.fineTune) targetReteNode.controls.fineTune.hidden = true;
-                        targetReteNode.controls.division.hidden = false;
+                        if (typeof targetReteNode.updateControlVisibilities === 'function') {
+                            targetReteNode.updateControlVisibilities();
+                        }
                         area.update('node', targetReteNode.id);
                         const audioNode = reteAudioNodes.get(targetReteNode.id);
                         if (audioNode) audioNode.updateParameter('sync', true);
@@ -9956,11 +9873,11 @@ workspace_data: ${base64Data}
                     const strategy = (connection.targetInput === 'midi') ? midiConnectionStrategy : voltageConnectionStrategy;
                     strategy.disconnect(sourceReteNode, targetReteNode, connection.targetInput, connection.sourceOutput);
 
-                    if (connection.targetInput === 'clock' && targetReteNode.label === 'LFO') {
+                    if (connection.targetInput === 'clock' && (targetReteNode.label === 'LFO' || targetReteNode instanceof LFONode)) {
                         targetReteNode.data.sync = false;
-                        targetReteNode.controls.frequency.hidden = false;
-                        if (targetReteNode.controls.fineTune) targetReteNode.controls.fineTune.hidden = false;
-                        targetReteNode.controls.division.hidden = true;
+                        if (typeof targetReteNode.updateControlVisibilities === 'function') {
+                            targetReteNode.updateControlVisibilities();
+                        }
                         area.update('node', targetReteNode.id);
                         const audioNode = reteAudioNodes.get(targetReteNode.id);
                         if (audioNode) audioNode.updateParameter('sync', false);

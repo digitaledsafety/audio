@@ -52,7 +52,7 @@ test.describe('Node Removal and Stop Audio Cleanup', () => {
     // Start audio
     await page.click('#playStopBtn');
 
-    // Add VCO, Noise Source, and Clock nodes
+    // Add VCO, Noise Source, and LFO nodes
     await page.click('#addNodeToggle');
     await page.click('#addToneGeneratorNodeBtn');
 
@@ -60,7 +60,7 @@ test.describe('Node Removal and Stop Audio Cleanup', () => {
     await page.click('#addNoiseGeneratorNodeBtn');
 
     await page.click('#addNodeToggle');
-    await page.click('#addMasterClockNodeBtn');
+    await page.click('#addLFONodeBtn');
 
     // Ensure audio nodes map has entries
     const audioMapSizeBefore = await page.evaluate(() => window.reteAudioNodes.size);
