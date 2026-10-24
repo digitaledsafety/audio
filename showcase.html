@@ -257,15 +257,17 @@ title: Showcase Gallery
                 let nodeLabels = [];
 
                 try {
-                    // Base64 decode to parse actual contents
-                    const decoded = atob(preset.workspace_data);
-                    const data = JSON.parse(decoded);
-                    if (data && data.nodes) {
-                        nodesCount = data.nodes.length;
-                        nodeLabels = data.nodes.map(n => n.label || n.name || "Unknown");
-                    }
-                    if (data && data.connections) {
-                        connectionsCount = data.connections.length;
+                    if (preset.workspace_data && typeof preset.workspace_data === 'string' && !preset.workspace_data.includes('{{') && preset.workspace_data.trim() !== '') {
+                        // Base64 decode to parse actual contents
+                        const decoded = atob(preset.workspace_data);
+                        const data = JSON.parse(decoded);
+                        if (data && data.nodes) {
+                            nodesCount = data.nodes.length;
+                            nodeLabels = data.nodes.map(n => n.label || n.name || "Unknown");
+                        }
+                        if (data && data.connections) {
+                            connectionsCount = data.connections.length;
+                        }
                     }
                 } catch (e) {
                     // Fail silently or handle corrupt Base64 gracefully
