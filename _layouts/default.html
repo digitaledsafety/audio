@@ -10448,12 +10448,15 @@ workspace_data: ${base64Data}
                 
                     {% if page.workspace_data %}
                     try {
-                        workspaceData = JSON.parse(atob('{{ page.workspace_data }}'));
-                        if (isWorkspaceOutdated(workspaceData)) {
-                            showMessage('This workspace may be outdated. An update is available in the settings menu.', 'info');
-                            const updateBtn = document.getElementById('updateWorkspaceBtn');
-                            updateBtn.classList.remove('hidden');
-                            updateBtn.disabled = false;
+                        const rawData = '{{ page.workspace_data }}';
+                        if (rawData && !rawData.includes('{{') && rawData.trim() !== '') {
+                            workspaceData = JSON.parse(atob(rawData));
+                            if (isWorkspaceOutdated(workspaceData)) {
+                                showMessage('This workspace may be outdated. An update is available in the settings menu.', 'info');
+                                const updateBtn = document.getElementById('updateWorkspaceBtn');
+                                updateBtn.classList.remove('hidden');
+                                updateBtn.disabled = false;
+                            }
                         }
                     } catch (e) {
                         console.error('Error loading workspace data:', e);
