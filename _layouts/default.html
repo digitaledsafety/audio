@@ -367,6 +367,7 @@
                                 <button id="addFilterNodeBtn" class="button button-secondary w-full text-xs">📉 VCF</button>
                                 <button id="addDelayNodeBtn" class="button button-secondary w-full text-xs">⏳ Delay</button>
                                 <button id="addDistortionNodeBtn" class="button button-secondary w-full text-xs">🎸 Distortion</button>
+                                <button id="addWavefolderNodeBtn" class="button button-secondary w-full text-xs">🌊 Wavefolder</button>
                                 <button id="addCompressorNodeBtn" class="button button-secondary w-full text-xs">📊 Compressor</button>
                                 <button id="addReverbNodeBtn" class="button button-secondary w-full text-xs">🏞️ Reverb</button>
                                 <button id="addPingPongDelayNodeBtn" class="button button-secondary w-full text-xs">🏓 Ping Pong</button>
@@ -1626,21 +1627,43 @@ workspace_data: ${base64Data}
             const deg = Math.PI / 180;
             for (let i = 0; i < n_samples; ++i) {
                 const x = i * 2 / n_samples - 1;
-                // The drive parameter 'd' will control the aggressiveness of the curve
-                curve[i] = (3 + k) * x * (20 + d) * deg / (Math.PI + k * Math.abs(x));
+                const driveScale = 1 + (d / 10);
+                const drivenX = x * driveScale;
+                const distX = (3 + k) * drivenX * (20 + d) * deg / (Math.PI + k * Math.abs(drivenX));
+                curve[i] = Math.tanh(distX);
             }
             return curve;
         }
 
         /**
-         * Sets the distortion curve on a WaveShaperNode.
+         * Sets the distortion curve on a WaveShaperNode with 4x oversampling.
          * @param {WaveShaperNode} waveShaperNode - The Web Audio API WaveShaperNode.
          * @param {number} amount - The amount of distortion.
          * @param {number} drive - The drive amount.
          */
         function setDistortionCurve(waveShaperNode, amount, drive) {
             if (waveShaperNode && 'curve' in waveShaperNode) {
+                try { waveShaperNode.oversample = '4x'; } catch (e) {}
                 waveShaperNode.curve = makeDistortionCurve(amount, drive);
+            }
+        }
+
+        function makeWavefolderCurve(folds) {
+            const f = Math.max(1, folds || 1);
+            const n_samples = 44100;
+            const curve = new Float32Array(n_samples);
+            for (let i = 0; i < n_samples; ++i) {
+                const x = i * 2 / n_samples - 1;
+                // Trigonometric wavefolder function with soft saturation: f(x) = tanh(sin(f * PI * x) * (1 + 0.2 * f))
+                curve[i] = Math.tanh(Math.sin(f * Math.PI * x) * (1 + 0.2 * f));
+            }
+            return curve;
+        }
+
+        function setWavefolderCurve(waveShaperNode, folds) {
+            if (waveShaperNode && 'curve' in waveShaperNode) {
+                try { waveShaperNode.oversample = '4x'; } catch (e) {}
+                waveShaperNode.curve = makeWavefolderCurve(folds);
             }
         }
 
@@ -2558,6 +2581,8 @@ workspace_data: ${base64Data}
                         return targetNode.probabilityControl ? targetNode.probabilityControl.gain : null;
                     case 'threshold_cv':
                         return targetNode.threshold;
+                    case 'fold_cv':
+                        return targetNode.driveGain ? targetNode.driveGain.gain : null;
                     case 'gain1_cv': return targetNode.channels ? targetNode.channels[0].gain.gain : null;
                     case 'gain2_cv': return targetNode.channels ? targetNode.channels[1].gain.gain : null;
                     case 'gain3_cv': return targetNode.channels ? targetNode.channels[2].gain.gain : null;
@@ -2701,6 +2726,46 @@ workspace_data: ${base64Data}
         const voltageSocket = new Classic.Socket('voltage');
         const midiSocket = new Classic.Socket('midi');
 
+        const periodicWaveCache = new WeakMap();
+
+        function getPeriodicWaveForType(audioContext, type, numHarmonics = 64) {
+            if (!audioContext) return null;
+            let ctxCache = periodicWaveCache.get(audioContext);
+            if (!ctxCache) {
+                ctxCache = {};
+                periodicWaveCache.set(audioContext, ctxCache);
+            }
+            const key = `${type}_${numHarmonics}`;
+            if (ctxCache[key]) return ctxCache[key];
+
+            const real = new Float32Array(numHarmonics + 1);
+            const imag = new Float32Array(numHarmonics + 1);
+
+            for (let k = 1; k <= numHarmonics; k++) {
+                const sigma = Math.sin((k * Math.PI) / numHarmonics) / ((k * Math.PI) / numHarmonics);
+                if (type === 'sawtooth') {
+                    imag[k] = (-2 / (k * Math.PI)) * sigma;
+                } else if (type === 'square') {
+                    if (k % 2 === 1) {
+                        imag[k] = (4 / (k * Math.PI)) * sigma;
+                    }
+                } else if (type === 'triangle') {
+                    if (k % 2 === 1) {
+                        const n = (k - 1) / 2;
+                        imag[k] = Math.pow(-1, n) * (8 / (Math.PI * Math.PI * k * k)) * sigma;
+                    }
+                }
+            }
+
+            try {
+                const wave = audioContext.createPeriodicWave(real, imag, { disableNormalization: false });
+                ctxCache[key] = wave;
+                return wave;
+            } catch (e) {
+                return null;
+            }
+        }
+
         // --- New ChordGenerator Internal Class ---
         class ToneGenerator {
             constructor(audioContext, reteNodeId, data) {
@@ -2727,9 +2792,24 @@ workspace_data: ${base64Data}
                 this.setupOscillator();
             }
 
+            setWaveform(type) {
+                if (!this.oscillator) return;
+                const waveType = type || 'sine';
+                if (waveType === 'sine') {
+                    this.oscillator.type = 'sine';
+                } else {
+                    const wave = getPeriodicWaveForType(this.audioContext, waveType);
+                    if (wave) {
+                        this.oscillator.setPeriodicWave(wave);
+                    } else {
+                        this.oscillator.type = waveType;
+                    }
+                }
+            }
+
             setupOscillator() {
                 this.oscillator = this.audioContext.createOscillator();
-                this.oscillator.type = this.data.waveform || 'sine';
+                this.setWaveform(this.data.waveform || 'sine');
                 this.oscillator.frequency.value = 0; // Use proxy for frequency
                 this.frequencyProxy.connect(this.oscillator.frequency);
                 this.transposeControl.connect(this.oscillator.detune);
@@ -2781,7 +2861,7 @@ workspace_data: ${base64Data}
                     const effectiveFreq = baseFreq * Math.pow(2, fineCents / 1200);
                     this.frequencyProxy.offset.setTargetAtTime(effectiveFreq, this.audioContext.currentTime, 0.01);
                 } else if (paramName === 'waveform' && this.oscillator) {
-                    this.oscillator.type = value;
+                    this.setWaveform(value);
                 }
             }
 
@@ -2883,7 +2963,14 @@ workspace_data: ${base64Data}
 
                     osc.frequency.value = freq;
                     osc.detune.value = this.data.fineTune || 0;
-                    osc.type = this.data.waveform || 'sine';
+                    const wf = this.data.waveform || 'sine';
+                    if (wf === 'sine') {
+                        osc.type = 'sine';
+                    } else {
+                        const wave = getPeriodicWaveForType(this.audioContext, wf);
+                        if (wave) osc.setPeriodicWave(wave);
+                        else osc.type = wf;
+                    }
                     this.transposeControl.connect(osc.detune);
 
                     gain.gain.value = 1 / notesToPlay.length; // Distribute volume evenly
@@ -4948,6 +5035,103 @@ workspace_data: ${base64Data}
             }
         }
 
+        class VCF {
+            constructor(audioContext, reteNodeId, data) {
+                this.audioContext = audioContext;
+                this.reteNodeId = reteNodeId;
+                this.data = data || {};
+
+                this.mainInput = this.audioContext.createGain();
+                this.mainOutput = this.audioContext.createGain();
+
+                this.filter1 = this.audioContext.createBiquadFilter();
+                this.filter2 = this.audioContext.createBiquadFilter();
+
+                this.saturator = this.audioContext.createWaveShaper();
+                setDistortionCurve(this.saturator, 10, 10);
+
+                this.freqProxy = this.audioContext.createConstantSource();
+                const freqVal = this.data.frequency !== undefined ? this.data.frequency : 5000;
+                this.freqProxy.offset.value = freqVal;
+                this.freqProxy.start();
+                this.frequency = this.freqProxy.offset;
+
+                this.qProxy = this.audioContext.createConstantSource();
+                const qVal = this.data.q !== undefined ? this.data.q : 1;
+                this.qProxy.offset.value = qVal;
+                this.qProxy.start();
+                this.Q = this.qProxy.offset;
+
+                this.freqProxy.connect(this.filter1.frequency);
+                this.freqProxy.connect(this.filter2.frequency);
+                this.qProxy.connect(this.filter1.Q);
+                this.qProxy.connect(this.filter2.Q);
+
+                this.slope = this.data.slope || '24dB';
+                this.filterType = this.data.filterType || 'lowpass';
+
+                this.updateTopology();
+            }
+
+            get type() {
+                return this.filterType;
+            }
+
+            set type(val) {
+                this.filterType = val;
+                this.filter1.type = val;
+                this.filter2.type = val;
+            }
+
+            updateTopology() {
+                this.filter1.type = this.filterType;
+                this.filter2.type = this.filterType;
+
+                try { this.mainInput.disconnect(); } catch (e) {}
+                try { this.filter1.disconnect(); } catch (e) {}
+                try { this.saturator.disconnect(); } catch (e) {}
+                try { this.filter2.disconnect(); } catch (e) {}
+
+                if (this.slope === '12dB') {
+                    this.mainInput.connect(this.filter1);
+                    this.filter1.connect(this.saturator);
+                    this.saturator.connect(this.mainOutput);
+                } else {
+                    this.mainInput.connect(this.filter1);
+                    this.filter1.connect(this.saturator);
+                    this.saturator.connect(this.filter2);
+                    this.filter2.connect(this.mainOutput);
+                }
+            }
+
+            updateParameter(paramName, value) {
+                this.data[paramName] = value;
+                const now = this.audioContext.currentTime;
+                if (paramName === 'frequency') {
+                    this.freqProxy.offset.setTargetAtTime(value, now, 0.01);
+                } else if (paramName === 'q') {
+                    this.qProxy.offset.setTargetAtTime(value, now, 0.01);
+                } else if (paramName === 'filterType') {
+                    this.type = value;
+                } else if (paramName === 'slope') {
+                    this.slope = value;
+                    this.updateTopology();
+                }
+            }
+
+            connect(destination) {
+                this.mainOutput.connect(destination);
+            }
+
+            disconnect(destination) {
+                if (destination) {
+                    this.mainOutput.disconnect(destination);
+                } else {
+                    this.mainOutput.disconnect();
+                }
+            }
+        }
+
         class FilterNode extends WebAudioNode {
             constructor() {
                 super('VCF');
@@ -4979,19 +5163,23 @@ workspace_data: ${base64Data}
                 this.addControl('filterType', new SelectControl('filterTypeSelect', 'Type', ['lowpass', 'highpass', 'bandpass', 'notch'], this.data.filterType, (val) => {
                     this.data.filterType = val;
                     const audioNode = reteAudioNodes.get(this.id);
-                    if (audioNode && audioNode.type) {
+                    if (audioNode) {
                         audioNode.type = val;
                     }
-                    //area.update('node', this.id);
+                }));
+
+                this.data.slope = '24dB';
+                this.addControl('slope', new SelectControl('filterSlopeSelect', 'Slope', ['24dB', '12dB'], this.data.slope, (val) => {
+                    this.data.slope = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) {
+                        audioNode.updateParameter('slope', val);
+                    }
                 }));
             }
 
             build() {
-                const audioNode = audioContext.createBiquadFilter();
-                audioNode.type = this.data.filterType || 'lowpass';
-                audioNode.frequency.value = this.data.frequency !== undefined ? this.data.frequency : 2000;
-                audioNode.Q.value = this.data.q !== undefined ? this.data.q : 1;
-                return audioNode;
+                return new VCF(audioContext, this.id, this.data);
             }
         }
 
@@ -7461,6 +7649,105 @@ workspace_data: ${base64Data}
             }
         }
 
+        class Wavefolder {
+            constructor(audioContext, reteNodeId, data) {
+                this.audioContext = audioContext;
+                this.reteNodeId = reteNodeId;
+                this.data = data || {};
+
+                this.mainInput = this.audioContext.createGain();
+                this.driveGain = this.audioContext.createGain();
+                this.waveShaperNode = this.audioContext.createWaveShaper();
+                this.dryGain = this.audioContext.createGain();
+                this.wetGain = this.audioContext.createGain();
+                this.mainOutput = this.audioContext.createGain();
+
+                const folds = this.data.folds !== undefined ? this.data.folds : 2;
+                const drive = this.data.drive !== undefined ? this.data.drive : 1.0;
+                const mix = this.data.mix !== undefined ? this.data.mix : 1.0;
+
+                this.driveGain.gain.setValueAtTime(drive, this.audioContext.currentTime);
+                setWavefolderCurve(this.waveShaperNode, folds);
+
+                this.dryGain.gain.setValueAtTime(1 - mix, this.audioContext.currentTime);
+                this.wetGain.gain.setValueAtTime(mix, this.audioContext.currentTime);
+
+                this.mainInput.connect(this.dryGain);
+                this.mainInput.connect(this.driveGain);
+                this.driveGain.connect(this.waveShaperNode);
+                this.waveShaperNode.connect(this.wetGain);
+
+                this.dryGain.connect(this.mainOutput);
+                this.wetGain.connect(this.mainOutput);
+            }
+
+            updateParameter(paramName, value) {
+                this.data[paramName] = value;
+                const now = this.audioContext.currentTime;
+                if (paramName === 'folds') {
+                    setWavefolderCurve(this.waveShaperNode, value);
+                } else if (paramName === 'drive') {
+                    this.driveGain.gain.setTargetAtTime(value, now, 0.01);
+                } else if (paramName === 'mix') {
+                    this.dryGain.gain.setTargetAtTime(1 - value, now, 0.01);
+                    this.wetGain.gain.setTargetAtTime(value, now, 0.01);
+                }
+            }
+
+            connect(destination) {
+                this.mainOutput.connect(destination);
+            }
+
+            disconnect(destination) {
+                if (destination) {
+                    this.mainOutput.disconnect(destination);
+                } else {
+                    this.mainOutput.disconnect();
+                }
+            }
+        }
+
+        class WavefolderNode extends WebAudioNode {
+            constructor() {
+                super('Wavefolder');
+                this.addInput('audio', new Classic.Input(voltageSocket, 'Audio In', true));
+                this.addInput('fold_cv', new Classic.Input(voltageSocket, 'Fold CV', true));
+                this.addOutput('audio', new Classic.Output(voltageSocket, 'Audio Out'));
+
+                this.data.folds = 2;
+                this.addControl('folds', new SliderControl('wavefolderFolds', 'Folds', 1, 10, 0.1, this.data.folds, (val) => {
+                    this.data.folds = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) {
+                        audioNode.updateParameter('folds', val);
+                    }
+                }));
+
+                this.data.drive = 1.0;
+                this.addControl('drive', new SliderControl('wavefolderDrive', 'Drive', 0.1, 5.0, 0.05, this.data.drive, (val) => {
+                    this.data.drive = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) {
+                        audioNode.updateParameter('drive', val);
+                    }
+                }));
+
+                this.data.mix = 1.0;
+                this.addControl('mix', new SliderControl('wavefolderMix', 'Mix', 0, 1, 0.01, this.data.mix, (val) => {
+                    this.data.mix = val;
+                    const audioNode = reteAudioNodes.get(this.id);
+                    if (audioNode) {
+                        audioNode.updateParameter('mix', val);
+                    }
+                }));
+            }
+
+            build() {
+                const audioNode = new Wavefolder(audioContext, this.id, this.data);
+                return audioNode;
+            }
+        }
+
         class DistortionNode extends WebAudioNode {
             constructor() {
                 super('Distortion');
@@ -9162,6 +9449,17 @@ workspace_data: ${base64Data}
             clearEditorBtn.disabled = false;
         });
 
+        const addWavefolderNodeBtn = document.getElementById('addWavefolderNodeBtn');
+        if (addWavefolderNodeBtn) {
+            addWavefolderNodeBtn.addEventListener('click', async () => {
+                const node = new WavefolderNode();
+                const existingNodesCount = editor.getNodes().length;
+                node.position = { x: 50 + (existingNodesCount % 5) * 220, y: 50 + Math.floor(existingNodesCount / 5) * 200 };
+                await editor.addNode(node);
+                clearEditorBtn.disabled = false;
+            });
+        }
+
         addDistortionNodeBtn.addEventListener('click', async () => {
             const node = new DistortionNode();
             const existingNodesCount = editor.getNodes().length;
@@ -9368,6 +9666,8 @@ workspace_data: ${base64Data}
         NodeRegistry.register('PhaserNode', PhaserNode);
         NodeRegistry.register('Flanger', FlangerNode);
         NodeRegistry.register('FlangerNode', FlangerNode);
+        NodeRegistry.register('Wavefolder', WavefolderNode);
+        NodeRegistry.register('WavefolderNode', WavefolderNode);
         NodeRegistry.register('Distortion', DistortionNode);
         NodeRegistry.register('DistortionNode', DistortionNode);
         NodeRegistry.register('Compressor', CompressorNode);
@@ -9659,6 +9959,7 @@ workspace_data: ${base64Data}
                     ['Chorus', () => new ChorusNode()],
                     ['Phaser', () => new PhaserNode()],
                     ['Distortion', () => new DistortionNode()],
+                    ['Wavefolder', () => new WavefolderNode()],
                     ['Compressor', () => new CompressorNode()],
                     ['Reverb', () => new ReverbNode()],
                     ['Arpeggiator', () => new ArpeggiatorNode()],

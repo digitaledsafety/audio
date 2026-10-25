@@ -75,8 +75,9 @@ class GranularProcessor extends AudioWorkletProcessor {
             const s2 = this.buffer[index2] || 0;
             const sample = (s1 * (1 - fraction)) + (s2 * fraction);
 
-            // Apply a simple window to avoid clicks
-            const window = Math.sin(Math.PI * (grain.playbackPosition / grain.size));
+            // Apply a smooth Hann window function to eliminate grain boundary click artifacts
+            const phase = grain.playbackPosition / grain.size;
+            const window = (phase >= 0 && phase <= 1) ? 0.5 * (1 - Math.cos(2 * Math.PI * phase)) : 0;
 
             for(const channel of output) {
                 channel[j] += sample * window;
