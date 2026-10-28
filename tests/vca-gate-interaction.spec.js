@@ -50,13 +50,10 @@ test.describe('VCA Gate Input Interaction', () => {
     // Connect Manual Gate 'out' to VCA 'gate' input
     const connectedState = await page.evaluate(async ({ gateId, vcaId }) => {
       const editor = window.editor;
-
-      await editor.addConnection({
-        source: gateId,
-        sourceOutput: 'out',
-        target: vcaId,
-        targetInput: 'gate'
-      });
+      const sourceNode = editor.getNode(gateId);
+      const targetNode = editor.getNode(vcaId);
+      const connection = new window.Rete.ClassicPreset.Connection(sourceNode, 'out', targetNode, 'gate');
+      await editor.addConnection(connection);
 
       const vcaAudio = window.reteAudioNodes.get(vcaId);
       return {
