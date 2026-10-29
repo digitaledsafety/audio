@@ -71,5 +71,7 @@ test.describe('Worklet Processors & Service Worker Enhancements', () => {
     expect(swContent).toContain("granular-processor.js");
     expect(swContent).toContain("quantizer-processor.js");
     expect(swContent).toContain("vocoder-processor.js");
+    expect(swContent).toContain("https://cdn.digitaleducationsafety.org/packages/peerjs@1.5.5/peerjs.min.js");
+    expect(swContent).toContain("https://cdn.digitaleducationsafety.org/packages/rete@2.0.6/rete.min.js");
   });
 });
