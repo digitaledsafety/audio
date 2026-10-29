@@ -34,4 +34,33 @@ test.describe('Vocoder Node', () => {
     const valueDisplay = vocoderNode.locator('.value-display').nth(0);
     await expect(valueDisplay).toHaveText('500.00');
   });
+
+  test('should support start, stop, restart cycle and formant shift updates safely', async ({ page }) => {
+    await page.locator('#addNodeToggle').click();
+    await page.locator('#addVocoderNodeBtn').click();
+
+    const result = await page.evaluate(async () => {
+      const editor = window.editor;
+      const reteAudioNodes = window.reteAudioNodes;
+      const node = editor.getNodes().find(n => n.label === 'Vocoder');
+      const audioNode = reteAudioNodes.get(node.id);
+
+      if (!audioNode) return false;
+
+      // Start, stop and restart
+      audioNode.start();
+      const started = audioNode.started;
+      audioNode.stop();
+      const stopped = !audioNode.started;
+      audioNode.start();
+      const restarted = audioNode.started;
+
+      // Update formant shift
+      audioNode.updateParameter('formantShift', 1200);
+
+      return started && stopped && restarted && audioNode.data.formantShift === 1200;
+    });
+
+    expect(result).toBe(true);
+  });
 });

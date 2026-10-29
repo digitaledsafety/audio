@@ -32,10 +32,15 @@ class GranularProcessor extends AudioWorkletProcessor {
       }
     }
 
-    const grainSize = parameters.grainSize[0] * sampleRate;
-    const grainDensity = parameters.grainDensity[0];
-    const pitchShift = parameters.pitchShift[0];
-    const positionJitter = parameters.positionJitter[0];
+    const rawGrainSize = (parameters.grainSize && !isNaN(parameters.grainSize[0])) ? parameters.grainSize[0] : 0.1;
+    const rawGrainDensity = (parameters.grainDensity && !isNaN(parameters.grainDensity[0])) ? parameters.grainDensity[0] : 20;
+    const rawPitchShift = (parameters.pitchShift && !isNaN(parameters.pitchShift[0])) ? parameters.pitchShift[0] : 0;
+    const rawPositionJitter = (parameters.positionJitter && !isNaN(parameters.positionJitter[0])) ? parameters.positionJitter[0] : 0;
+
+    const grainSize = Math.max(1, rawGrainSize * sampleRate);
+    const grainDensity = Math.max(0.1, rawGrainDensity);
+    const pitchShift = rawPitchShift;
+    const positionJitter = Math.min(Math.max(rawPositionJitter, 0), 1);
 
     // Simple scheduling
     this.grainScheduler.nextGrainTime -= output[0].length / sampleRate;

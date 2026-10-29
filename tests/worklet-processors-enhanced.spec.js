@@ -57,6 +57,23 @@ test.describe('Worklet Processors & Service Worker Enhancements', () => {
     expect(Number(jitterVal)).toBe(1);
   });
 
+  test('should add Quantizer node and process pitch values', async ({ page }) => {
+    await page.locator('#addNodeToggle').click();
+    await page.locator('#addQuantizerNodeBtn').click();
+
+    const quantizerNode = page.locator('[data-node-label="Quantizer"]').first();
+    await expect(quantizerNode).toBeVisible();
+
+    const quantizerVal = await page.evaluate(() => {
+      const editor = window.editor;
+      const nodes = editor.getNodes();
+      const node = nodes.find(n => n.label === 'Quantizer');
+      return node ? node.data.rootNote : null;
+    });
+
+    expect(quantizerVal).toBe('C4');
+  });
+
   test('Service Worker fetch event handler includes non-GET and scheme guards and complete cache manifest', async ({ page }) => {
     const swContent = await page.evaluate(async () => {
       const response = await fetch('/sw.js');
