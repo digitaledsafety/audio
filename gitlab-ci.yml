@@ -1,0 +1,14 @@
+pages:
+  stage: deploy
+  script:
+    - mkdir public
+    - npm run build   # Replace with your build command
+    - cp -r dist/* public/
+  pages:
+    path_prefix: "$CI_COMMIT_REF_SLUG"
+  artifacts:
+    paths:
+      - public
+  rules:
+    # Build preview sites for all branches EXCEPT main/master
+    - if: '$CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH'
