@@ -1202,7 +1202,13 @@
 
         function getWorkspaces() {
             const workspaces = localStorage.getItem('rete-workspaces');
-            return workspaces ? JSON.parse(workspaces) : {};
+            if (!workspaces) return {};
+            try {
+                return JSON.parse(workspaces);
+            } catch (e) {
+                console.error("Failed to parse local workspaces JSON:", e);
+                return {};
+            }
         }
 
         function populateWorkspacesDropdown() {
@@ -9635,10 +9641,13 @@ workspace_data: ${base64Data}
                     usersList.appendChild(userLi);
                 });
     
-                // Show disconnect button when connected to a session
+                // Toggle disconnect/create session buttons based on connection state
                 if (multiplayer.isConnected()) {
                     document.getElementById('createSessionBtn').classList.add('hidden');
                     document.getElementById('disconnectBtn').classList.remove('hidden');
+                } else {
+                    document.getElementById('createSessionBtn').classList.remove('hidden');
+                    document.getElementById('disconnectBtn').classList.add('hidden');
                 }
             });               
 

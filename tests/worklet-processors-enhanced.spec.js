@@ -66,10 +66,41 @@ test.describe('Worklet Processors & Service Worker Enhancements', () => {
     expect(swContent).toContain("event.request.method !== 'GET'");
     expect(swContent).toContain("['http:', 'https:'].includes(requestUrl.protocol)");
     expect(swContent).toContain("showcase.html");
+    expect(swContent).toContain("watch.html");
     expect(swContent).toContain("mini-notation-parser.js");
+    expect(swContent).toContain("multiplayer-session.js");
     expect(swContent).toContain("bitcrusher-processor.js");
     expect(swContent).toContain("granular-processor.js");
     expect(swContent).toContain("quantizer-processor.js");
     expect(swContent).toContain("vocoder-processor.js");
+  });
+
+  test('Multiplayer UI toggles buttons on connection update and handles corrupted local workspace gracefully', async ({ page }) => {
+    // Check getWorkspaces resilience with corrupted JSON in localStorage
+    const corruptedResilience = await page.evaluate(() => {
+      localStorage.setItem('rete-workspaces', '{ invalid json ');
+      try {
+        const result = window.getWorkspaces ? window.getWorkspaces() : null;
+        return result !== null && typeof result === 'object';
+      } catch (e) {
+        return false;
+      }
+    });
+    expect(corruptedResilience).toBe(true);
+
+    // Verify multiplayer disconnect UI button toggling
+    const uiToggled = await page.evaluate(() => {
+      const createBtn = document.getElementById('createSessionBtn');
+      const disconnectBtn = document.getElementById('disconnectBtn');
+      if (!window.multiplayer) return false;
+
+      // Simulate connection update when disconnected
+      window.multiplayer.emit('connections-updated', []);
+      const createVisible = !createBtn.classList.contains('hidden');
+      const disconnectHidden = disconnectBtn.classList.contains('hidden');
+
+      return createVisible && disconnectHidden;
+    });
+    expect(uiToggled).toBe(true);
   });
 });
