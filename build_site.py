@@ -71,7 +71,12 @@ def build():
     # 4. Copy assets & root files
     os.system('cp -r assets _site/')
     if os.path.exists('sw.js'):
-        os.system('cp sw.js _site/')
+        with open('sw.js', 'r', encoding='utf-8') as f:
+            sw_content = f.read()
+        sw_content = re.sub(r'---\nlayout: none\n---\n?', '', sw_content)
+        sw_content = sw_content.replace('{{ site.baseurl }}/', './')
+        with open('_site/sw.js', 'w', encoding='utf-8') as f:
+            f.write(sw_content)
     if os.path.exists('manifest.json'):
         os.system('cp manifest.json _site/')
 
