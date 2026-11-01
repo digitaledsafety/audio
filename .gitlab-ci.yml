@@ -1,14 +1,22 @@
+default:
+  image: ruby:3.2
+
+variables:
+  JEKYLL_ENV: production
+  LC_ALL: C.UTF-8
+
+stages:
+  - build
+  - deploy
+
 pages:
   stage: deploy
   script:
-    - mkdir public
-    - npm run build   # Replace with your build command
-    - cp -r dist/* public/
-  pages:
-    path_prefix: "$CI_COMMIT_REF_SLUG"
+    - gem install bundler
+    - bundle install
+    - bundle exec jekyll build -d public
   artifacts:
     paths:
       - public
   rules:
-    # Build preview sites for all branches EXCEPT main/master
-    - if: '$CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH'
+    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
