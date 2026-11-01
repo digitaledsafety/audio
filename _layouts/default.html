@@ -10427,6 +10427,7 @@ workspace_data: ${base64Data}
                 const urlParams = new URLSearchParams(window.location.search);
                 const sessionId = urlParams.get('session');
                 const hostParam = urlParams.get('host');
+                const workspaceParam = urlParams.get('workspace');
 
                 let workspaceData = {};
                 
@@ -10443,23 +10444,34 @@ workspace_data: ${base64Data}
                 } else if (sessionId) {
                     multiplayer.connectTo(sessionId);
                 } else {
-                
-                    workspaceData = RandomWorkspaceGenerator.generate();
-                
-                    {% if page.workspace_data %}
-                    try {
-                        workspaceData = JSON.parse(atob('{{ page.workspace_data }}'));
-                        if (isWorkspaceOutdated(workspaceData)) {
-                            showMessage('This workspace may be outdated. An update is available in the settings menu.', 'info');
-                            const updateBtn = document.getElementById('updateWorkspaceBtn');
-                            updateBtn.classList.remove('hidden');
-                            updateBtn.disabled = false;
+                    let loadedFromParam = false;
+                    if (workspaceParam && window.BUILTIN_WORKSPACES && window.BUILTIN_WORKSPACES[workspaceParam]) {
+                        try {
+                            workspaceData = JSON.parse(atob(window.BUILTIN_WORKSPACES[workspaceParam]));
+                            loadedFromParam = true;
+                        } catch (e) {
+                            console.error('Error loading workspace from param:', e);
                         }
-                    } catch (e) {
-                        console.error('Error loading workspace data:', e);
-                        showMessage('Error loading workspace data.', 'error');
                     }
-                    {% endif %}
+
+                    if (!loadedFromParam) {
+                        workspaceData = RandomWorkspaceGenerator.generate();
+
+                        {% if page.workspace_data %}
+                        try {
+                            workspaceData = JSON.parse(atob('{{ page.workspace_data }}'));
+                            if (isWorkspaceOutdated(workspaceData)) {
+                                showMessage('This workspace may be outdated. An update is available in the settings menu.', 'info');
+                                const updateBtn = document.getElementById('updateWorkspaceBtn');
+                                updateBtn.classList.remove('hidden');
+                                updateBtn.disabled = false;
+                            }
+                        } catch (e) {
+                            console.error('Error loading workspace data:', e);
+                            showMessage('Error loading workspace data.', 'error');
+                        }
+                        {% endif %}
+                    }
             
                     await editorFromJSON(workspaceData);
                 }
