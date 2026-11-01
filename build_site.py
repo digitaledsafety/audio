@@ -6,6 +6,26 @@ import re
 def build():
     os.makedirs('_site', exist_ok=True)
 
+    # 0. Collect workspace data
+    workspace_map = {}
+    presets = []
+    for filepath in sorted(glob.glob('_workspaces/*.md')):
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        title_match = re.search(r'title:\s*(.*)', content)
+        ws_match = re.search(r'workspace_data:\s*(.*)', content)
+
+        base_name = os.path.basename(filepath).replace('.md', '')
+        title = title_match.group(1).strip() if title_match else base_name
+        ws_data = ws_match.group(1).strip() if ws_match else ''
+
+        if ws_data:
+            workspace_map[base_name] = ws_data
+
+        url = f'index.html?workspace={base_name}'
+        presets.append({'title': title, 'url': url, 'workspace_data': ws_data})
+
     # 1. Build index.html from _layouts/default.html
     with open('_layouts/default.html', 'r', encoding='utf-8') as f:
         template = f.read()
@@ -26,6 +46,9 @@ def build():
     html = html.replace('{{ "assets/js/audio-worklets/vocoder-processor.js" | relative_url }}', 'assets/js/audio-worklets/vocoder-processor.js')
     html = html.replace('{{ "assets/js/audio-worklets/quantizer-processor.js" | relative_url }}', 'assets/js/audio-worklets/quantizer-processor.js')
 
+    builtin_workspaces_script = f'<script>window.BUILTIN_WORKSPACES = {json.dumps(workspace_map)};</script>\n'
+    html = html.replace('</head>', builtin_workspaces_script + '</head>')
+
     with open('_site/index.html', 'w', encoding='utf-8') as f:
         f.write(html)
 
@@ -42,20 +65,6 @@ def build():
         f.write(watch_html)
 
     # 3. Build showcase.html
-    presets = []
-    for filepath in sorted(glob.glob('_workspaces/*.md')):
-        with open(filepath, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-        title_match = re.search(r'title:\s*(.*)', content)
-        ws_match = re.search(r'workspace_data:\s*(.*)', content)
-
-        title = title_match.group(1).strip() if title_match else os.path.basename(filepath).replace('.md', '')
-        ws_data = ws_match.group(1).strip() if ws_match else ''
-
-        url = f'index.html?workspace={os.path.basename(filepath).replace(".md", "")}'
-        presets.append({'title': title, 'url': url, 'workspace_data': ws_data})
-
     with open('showcase.html', 'r', encoding='utf-8') as f:
         showcase_html = f.read()
 
