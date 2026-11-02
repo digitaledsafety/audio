@@ -14,24 +14,15 @@ pages:
   script:
     - gem install bundler
     - bundle install
-    - bundle exec jekyll build -d public --baseurl "$JEKYLL_BASEURL"
-    - |
-      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
-        echo "Production site available at - ${CI_PAGES_URL}"
-      else
-        echo "Branch preview available at - ${CI_PAGES_URL}/${CI_COMMIT_REF_SLUG}"
-      fi
+    - bundle exec jekyll build -d public --baseurl "/$CI_COMMIT_REF_SLUG"
+    # Print the specific branch preview URL in the pipeline logs
+    - echo "Branch preview available at - ${CI_PAGES_URL}/${CI_COMMIT_REF_SLUG}"
   pages:
-    path_prefix: "$PAGES_PATH_PREFIX"
+    path_prefix: "$CI_COMMIT_REF_SLUG"
   artifacts:
     paths:
       - public
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      variables:
-        JEKYLL_BASEURL: ""
-        PAGES_PATH_PREFIX: ""
+      when: never
     - if: '($CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "mirror") && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH'
-      variables:
-        JEKYLL_BASEURL: "/$CI_COMMIT_REF_SLUG"
-        PAGES_PATH_PREFIX: "$CI_COMMIT_REF_SLUG"
