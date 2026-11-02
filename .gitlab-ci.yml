@@ -23,6 +23,4 @@ pages:
     paths:
       - public
   rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      when: never
-    - if: '($CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "mirror") && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH'
+    - if: '($CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "mirror")'
