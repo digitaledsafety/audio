@@ -71,9 +71,33 @@ def build():
     # 4. Copy assets & root files
     os.system('cp -r assets _site/')
     if os.path.exists('sw.js'):
-        os.system('cp sw.js _site/')
+        with open('sw.js', 'r', encoding='utf-8') as f:
+            sw_content = f.read()
+        sw_content = re.sub(r'^---\nlayout: none\n---\n', '', sw_content)
+        sw_content = sw_content.replace('{{ "/" | relative_url }}', './')
+        sw_content = sw_content.replace('{{ "/manifest.json" | relative_url }}', 'manifest.json')
+        sw_content = sw_content.replace('{{ "/icons/icon-192x192.png" | relative_url }}', 'icons/icon-192x192.png')
+        sw_content = sw_content.replace('{{ "/icons/icon-512x512.png" | relative_url }}', 'icons/icon-512x512.png')
+        sw_content = sw_content.replace('{{ "/showcase.html" | relative_url }}', 'showcase.html')
+        sw_content = sw_content.replace('{{ "/watch.html" | relative_url }}', 'watch.html')
+        sw_content = sw_content.replace('{{ "assets/js/mini-notation-parser.js" | relative_url }}', 'assets/js/mini-notation-parser.js')
+        sw_content = sw_content.replace('{{ "assets/js/multiplayer-session.js" | relative_url }}', 'assets/js/multiplayer-session.js')
+        sw_content = sw_content.replace('{{ "assets/js/audio-worklets/bitcrusher-processor.js" | relative_url }}', 'assets/js/audio-worklets/bitcrusher-processor.js')
+        sw_content = sw_content.replace('{{ "assets/js/audio-worklets/granular-processor.js" | relative_url }}', 'assets/js/audio-worklets/granular-processor.js')
+        sw_content = sw_content.replace('{{ "assets/js/audio-worklets/quantizer-processor.js" | relative_url }}', 'assets/js/audio-worklets/quantizer-processor.js')
+        sw_content = sw_content.replace('{{ "assets/js/audio-worklets/vocoder-processor.js" | relative_url }}', 'assets/js/audio-worklets/vocoder-processor.js')
+        with open('_site/sw.js', 'w', encoding='utf-8') as f:
+            f.write(sw_content)
+
     if os.path.exists('manifest.json'):
-        os.system('cp manifest.json _site/')
+        with open('manifest.json', 'r', encoding='utf-8') as f:
+            manifest_content = f.read()
+        manifest_content = re.sub(r'^---\nlayout: none\n---\n', '', manifest_content)
+        manifest_content = manifest_content.replace('{{ "/" | relative_url }}', './')
+        manifest_content = manifest_content.replace('{{ "/icons/icon-192x192.png" | relative_url }}', 'icons/icon-192x192.png')
+        manifest_content = manifest_content.replace('{{ "/icons/icon-512x512.png" | relative_url }}', 'icons/icon-512x512.png')
+        with open('_site/manifest.json', 'w', encoding='utf-8') as f:
+            f.write(manifest_content)
 
 if __name__ == '__main__':
     build()
