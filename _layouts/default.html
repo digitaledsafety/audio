@@ -289,14 +289,17 @@
             background-color: #4338ca;
         }
 
-        /* Preview mode custom styles */
-        body.is-preview #bottom-nav {
+        /* Preview & Embed mode custom styles */
+        body.is-preview #bottom-nav,
+        body.is-embed #bottom-nav {
             display: none !important;
         }
-        body.is-preview #workspace-view {
+        body.is-preview #workspace-view,
+        body.is-embed #workspace-view {
             display: none !important;
         }
-        body.is-preview #visualizer-view {
+        body.is-preview #visualizer-view,
+        body.is-embed #visualizer-view {
             position: fixed !important;
             inset: 0 !important;
             height: 100vh !important;
@@ -305,8 +308,18 @@
             visibility: visible !important;
             pointer-events: auto !important;
         }
-        body.is-preview #hero-overlay {
+        body.is-preview #hero-overlay,
+        body.is-embed #hero-overlay {
             background-color: rgba(15, 23, 42, 0.95);
+        }
+        body.is-embed #preview-overlay,
+        body.is-preview #beta-badge,
+        body.is-embed #beta-badge {
+            display: none !important;
+        }
+        body.is-embed,
+        body.is-preview {
+            background-color: #020617 !important;
         }
     </style>
 </head>
@@ -321,7 +334,7 @@
             </a>
         </div>
     </div>
-    <div class="fixed top-4 right-4 z-50 bg-indigo-600/80 text-white text-xs font-bold px-2 py-1 rounded shadow-md pointer-events-none">BETA</div>
+    <div id="beta-badge" class="fixed top-4 right-4 z-50 bg-indigo-600/80 text-white text-xs font-bold px-2 py-1 rounded shadow-md pointer-events-none">BETA</div>
     <div class="rete-container">
         <div id="messageBox" class="message-box hidden"></div>
         
@@ -9995,12 +10008,19 @@ workspace_data: ${base64Data}
             populateWorkspacesDropdown();
             showMessage('Editor ready. Add nodes and then click "Record" or "Play" to start audio.', 'info');
 
-            // If preview mode is requested, trigger autoplay
+            // If preview or embed mode is requested, configure UI and auto-start
             const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('preview') === 'true') {
-                document.body.classList.add('is-preview');
+            const isEmbedMode = urlParams.get('embed') === 'true';
+            const isPreviewMode = urlParams.get('preview') === 'true';
 
-                // Simulate the Enter Studio click
+            if (isEmbedMode) {
+                document.body.classList.add('is-embed');
+            } else if (isPreviewMode) {
+                document.body.classList.add('is-preview');
+            }
+
+            if (isPreviewMode || isEmbedMode) {
+                // Auto-enter studio
                 setTimeout(() => {
                     const ctaButton = document.getElementById('cta-button');
                     if (ctaButton) {
@@ -10011,63 +10031,114 @@ workspace_data: ${base64Data}
                             if (audioContext && editor && editor.getNodes().length > 0) {
                                 clearInterval(checkInterval);
 
-                                // Click play button if stopped
-                                const playBtn = document.getElementById('playStopBtn');
-                                if (playBtn && audioState === 'stopped') {
-                                    playBtn.click();
-                                }
-
                                 // Switch to visualizer
                                 const vizTab = document.getElementById('visualizer-tab');
                                 if (vizTab) {
                                     vizTab.click();
                                 }
 
-                                // Append custom floating preview overlay
-                                const overlay = document.createElement('div');
-                                overlay.id = 'preview-overlay';
-                                overlay.className = 'fixed top-4 left-4 right-4 z-[99999] flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-slate-900/95 border border-indigo-500/30 backdrop-blur-md shadow-2xl shadow-indigo-500/10 pointer-events-auto';
-                                overlay.innerHTML = `
-                                    <div class="flex items-center gap-3">
-                                        <div class="flex h-3 w-3 relative">
-                                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                            <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                                        </div>
-                                        <div>
-                                            <h4 class="font-bold text-slate-100 text-sm tracking-wide">{{ page.title | escape }}</h4>
-                                            <p class="text-xs text-slate-400">Live Browser Synthesis & Visualizer</p>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-slate-400 text-xs">🔈</span>
-                                            <input type="range" id="preview-volume" min="0" max="1" step="0.05" value="0.5" class="w-24 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
-                                            <span class="text-slate-400 text-xs">🔊</span>
-                                        </div>
-                                        <button id="preview-open-btn" class="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 transition-all duration-200">
-                                            Open in Studio
-                                        </button>
-                                    </div>
-                                `;
-                                document.body.appendChild(overlay);
+                                // Apply initial volume parameter if provided
+                                const initialVol = parseFloat(urlParams.get('volume'));
+                                if (!isNaN(initialVol) && masterGain) {
+                                    masterGain.gain.setValueAtTime(Math.max(0, Math.min(1, initialVol)), audioContext.currentTime);
+                                }
 
-                                // Adjust volume listener
-                                document.getElementById('preview-volume').addEventListener('input', (e) => {
-                                    if (masterGain) {
-                                        masterGain.gain.setValueAtTime(parseFloat(e.target.value), audioContext.currentTime);
-                                    }
-                                });
+                                // Start audio playback if autoplay is not false
+                                const autoplayParam = urlParams.get('autoplay');
+                                const shouldAutoplay = autoplayParam !== 'false' && autoplayParam !== '0';
+                                const playBtn = document.getElementById('playStopBtn');
+                                if (shouldAutoplay && playBtn && audioState === 'stopped') {
+                                    playBtn.click();
+                                }
 
-                                // Open in studio listener
-                                document.getElementById('preview-open-btn').addEventListener('click', () => {
-                                    const cleanUrl = window.location.href.replace('?preview=true', '').replace('&preview=true', '');
-                                    window.open(cleanUrl, '_top');
-                                });
+                                // Show floating overlay only in preview mode (embed handles UI via web component)
+                                if (isPreviewMode) {
+                                    const overlay = document.createElement('div');
+                                    overlay.id = 'preview-overlay';
+                                    overlay.className = 'fixed top-4 left-4 right-4 z-[99999] flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-slate-900/95 border border-indigo-500/30 backdrop-blur-md shadow-2xl shadow-indigo-500/10 pointer-events-auto';
+                                    const currentTitle = window.CURRENT_WORKSPACE_TITLE || '{{ page.title | escape }}';
+                                    overlay.innerHTML = `
+                                        <div class="flex items-center gap-3">
+                                            <div class="flex h-3 w-3 relative">
+                                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                                            </div>
+                                            <div>
+                                                <h4 id="preview-overlay-title" class="font-bold text-slate-100 text-sm tracking-wide">${escapeHTML(currentTitle)}</h4>
+                                                <p class="text-xs text-slate-400">Live Browser Synthesis & Visualizer</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-slate-400 text-xs">🔈</span>
+                                                <input type="range" id="preview-volume" min="0" max="1" step="0.05" value="0.5" class="w-24 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                                                <span class="text-slate-400 text-xs">🔊</span>
+                                            </div>
+                                            <button id="preview-open-btn" class="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 transition-all duration-200">
+                                                Open in Studio
+                                            </button>
+                                        </div>
+                                    `;
+                                    document.body.appendChild(overlay);
+
+                                    // Adjust volume listener
+                                    document.getElementById('preview-volume').addEventListener('input', (e) => {
+                                        if (masterGain) {
+                                            masterGain.gain.setValueAtTime(parseFloat(e.target.value), audioContext.currentTime);
+                                        }
+                                    });
+
+                                    // Open in studio listener
+                                    document.getElementById('preview-open-btn').addEventListener('click', () => {
+                                        const cleanUrl = window.location.href.replace('?preview=true', '').replace('&preview=true', '');
+                                        window.open(cleanUrl, '_top');
+                                    });
+                                }
+
+                                // Signal to parent frame (if embedded) that engine is ready
+                                if (window.parent && window.parent !== window) {
+                                    window.parent.postMessage({
+                                        type: 'modular:ready',
+                                        workspace: urlParams.get('workspace') || '',
+                                        state: audioState,
+                                        title: window.CURRENT_WORKSPACE_TITLE || ''
+                                    }, '*');
+                                }
                             }
                         }, 250);
                     }
                 }, 100);
             }
+
+            // PostMessage communication handler for 3rd-party embeds
+            window.addEventListener('message', async (event) => {
+                if (!event.data || typeof event.data !== 'object') return;
+                const { action, value } = event.data;
+
+                if (action === 'play') {
+                    if (audioContext && audioContext.state === 'suspended') {
+                        await audioContext.resume();
+                    }
+                    if (audioState === 'stopped') {
+                        const playBtn = document.getElementById('playStopBtn');
+                        if (playBtn) playBtn.click();
+                    }
+                } else if (action === 'pause' || action === 'stop') {
+                    if (audioState === 'playing') {
+                        const playBtn = document.getElementById('playStopBtn');
+                        if (playBtn) playBtn.click();
+                    }
+                } else if (action === 'setVolume') {
+                    const vol = parseFloat(value);
+                    if (!isNaN(vol) && masterGain && audioContext) {
+                        masterGain.gain.setValueAtTime(Math.max(0, Math.min(1, vol)), audioContext.currentTime);
+                    }
+                } else if (action === 'cleanup') {
+                    if (typeof window.cleanupResources === 'function') {
+                        window.cleanupResources();
+                    }
+                }
+            });
 
         };
 
@@ -10443,23 +10514,48 @@ workspace_data: ${base64Data}
                 } else if (sessionId) {
                     multiplayer.connectTo(sessionId);
                 } else {
-                
-                    workspaceData = RandomWorkspaceGenerator.generate();
-                
-                    {% if page.workspace_data %}
-                    try {
-                        workspaceData = JSON.parse(atob('{{ page.workspace_data }}'));
-                        if (isWorkspaceOutdated(workspaceData)) {
-                            showMessage('This workspace may be outdated. An update is available in the settings menu.', 'info');
-                            const updateBtn = document.getElementById('updateWorkspaceBtn');
-                            updateBtn.classList.remove('hidden');
-                            updateBtn.disabled = false;
+                    const workspaceParam = urlParams.get('workspace') || urlParams.get('preset');
+                    let loadedFromParam = false;
+
+                    if (workspaceParam && window.BUILTIN_WORKSPACES && window.BUILTIN_WORKSPACES[workspaceParam]) {
+                        try {
+                            const entry = window.BUILTIN_WORKSPACES[workspaceParam];
+                            const base64Str = typeof entry === 'string' ? entry : (entry.workspace_data || entry.data);
+                            workspaceData = JSON.parse(atob(base64Str));
+                            window.CURRENT_WORKSPACE_TITLE = (typeof entry === 'object' && entry.title) ? entry.title : workspaceParam;
+                            loadedFromParam = true;
+                        } catch (e) {
+                            console.error('Error loading workspace param from BUILTIN_WORKSPACES:', e);
                         }
-                    } catch (e) {
-                        console.error('Error loading workspace data:', e);
-                        showMessage('Error loading workspace data.', 'error');
+                    } else if (workspaceParam) {
+                        // Check localStorage
+                        const localWorkspaces = getWorkspaces();
+                        if (localWorkspaces && localWorkspaces[workspaceParam]) {
+                            workspaceData = localWorkspaces[workspaceParam];
+                            window.CURRENT_WORKSPACE_TITLE = workspaceParam;
+                            loadedFromParam = true;
+                        }
                     }
-                    {% endif %}
+
+                    if (!loadedFromParam) {
+                        workspaceData = RandomWorkspaceGenerator.generate();
+
+                        {% if page.workspace_data %}
+                        try {
+                            workspaceData = JSON.parse(atob('{{ page.workspace_data }}'));
+                            window.CURRENT_WORKSPACE_TITLE = '{{ page.title | escape }}';
+                            if (isWorkspaceOutdated(workspaceData)) {
+                                showMessage('This workspace may be outdated. An update is available in the settings menu.', 'info');
+                                const updateBtn = document.getElementById('updateWorkspaceBtn');
+                                updateBtn.classList.remove('hidden');
+                                updateBtn.disabled = false;
+                            }
+                        } catch (e) {
+                            console.error('Error loading workspace data:', e);
+                            showMessage('Error loading workspace data.', 'error');
+                        }
+                        {% endif %}
+                    }
             
                     await editorFromJSON(workspaceData);
                 }

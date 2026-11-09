@@ -6,9 +6,31 @@ import re
 def build():
     os.makedirs('_site', exist_ok=True)
 
+    # Gather presets from _workspaces/*.md
+    presets = []
+    builtin_workspaces = {}
+    for filepath in sorted(glob.glob('_workspaces/*.md')):
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        title_match = re.search(r'title:\s*(.*)', content)
+        ws_match = re.search(r'workspace_data:\s*(.*)', content)
+
+        ws_slug = os.path.basename(filepath).replace('.md', '')
+        title = title_match.group(1).strip() if title_match else ws_slug
+        ws_data = ws_match.group(1).strip() if ws_match else ''
+
+        url = f'index.html?workspace={ws_slug}'
+        presets.append({'title': title, 'url': url, 'workspace_data': ws_data})
+        builtin_workspaces[ws_slug] = {'title': title, 'workspace_data': ws_data}
+
     # 1. Build index.html from _layouts/default.html
     with open('_layouts/default.html', 'r', encoding='utf-8') as f:
         template = f.read()
+
+    # Inject BUILTIN_WORKSPACES right before the closing </head>
+    builtin_script = f"<script>window.BUILTIN_WORKSPACES = {json.dumps(builtin_workspaces)};</script>\n</head>"
+    template = template.replace('</head>', builtin_script, 1)
 
     template = re.sub(r'\{%\s*if[^\n]*%\}', '', template)
     template = re.sub(r'\{%\s*endif\s*%\}', '', template)
@@ -42,20 +64,6 @@ def build():
         f.write(watch_html)
 
     # 3. Build showcase.html
-    presets = []
-    for filepath in sorted(glob.glob('_workspaces/*.md')):
-        with open(filepath, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-        title_match = re.search(r'title:\s*(.*)', content)
-        ws_match = re.search(r'workspace_data:\s*(.*)', content)
-
-        title = title_match.group(1).strip() if title_match else os.path.basename(filepath).replace('.md', '')
-        ws_data = ws_match.group(1).strip() if ws_match else ''
-
-        url = f'index.html?workspace={os.path.basename(filepath).replace(".md", "")}'
-        presets.append({'title': title, 'url': url, 'workspace_data': ws_data})
-
     with open('showcase.html', 'r', encoding='utf-8') as f:
         showcase_html = f.read()
 

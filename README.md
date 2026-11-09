@@ -44,6 +44,17 @@ Audio supports real-time multiplayer, allowing you to collaborate with others on
 3.  **Share the Link**: Once the session is created, a unique link will appear in the "Share Link" box. Click the clipboard icon (📋) to copy the link and share it with your collaborators.
 4.  **Collaborate**: Any changes made by you or your collaborators (adding nodes, moving them, changing parameters, or making connections) will be synchronized across all connected devices in real-time.
 
+### Embedding on 3rd-Party Websites
+
+Embed interactive synthesizers and real-time visualizers into any webpage using our Web Component:
+
+```html
+<script src="https://audio.digitaleducationsafety.org/assets/js/modular-embed.js" defer></script>
+<modular-synth workspace="ambient-garden"></modular-synth>
+```
+
+See the [Embedding Guide](./docs/embedding.md) for full attribute reference and integration options.
+
 ## Available Nodes
 
 *   [Arpeggiator](./docs/ArpeggiatorNode.md)
