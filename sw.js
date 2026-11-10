@@ -9,6 +9,7 @@ const urlsToCache = [
   '{{ site.baseurl }}/icons/icon-512x512.png',
   '{{ site.baseurl }}/showcase.html',
   '{{ site.baseurl }}/assets/js/mini-notation-parser.js',
+  '{{ site.baseurl }}/assets/js/modular-embed.js',
   '{{ site.baseurl }}/assets/js/audio-worklets/bitcrusher-processor.js',
   '{{ site.baseurl }}/assets/js/audio-worklets/granular-processor.js',
   '{{ site.baseurl }}/assets/js/audio-worklets/quantizer-processor.js',
